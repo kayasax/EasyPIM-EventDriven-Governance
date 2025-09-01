@@ -28,8 +28,8 @@ on:
         type: boolean
 
 env:
-  KEYVAULT_NAME: ${{ secrets.KEYVAULT_NAME }}
-  SECRET_NAME: 'easypim-config-json'
+  KEYVAULT_NAME: ${{ vars.AZURE_KEYVAULT_NAME }}
+  SECRET_NAME: ${{ vars.AZURE_KEYVAULT_SECRET_NAME }}
   TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}

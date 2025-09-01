@@ -249,7 +249,9 @@ After successful deployment, you'll receive output similar to:
 2. **Add Repository Variables:**
    ```
    AZURE_KEYVAULT_NAME: [from deployment output]
+   AZURE_KEYVAULT_SECRET_NAME: easypim-config-json
    AZURE_RESOURCE_GROUP: [from deployment output]
+   AZURE_KEY_VAULT_URI: [from deployment output]
    ```
 
 ---

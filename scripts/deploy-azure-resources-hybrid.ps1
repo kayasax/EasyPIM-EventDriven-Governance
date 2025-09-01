@@ -451,8 +451,12 @@ $gitHubSecrets = @{
     "AZURE_CLIENT_ID" = $appId
     "AZURE_TENANT_ID" = $azAccount.tenantId
     "AZURE_SUBSCRIPTION_ID" = $azAccount.id
+}
+
+$gitHubVariables = @{
     "AZURE_RESOURCE_GROUP" = $ResourceGroupName
-    "AZURE_KEY_VAULT_NAME" = $keyVaultName
+    "AZURE_KEYVAULT_NAME" = $keyVaultName
+    "AZURE_KEYVAULT_SECRET_NAME" = "easypim-config-json"
     "AZURE_KEY_VAULT_URI" = $deployment.Outputs.keyVaultUri.Value
 }
 
@@ -462,14 +466,25 @@ foreach ($secret in $gitHubSecrets.GetEnumerator()) {
 }
 
 Write-Host "`n" -NoNewline
+Write-ColorOutput "📋 GitHub Repository Variables" "Yellow"
+Write-ColorOutput ("=" * 40) "Yellow"
+
+foreach ($variable in $gitHubVariables.GetEnumerator()) {
+    Write-Host "$($variable.Key): " -NoNewline -ForegroundColor White
+    Write-Host $variable.Value -ForegroundColor Cyan
+}
+
+Write-Host "`n" -NoNewline
 Write-ColorOutput "🚀 Next Steps" "Green"
 Write-ColorOutput ("=" * 40) "Green"
 
 Write-Info "1. Add the above secrets to your GitHub repository:"
-Write-Info "   Repository Settings → Secrets and variables → Actions → New repository secret"
-Write-Info "2. Grant admin consent for the Azure AD application API permissions"
-Write-Info "3. Test the CI/CD pipeline with the 01-auth-test.yml workflow"
-Write-Info "4. Review the comprehensive guide: docs/Step-by-Step-Guide.md"
+Write-Info "   Repository Settings → Secrets and variables → Actions → Secrets → New repository secret"
+Write-Info "2. Add the above variables to your GitHub repository:"
+Write-Info "   Repository Settings → Secrets and variables → Actions → Variables → New repository variable"
+Write-Info "3. Grant admin consent for the Azure AD application API permissions"
+Write-Info "4. Test the CI/CD pipeline with the 01-auth-test.yml workflow"
+Write-Info "5. Review the comprehensive guide: docs/Step-by-Step-Guide.md"
 
 Write-Host "`n" -NoNewline
 Write-ColorOutput "✨ Deployment Summary" "Magenta"
