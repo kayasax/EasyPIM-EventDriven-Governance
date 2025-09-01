@@ -2,11 +2,6 @@ name: 'Phase 1: Authentication Test - EasyPIM CI/CD'
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths:
-      - 'configs/**'
-      - '.github/workflows/01-auth-test.yml'
 
 env:
   KEYVAULT_NAME: ${{ secrets.AZURE_KEY_VAULT_NAME }}
