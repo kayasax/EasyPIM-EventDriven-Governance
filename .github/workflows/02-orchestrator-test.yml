@@ -172,7 +172,7 @@ jobs:
           # we can simplify this to: Test-PIMPolicyDrift -KeyVaultName $env:KEYVAULT_NAME -SecretName $env:SECRET_NAME
           if ($env:KEYVAULT_NAME) {
               Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
-              
+
               try {
                   # Get the configuration from Key Vault and save to temp file
                   # NOTE: Current implementation downloads config to temp file since Test-PIMPolicyDrift
@@ -188,7 +188,7 @@ jobs:
 
                   # Run drift detection with file (Test-PIMPolicyDrift doesn't support KeyVault params directly)
                   Test-PIMPolicyDrift -TenantId $env:TENANT_ID -SubscriptionId $env:SUBSCRIPTION_ID -ConfigPath $tempConfigPath
-                  
+
                   Write-Host "✅ Policy drift check completed successfully"
 
                   # Clean up temp file
@@ -206,7 +206,7 @@ jobs:
                   Write-Host "   TenantId: $env:TENANT_ID"
                   Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
                   Write-Host "   ConfigPath: ./configs/pim-config.json"
-                  
+
                   Test-PIMPolicyDrift -TenantId $env:TENANT_ID -SubscriptionId $env:SUBSCRIPTION_ID -ConfigPath "./configs/pim-config.json"
                   Write-Host "✅ Policy drift check completed successfully"
               }
@@ -269,7 +269,7 @@ jobs:
           echo "2. Check policy drift results for any configuration discrepancies" >> $GITHUB_STEP_SUMMARY
           echo "3. If running in preview mode, consider applying changes by setting apply=true" >> $GITHUB_STEP_SUMMARY
           echo "4. Review EasyPIM documentation for configuration guidance" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "**📝 Note**: This is Phase 2 testing with actual EasyPIM operations." >> $GITHUB_STEP_SUMMARY

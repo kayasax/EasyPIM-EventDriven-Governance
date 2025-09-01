@@ -67,6 +67,17 @@ This guide provides a complete, secure setup for EasyPIM CI/CD testing using:
   # Verify installation
   az --version
   ```
+
+- **GitHub CLI** (optional, for automated GitHub configuration):
+  ```powershell
+  # Install GitHub CLI from: https://cli.github.com/
+  # Or using winget on Windows
+  winget install --id GitHub.cli
+
+  # Verify installation and authenticate
+  gh --version
+  gh auth login
+  ```
 - **Azure Bicep CLI** (required for infrastructure deployment):
 
   **Install via Azure CLI (Recommended)**
@@ -234,6 +245,20 @@ After successful deployment, you'll receive output similar to:
 
 ### 2.2 Configure GitHub Secrets
 
+**Option A: Automated Setup (Recommended) 🚀**
+```powershell
+# Navigate to scripts directory
+cd scripts
+
+# Run the automated configuration script
+.\configure-github-cicd.ps1 -GitHubRepository "kayasax/EasyPIM-CICD-test"
+
+# Or with force overwrite if secrets/variables already exist
+.\configure-github-cicd.ps1 -GitHubRepository "kayasax/EasyPIM-CICD-test" -Force
+```
+
+**Option B: Manual Setup**
+
 1. **Go to GitHub repository:** `ex: https://github.com/kayasax/EasyPIM-CICD-test`
 2. **Navigate to:** Settings → Secrets and variables → Actions
 3. **Add Repository Secrets:**
@@ -245,6 +270,10 @@ After successful deployment, you'll receive output similar to:
 
 ### 2.3 Configure GitHub Variables
 
+**Automated Setup:** If you used the automated script above, this step is already completed.
+
+**Manual Setup:**
+
 1. **In the same location:** Settings → Secrets and variables → Actions → Variables tab
 2. **Add Repository Variables:**
    ```
@@ -253,6 +282,8 @@ After successful deployment, you'll receive output similar to:
    AZURE_RESOURCE_GROUP: [from deployment output]
    AZURE_KEY_VAULT_URI: [from deployment output]
    ```
+
+> **💡 Tip:** The automated script `configure-github-cicd.ps1` handles both secrets and variables automatically by reading your Azure deployment outputs. It requires GitHub CLI (`gh`) to be installed and authenticated.
 
 ---
 
