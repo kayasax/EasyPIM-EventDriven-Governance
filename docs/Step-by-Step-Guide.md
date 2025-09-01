@@ -553,6 +553,12 @@ Add drift detection to your workflow:
       -OutputPath './drift-report'
 ```
 
+> **🚀 Future Enhancement Note:** The next version of EasyPIM will add native Azure Key Vault support for `Test-PIMPolicyDrift`, allowing direct parameter usage:
+> ```powershell
+> Test-PIMPolicyDrift -KeyVaultName "your-keyvault" -SecretName "easypim-config-json" -TenantId "..." -SubscriptionId "..."
+> ```
+> This will simplify the workflow by eliminating the need to download configurations to temporary files.
+
 ### 6.2 Monitor Drift Reports
 
 Drift detection will:

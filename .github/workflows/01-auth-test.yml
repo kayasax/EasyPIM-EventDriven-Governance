@@ -178,12 +178,16 @@ jobs:
           Write-Host "🔍 Running policy drift detection..."
 
           # Build drift check parameters with correct parameter names
+          # TODO: Future enhancement - when EasyPIM adds native AKV support for Test-PIMPolicyDrift, 
+          # we can simplify this to: Test-PIMPolicyDrift -KeyVaultName $env:KEYVAULT_NAME -SecretName $env:SECRET_NAME
           $driftParams = @{
               'TenantId' = $env:TENANT_ID
               'SubscriptionId' = $env:SUBSCRIPTION_ID
           }
 
-          # Use Key Vault configuration with correct parameter names
+          # Use Key Vault configuration (current workaround approach)
+          # NOTE: Current implementation downloads config to temp file since Test-PIMPolicyDrift 
+          # doesn't yet support KeyVault parameters directly. This will be simplified in future versions.
           if ($env:KEYVAULT_NAME) {
               Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
               # Get the configuration from Key Vault and save to temp file
