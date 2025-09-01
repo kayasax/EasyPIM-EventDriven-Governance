@@ -36,7 +36,7 @@ on:
 
 env:
   KEYVAULT_NAME: ${{ secrets.KEYVAULT_NAME }}
-  SECRET_NAME: 'EasyPIM-Config'
+  SECRET_NAME: 'easypim-config-json'
   TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -177,19 +177,32 @@ jobs:
 
           Write-Host "🔍 Running policy drift detection..."
 
-          # Build drift check parameters
+          # Build drift check parameters with correct parameter names
           $driftParams = @{
               'TenantId' = $env:TENANT_ID
               'SubscriptionId' = $env:SUBSCRIPTION_ID
           }
 
-          # Use Key Vault or local file
+          # Use Key Vault configuration with correct parameter names
           if ($env:KEYVAULT_NAME) {
-              $driftParams['KeyVaultName'] = $env:KEYVAULT_NAME
-              $driftParams['SecretName'] = $env:SECRET_NAME
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
+              # Get the configuration from Key Vault and save to temp file
+              $configJson = az keyvault secret show --vault-name $env:KEYVAULT_NAME --name $env:SECRET_NAME --query "value" -o tsv
+              $tempConfigPath = "./temp-drift-config.json"
+              $configJson | Out-File -FilePath $tempConfigPath -Encoding UTF8
+              
+              # Run drift detection with file (Test-PIMPolicyDrift doesn't support KeyVault params directly)
+              Test-PIMPolicyDrift -TenantId $env:TENANT_ID -SubscriptionId $env:SUBSCRIPTION_ID -ConfigPath $tempConfigPath
+              
+              # Clean up temp file
+              Remove-Item $tempConfigPath -ErrorAction SilentlyContinue
           } else {
-              $driftParams['ConfigFilePath'] = "./configs/pim-config.json"
+              Write-Host "📋 Using local configuration file"
+              Test-PIMPolicyDrift -TenantId $env:TENANT_ID -SubscriptionId $env:SUBSCRIPTION_ID -ConfigPath "./configs/pim-config.json"
           }
+
+          Write-Host "� Attempting policy drift detection with parameters:"
+          $driftParams.Keys | ForEach-Object { Write-Host "   $_ = $($driftParams[$_])" }
 
           try {
               Test-PIMPolicyDrift @driftParams
@@ -197,6 +210,7 @@ jobs:
           }
           catch {
               Write-Warning "⚠️  Policy drift check failed: $_"
+              Write-Host "🔧 Error details: $($_.Exception.Message)"
               # Don't fail the workflow for drift check issues
           }
 

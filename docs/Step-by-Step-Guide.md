@@ -19,7 +19,7 @@ This guide provides a complete, secure setup for EasyPIM CI/CD testing using:
 
 ## ⚠️ **Safety Notice**
 
-**This guide uses harmless roles like "Printer Technician" and "Authentication Administrator" for all examples and testing.** These roles have minimal permissions and are safe for learning and testing purposes. 
+**This guide uses harmless roles like "Printer Technician" and "Authentication Administrator" for all examples and testing.** These roles have minimal permissions and are safe for learning and testing purposes.
 
 **In production environments:**
 - Replace example roles with your actual production roles
