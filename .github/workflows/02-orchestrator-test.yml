@@ -1,0 +1,276 @@
+name: 'Phase 2: EasyPIM Orchestrator Test'
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Set to true to apply (omit -WhatIf)"
+        required: false
+        default: false
+        type: boolean
+      mode:
+        description: "Orchestrator mode"
+        required: false
+        default: "delta"
+        type: choice
+        options:
+          - delta
+          - initial
+      skip_policies:
+        description: "Skip policy operations"
+        required: false
+        default: true
+        type: boolean
+      skip_assignments:
+        description: "Skip assignment operations"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  KEYVAULT_NAME: ${{ secrets.KEYVAULT_NAME }}
+  SECRET_NAME: 'easypim-config-json'
+  TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+
+permissions:
+  id-token: write   # for OIDC
+  contents: read
+
+jobs:
+  easypim-orchestrator:
+    name: 'EasyPIM Orchestrator Execution'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Azure OIDC Login'
+        uses: azure/login@v2
+        with:
+          tenant-id: ${{ env.TENANT_ID }}
+          subscription-id: ${{ env.SUBSCRIPTION_ID }}
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+
+      - name: 'Install and Run EasyPIM Orchestrator'
+        shell: pwsh
+        run: |
+          Write-Host "🚀 Installing EasyPIM modules from PowerShell Gallery..."
+
+          # Install required modules from PowerShell Gallery
+          Install-Module -Name EasyPIM -Force -Scope CurrentUser -Verbose
+          Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Verbose
+
+          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
+          Import-Module EasyPIM.Orchestrator -Force -Verbose
+
+          # Determine execution parameters
+          $apply = '${{ github.event.inputs.apply }}' -eq 'true'
+          $mode = if ('${{ github.event.inputs.mode }}') { '${{ github.event.inputs.mode }}' } else { 'delta' }
+          $skipPolicies = '${{ github.event.inputs.skip_policies }}' -eq 'true'
+          $skipAssignments = '${{ github.event.inputs.skip_assignments }}' -eq 'true'
+
+          Write-Host "🔧 Execution Parameters:"
+          Write-Host "   Apply: $apply"
+          Write-Host "   Mode: $mode"
+          Write-Host "   Skip Policies: $skipPolicies"
+          Write-Host "   Skip Assignments: $skipAssignments"
+          Write-Host "   Tenant ID: $env:TENANT_ID"
+          Write-Host "   Subscription ID: $env:SUBSCRIPTION_ID"
+          Write-Host "   Key Vault: $env:KEYVAULT_NAME"
+          Write-Host "   Secret Name: $env:SECRET_NAME"
+
+          # Build command parameters
+          $orchestratorParams = @{
+              'TenantId' = $env:TENANT_ID
+              'SubscriptionId' = $env:SUBSCRIPTION_ID
+              'Mode' = $mode
+          }
+
+          # Use Key Vault or local file
+          if ($env:KEYVAULT_NAME) {
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
+              $orchestratorParams['KeyVaultName'] = $env:KEYVAULT_NAME
+              $orchestratorParams['SecretName'] = $env:SECRET_NAME
+          } else {
+              Write-Host "📋 Using local configuration file"
+              $orchestratorParams['ConfigFilePath'] = "./configs/pim-config.json"
+          }
+
+          # Add conditional parameters
+          if (-not $apply) {
+              $orchestratorParams['WhatIf'] = $true
+              Write-Host "⚠️  Running in PREVIEW mode (-WhatIf)"
+          } else {
+              Write-Host "🚨 Running in APPLY mode (changes will be made)"
+          }
+
+          if ($skipPolicies) {
+              $orchestratorParams['SkipPolicies'] = $true
+              Write-Host "⏭️  Skipping policy operations"
+          }
+
+          if ($skipAssignments) {
+              $orchestratorParams['SkipAssignments'] = $true
+              Write-Host "⏭️  Skipping assignment operations"
+          }
+
+          # Execute EasyPIM Orchestrator
+          Write-Host "🎯 Executing: Invoke-EasyPIMOrchestrator"
+          try {
+              Invoke-EasyPIMOrchestrator @orchestratorParams
+              Write-Host "✅ EasyPIM Orchestrator completed successfully"
+          }
+          catch {
+              Write-Error "❌ EasyPIM Orchestrator failed: $_"
+              throw
+          }
+
+      - name: 'Upload EasyPIM Logs'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: easypim-logs-${{ github.run_number }}
+          path: |
+            LOGS/*.log
+            *.log
+          retention-days: 30
+
+  policy-drift-check:
+    name: 'Policy Drift Detection'
+    runs-on: ubuntu-latest
+    needs: easypim-orchestrator
+    if: always() && !cancelled()
+
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Azure OIDC Login'
+        uses: azure/login@v2
+        with:
+          tenant-id: ${{ env.TENANT_ID }}
+          subscription-id: ${{ env.SUBSCRIPTION_ID }}
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+
+      - name: 'Test PIM Policy Drift'
+        shell: pwsh
+        run: |
+          Write-Host "🔍 Installing EasyPIM modules for drift detection..."
+
+          # Install required modules
+          Install-Module -Name EasyPIM -Force -Scope CurrentUser
+          Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser
+          Import-Module EasyPIM.Orchestrator -Force
+
+          Write-Host "🔍 Running policy drift detection..."
+
+          # Use Key Vault configuration (current workaround approach)
+          # TODO: Future enhancement - when EasyPIM adds native AKV support for Test-PIMPolicyDrift,
+          # we can simplify this to: Test-PIMPolicyDrift -KeyVaultName $env:KEYVAULT_NAME -SecretName $env:SECRET_NAME
+          if ($env:KEYVAULT_NAME) {
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
+              
+              try {
+                  # Get the configuration from Key Vault and save to temp file
+                  # NOTE: Current implementation downloads config to temp file since Test-PIMPolicyDrift
+                  # doesn't yet support KeyVault parameters directly. This will be simplified in future versions.
+                  $configJson = az keyvault secret show --vault-name $env:KEYVAULT_NAME --name $env:SECRET_NAME --query "value" -o tsv
+                  $tempConfigPath = "./temp-drift-config.json"
+                  $configJson | Out-File -FilePath $tempConfigPath -Encoding UTF8
+
+                  Write-Host "🎯 Executing Test-PIMPolicyDrift with parameters:"
+                  Write-Host "   TenantId: $env:TENANT_ID"
+                  Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
+                  Write-Host "   ConfigPath: $tempConfigPath"
+
+                  # Run drift detection with file (Test-PIMPolicyDrift doesn't support KeyVault params directly)
+                  Test-PIMPolicyDrift -TenantId $env:TENANT_ID -SubscriptionId $env:SUBSCRIPTION_ID -ConfigPath $tempConfigPath
+                  
+                  Write-Host "✅ Policy drift check completed successfully"
+
+                  # Clean up temp file
+                  Remove-Item $tempConfigPath -ErrorAction SilentlyContinue
+              }
+              catch {
+                  Write-Warning "⚠️  Policy drift check failed: $_"
+                  Write-Host "🔧 Error details: $($_.Exception.Message)"
+                  # Don't fail the workflow for drift check issues in this test phase
+              }
+          } else {
+              Write-Host "📋 Using local configuration file"
+              try {
+                  Write-Host "🎯 Executing Test-PIMPolicyDrift with parameters:"
+                  Write-Host "   TenantId: $env:TENANT_ID"
+                  Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
+                  Write-Host "   ConfigPath: ./configs/pim-config.json"
+                  
+                  Test-PIMPolicyDrift -TenantId $env:TENANT_ID -SubscriptionId $env:SUBSCRIPTION_ID -ConfigPath "./configs/pim-config.json"
+                  Write-Host "✅ Policy drift check completed successfully"
+              }
+              catch {
+                  Write-Warning "⚠️  Policy drift check failed: $_"
+                  Write-Host "🔧 Error details: $($_.Exception.Message)"
+              }
+          }
+
+  generate-summary:
+    name: 'Generate Summary'
+    runs-on: ubuntu-latest
+    needs: [easypim-orchestrator, policy-drift-check]
+    if: always()
+
+    steps:
+      - name: 'Generate Workflow Summary'
+        run: |
+          echo "# 🧪 EasyPIM CI/CD Test Results - Phase 2" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Run:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Orchestrator results
+          ORCHESTRATOR_STATUS="${{ needs.easypim-orchestrator.result }}"
+          if [ "$ORCHESTRATOR_STATUS" = "success" ]; then
+            echo "## ✅ EasyPIM Orchestrator: SUCCESS" >> $GITHUB_STEP_SUMMARY
+            echo "- Configuration processed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- No errors encountered" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ EasyPIM Orchestrator: FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "- Orchestrator execution failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Check logs for detailed error information" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Drift check results
+          DRIFT_STATUS="${{ needs.policy-drift-check.result }}"
+          if [ "$DRIFT_STATUS" = "success" ]; then
+            echo "## ✅ Policy Drift Check: SUCCESS" >> $GITHUB_STEP_SUMMARY
+            echo "- Policy drift detection completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ Policy Drift Check: COMPLETED WITH WARNINGS" >> $GITHUB_STEP_SUMMARY
+            echo "- Drift check may have found issues or warnings" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Apply Mode**: ${{ github.event.inputs.apply || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ github.event.inputs.mode || 'delta' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Policies**: ${{ github.event.inputs.skip_policies || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Assignments**: ${{ github.event.inputs.skip_assignments || 'false' }}" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the uploaded logs for detailed execution information" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check policy drift results for any configuration discrepancies" >> $GITHUB_STEP_SUMMARY
+          echo "3. If running in preview mode, consider applying changes by setting apply=true" >> $GITHUB_STEP_SUMMARY
+          echo "4. Review EasyPIM documentation for configuration guidance" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "**📝 Note**: This is Phase 2 testing with actual EasyPIM operations." >> $GITHUB_STEP_SUMMARY
+          echo "For authentication-only testing, use the Phase 1 workflow." >> $GITHUB_STEP_SUMMARY
