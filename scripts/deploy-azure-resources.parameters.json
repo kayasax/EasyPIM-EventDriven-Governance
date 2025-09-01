@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourcePrefix": {
+      "value": "easypim-cicd"
+    },
+    "environment": {
+      "value": "test"
+    },
+    "githubRepository": {
+      "value": "kayasax/EasyPIM-CICD-test"
+    },
+    "githubEnvironment": {
+      "value": ""
+    },
+    "servicePrincipalName": {
+      "value": "easypim-cicd-test-sp"
+    },
+    "keyVaultAdministrators": {
+      "value": []
+    },
+    "location": {
+      "value": "francecentral"
+    },
+    "tags": {
+      "value": {
+        "Project": "EasyPIM-CICD-Testing",
+        "Environment": "test",
+        "Purpose": "CI-CD-Automation",
+        "CreatedBy": "Bicep-Template",
+        "Repository": "kayasax/EasyPIM-CICD-test"
+      }
+    }
+  }
+}
