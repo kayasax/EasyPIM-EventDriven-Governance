@@ -379,25 +379,48 @@ git push origin main
 ### 4.2 Run Authentication Test
 
 1. **Go to GitHub repository:** Actions tab
-2. **Select workflow:** "Phase 1: Authentication Test"
-3. **Click:** "Run workflow" → "Run workflow" (use default branch)
-4. **Monitor execution** and verify:
-   - ✅ Azure OIDC login succeeds
-   - ✅ Key Vault access works
-   - ✅ EasyPIM modules install successfully
-   - ✅ Basic connectivity to Microsoft Graph
+2. **Select workflow:** "Phase 1: Authentication Test - EasyPIM CI/CD"
+3. **Click:** "Run workflow" → "Run workflow" (use default parameters)
+4. **Monitor execution** and verify the 5 authentication tests:
+   - ✅ EasyPIM module installation and import
+   - ✅ Azure OIDC authentication
+   - ✅ Key Vault access (requires AZURE_KEY_VAULT_NAME secret)
+   - ✅ Microsoft Graph connectivity
+   - ✅ EasyPIM function availability
 
 ### 4.2 Verify Output
 
-Check the workflow logs for successful authentication:
+Check the workflow logs for successful authentication tests:
 
 ```
-✅ Azure login successful
+🔐 Phase 1: Authentication Test - Per Step 4.2 Guidelines
+============================================================
+
+🚀 Test 1: Installing EasyPIM modules from PowerShell Gallery...
+✅ EasyPIM modules installed successfully
+
+📦 Test 2: Importing EasyPIM.Orchestrator module...
+✅ EasyPIM modules imported successfully
+
+🔑 Test 3: Verifying Key Vault access...
+   Key Vault: kv-easypim-XXXX
+   Secret Name: easypim-config-json
 ✅ Key Vault access confirmed
-✅ EasyPIM modules installed
+✅ Configuration retrieved successfully
+
+🌐 Test 4: Testing Microsoft Graph connectivity...
 ✅ Microsoft Graph connectivity verified
-✅ Configuration retrieved from Key Vault
+   Tenant: [Your Tenant Name]
+
+🔧 Test 5: Verifying EasyPIM functions are available...
+✅ EasyPIM.Orchestrator commands available: 4
+   ✅ Invoke-EasyPIMOrchestrator available
+   ✅ Test-PIMPolicyDrift available
+
+🎉 Phase 1 Authentication Test Complete!
 ```
+
+> **📝 Note:** If Key Vault test shows a warning, configure the `AZURE_KEY_VAULT_NAME` secret in GitHub repository settings with your Key Vault name (e.g., `kv-easypim-8368`).
 
 ---
 
