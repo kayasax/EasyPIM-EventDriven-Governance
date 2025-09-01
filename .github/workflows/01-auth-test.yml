@@ -2,6 +2,15 @@ name: 'Phase 1: Authentication Test - EasyPIM CI/CD'
 
 on:
   workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Authentication test mode'
+        required: false
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - verbose
 
 env:
   KEYVAULT_NAME: ${{ secrets.AZURE_KEY_VAULT_NAME }}
