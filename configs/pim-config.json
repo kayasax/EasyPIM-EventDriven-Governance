@@ -1,0 +1,66 @@
+{
+  "ProtectedUsers": [
+    "00000000-0000-0000-0000-000000000001"
+  ],
+  "PolicyTemplates": {
+    "Standard": {
+      "ActivationDuration": "PT8H",
+      "ActivationRequirement": "MultiFactorAuthentication,Justification",
+      "ApprovalRequired": false
+    },
+    "HighSecurity": {
+      "ActivationDuration": "PT2H",
+      "ActivationRequirement": "MultiFactorAuthentication,Justification",
+      "ApprovalRequired": true,
+      "Approvers": [
+        { "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "description": "PIM Approver 1" }
+      ],
+      "AuthenticationContext_Enabled": true,
+      "AuthenticationContext_Value": "c1:HighRiskOperations",
+      "MaximumEligibilityDuration": "P90D",
+      "MaximumActiveAssignmentDuration": "P30D"
+    }
+  },
+  "EntraRoles": {
+    "Policies": {
+      "Printer Technician": { "Template": "Standard" },
+      "Authentication Administrator": { "Template": "HighSecurity" }
+    }
+  },
+  "AzureRoles": {
+    "Policies": {
+      "Reader": {
+        "Scope": "/subscriptions/{{ .Env.AZURE_SUBSCRIPTION_ID }}",
+        "Template": "Standard"
+      }
+    }
+  },
+  "Assignments": {
+    "EntraRoles": [
+      {
+        "roleName": "Printer Technician",
+        "assignments": [
+          {
+            "principalId": "f8b74308-47bf-4764-a31e-634e54c36212",
+            "assignmentType": "Eligible",
+            "justification": "CI/CD test printer technician"
+          }
+        ]
+      }
+    ],
+    "AzureRoles": [
+      {
+        "roleName": "Reader",
+        "scope": "/subscriptions/{{ .Env.AZURE_SUBSCRIPTION_ID }}",
+        "assignments": [
+          {
+            "principalId": "33333333-3333-3333-3333-333333333333",
+            "principalType": "Group",
+            "assignmentType": "Eligible",
+            "justification": "CI/CD test reader access"
+          }
+        ]
+      }
+    ]
+  }
+}
