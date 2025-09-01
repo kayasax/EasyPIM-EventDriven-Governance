@@ -78,7 +78,7 @@ jobs:
           Write-Host "🔑 Test 3: Verifying Key Vault access..."
           Write-Host "   Key Vault: $env:KEYVAULT_NAME"
           Write-Host "   Secret Name: $env:SECRET_NAME"
-          
+
           if (-not $env:KEYVAULT_NAME) {
               Write-Warning "⚠️  AZURE_KEY_VAULT_NAME secret not configured"
               Write-Host "   Skipping Key Vault test - configure GitHub secret first"
@@ -212,7 +212,7 @@ jobs:
             echo "2. 🔧 **Check GitHub secrets** if Key Vault access failed" >> $GITHUB_STEP_SUMMARY
             echo "3. 🔄 **Re-run Phase 1** after fixing issues" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "**📝 Note**: No PIM operations are performed in Phase 1." >> $GITHUB_STEP_SUMMARY
