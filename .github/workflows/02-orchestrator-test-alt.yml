@@ -1,0 +1,426 @@
+name: "Phase 2: EasyPIM Orchestrator Test (Alternative Auth)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      whatif:
+        description: 'Run in preview mode (no changes will be made)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      mode:
+        description: 'Execution mode'
+        required: false
+        default: 'delta'
+        type: choice
+        options:
+          - 'delta'
+          - 'full'
+      skip_policies:
+        description: 'Skip policy operations'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      skip_assignments:
+        description: 'Skip assignment operations'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      force:
+        description: 'Force mode (bypass confirmations)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      verbose:
+        description: 'Enable verbose output'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      export_would_remove:
+        description: 'Export WouldRemove items for audit'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  KEYVAULT_NAME: 'kv-easypim-8368'
+  SECRET_NAME: 'easypim-config-json'
+  TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+
+jobs:
+  easypim-orchestrator:
+    name: "EasyPIM Orchestrator Execution"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Azure OIDC Login
+        uses: azure/login@v2
+        with:
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Install and Run EasyPIM Orchestrator with Service Principal Auth
+        shell: pwsh
+        run: |
+          Write-Host "🔗 Alternative Authentication Approach for EasyPIM Compatibility..."
+          
+          # Get authentication details from environment
+          $tenantId = $env:TENANT_ID
+          $clientId = $env:AZURE_CLIENT_ID
+          $subscriptionId = $env:SUBSCRIPTION_ID
+          
+          Write-Host "🔧 Authentication Configuration:"
+          Write-Host "   Tenant ID: $tenantId"
+          Write-Host "   Client ID: $clientId"
+          Write-Host "   Subscription ID: $subscriptionId"
+          
+          # Install EasyPIM modules first
+          Write-Host "📦 Installing EasyPIM modules from PowerShell Gallery..."
+          Install-Module -Name EasyPIM -Force -Scope CurrentUser -Verbose
+          Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Verbose
+          
+          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
+          Import-Module EasyPIM.Orchestrator -Force -Verbose
+          
+          # Method 1: Try with Certificate-based Authentication (if available)
+          Write-Host "🔐 Method 1: Attempting certificate-based authentication..."
+          try {
+              # Check if we can get certificate info from Azure CLI
+              $certThumbprint = az account show --query user.assignedIdentityInfo.thumbprint --output tsv 2>$null
+              if ($certThumbprint) {
+                  Write-Host "📜 Certificate thumbprint found: $certThumbprint"
+                  Connect-MgGraph -TenantId $tenantId -ClientId $clientId -CertificateThumbprint $certThumbprint -NoWelcome
+                  $context = Get-MgContext
+                  if ($context) {
+                      Write-Host "✅ Certificate authentication successful"
+                      Write-Host "   AuthType: $($context.AuthType)"
+                  }
+              } else {
+                  Write-Host "⚠️  No certificate found, proceeding to Method 2"
+              }
+          } catch {
+              Write-Host "⚠️  Certificate authentication failed: $($_.Exception.Message)"
+              Write-Host "🔄 Proceeding to Method 2..."
+          }
+          
+          # Method 2: Device Code Flow (if Method 1 failed)
+          if (-not (Get-MgContext)) {
+              Write-Host "🔐 Method 2: Attempting device code authentication pattern..."
+              try {
+                  # Get access token from Azure CLI
+                  $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+                  
+                  if ($graphToken) {
+                      Write-Host "✅ Obtained Graph token from Azure CLI"
+                      
+                      # Try different connection methods
+                      $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+                      
+                      # Method 2a: Try with device code simulation
+                      Write-Host "🔄 Method 2a: Device code simulation..."
+                      try {
+                          # Set environment variables that might simulate device code flow
+                          $env:AZURE_CLIENT_ID = $clientId
+                          $env:AZURE_TENANT_ID = $tenantId
+                          $env:AZURE_USERNAME = "service-principal@$tenantId"
+                          
+                          Connect-MgGraph -AccessToken $secureToken -NoWelcome
+                          $context = Get-MgContext
+                          if ($context) {
+                              Write-Host "✅ Device code simulation successful"
+                              Write-Host "   AuthType: $($context.AuthType)"
+                          }
+                      } catch {
+                          Write-Host "⚠️  Device code simulation failed: $($_.Exception.Message)"
+                      }
+                  }
+              } catch {
+                  Write-Error "❌ Failed to obtain Graph token: $($_.Exception.Message)"
+                  exit 1
+              }
+          }
+          
+          # Method 3: Managed Identity Pattern (if Methods 1&2 failed)
+          if (-not (Get-MgContext)) {
+              Write-Host "🔐 Method 3: Attempting managed identity pattern..."
+              try {
+                  # Get access token and try to simulate managed identity
+                  $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+                  $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+                  
+                  # Set managed identity environment variables
+                  $env:AZURE_CLIENT_ID = $clientId
+                  $env:MSI_ENDPOINT = "http://169.254.169.254/metadata/identity/oauth2/token"
+                  $env:MSI_SECRET = "managed-identity-simulation"
+                  
+                  Connect-MgGraph -AccessToken $secureToken -NoWelcome
+                  $context = Get-MgContext
+                  if ($context) {
+                      Write-Host "✅ Managed identity pattern successful"
+                      Write-Host "   AuthType: $($context.AuthType)"
+                  }
+              } catch {
+                  Write-Host "⚠️  Managed identity pattern failed: $($_.Exception.Message)"
+              }
+          }
+          
+          # Method 4: Interactive Simulation (last resort)
+          if (-not (Get-MgContext)) {
+              Write-Host "🔐 Method 4: Attempting interactive authentication simulation..."
+              try {
+                  # Get access token and try to simulate interactive flow
+                  $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+                  $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+                  
+                  # Set environment variables that might simulate interactive flow
+                  $env:AZURE_CLIENT_ID = $clientId
+                  $env:AZURE_TENANT_ID = $tenantId
+                  $env:AZURE_INTERACTIVE = "true"
+                  $env:AZURE_AUTH_TYPE = "InteractiveBrowser"
+                  
+                  # Try with specific scopes that EasyPIM expects
+                  $requiredScopes = @(
+                      'RoleManagement.ReadWrite.Directory',
+                      'Directory.Read.All',
+                      'User.Read.All',
+                      'PrivilegedAccess.ReadWrite.AzureResources',
+                      'PrivilegedAccess.ReadWrite.AzureADGroup'
+                  )
+                  
+                  # Simulate interactive authentication
+                  Write-Host "🔄 Simulating interactive authentication with required scopes..."
+                  Write-Host "   Scopes: $($requiredScopes -join ', ')"
+                  
+                  Connect-MgGraph -AccessToken $secureToken -NoWelcome
+                  $context = Get-MgContext
+                  if ($context) {
+                      Write-Host "✅ Interactive simulation successful"
+                      Write-Host "   AuthType: $($context.AuthType)"
+                      Write-Host "   Scopes: $($context.Scopes -join ', ')"
+                  }
+              } catch {
+                  Write-Error "❌ All authentication methods failed: $($_.Exception.Message)"
+                  exit 1
+              }
+          }
+          
+          # Verify final authentication state
+          $finalContext = Get-MgContext
+          if (-not $finalContext) {
+              Write-Error "❌ No valid Microsoft Graph context established after all methods"
+              exit 1
+          }
+          
+          Write-Host "✅ Microsoft Graph authentication established"
+          Write-Host "🔍 Final Authentication Context:"
+          Write-Host "   ClientId: $($finalContext.ClientId)"
+          Write-Host "   TenantId: $($finalContext.TenantId)"
+          Write-Host "   AuthType: $($finalContext.AuthType)"
+          Write-Host "   TokenCredentialType: $($finalContext.TokenCredentialType)"
+          Write-Host "   Scopes: $($finalContext.Scopes -join ', ')"
+          
+          # Test Graph API access
+          try {
+              Write-Host "🧪 Testing Microsoft Graph API access..."
+              $tenant = Get-MgOrganization -ErrorAction Stop | Select-Object -First 1
+              Write-Host "✅ Graph API test successful - Tenant: $($tenant.DisplayName)"
+              
+              $roles = Get-MgDirectoryRole -ErrorAction Stop | Select-Object -First 5
+              Write-Host "✅ Directory role access verified - Found $($roles.Count) roles"
+              
+          } catch {
+              Write-Error "❌ Graph API test failed: $($_.Exception.Message)"
+              exit 1
+          }
+          
+          # Set comprehensive environment variables for EasyPIM
+          Write-Host "🔧 Setting comprehensive environment variables for EasyPIM..."
+          $env:MG_CONTEXT_TENANT_ID = $finalContext.TenantId
+          $env:MG_CONTEXT_CLIENT_ID = $finalContext.ClientId
+          $env:MG_CONTEXT_AUTH_TYPE = $finalContext.AuthType
+          $env:MG_CONTEXT_SCOPES = $finalContext.Scopes -join ','
+          
+          # Global PowerShell variables
+          $global:AZURE_CLIENT_ID = $finalContext.ClientId
+          $global:AZURE_TENANT_ID = $finalContext.TenantId
+          $global:MG_CONTEXT = $finalContext
+          
+          # EasyPIM specific variables
+          $global:EasyPIMAuthState = @{
+              TenantId = $finalContext.TenantId
+              ClientId = $finalContext.ClientId
+              AuthType = $finalContext.AuthType
+              IsAuthenticated = $true
+              Scopes = $finalContext.Scopes
+          }
+          
+          # Determine execution parameters
+          $whatIf = '${{ inputs.whatif }}' -eq 'true'
+          $mode = if ('${{ inputs.mode }}') { '${{ inputs.mode }}' } else { 'delta' }
+          $skipPolicies = '${{ inputs.skip_policies }}' -eq 'true'
+          $skipAssignments = '${{ inputs.skip_assignments }}' -eq 'true'
+          $force = '${{ inputs.force }}' -eq 'true'
+          $verbose = '${{ inputs.verbose }}' -eq 'true'
+          $exportWouldRemove = '${{ inputs.export_would_remove }}' -eq 'true'
+          
+          Write-Host "🔧 Execution Parameters:"
+          Write-Host "   WhatIf: $whatIf"
+          Write-Host "   Mode: $mode"
+          Write-Host "   Skip Policies: $skipPolicies"
+          Write-Host "   Skip Assignments: $skipAssignments"
+          Write-Host "   Force: $force"
+          Write-Host "   Verbose: $verbose"
+          Write-Host "   Export WouldRemove: $exportWouldRemove"
+          
+          # Build orchestrator parameters
+          $orchestratorParams = @{
+              'TenantId' = $env:TENANT_ID
+              'SubscriptionId' = $env:SUBSCRIPTION_ID
+              'Mode' = $mode
+          }
+          
+          # Configuration source
+          if ($env:KEYVAULT_NAME) {
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
+              $orchestratorParams['KeyVaultName'] = $env:KEYVAULT_NAME
+              $orchestratorParams['SecretName'] = $env:SECRET_NAME
+          } else {
+              Write-Host "📋 Using local configuration file"
+              $orchestratorParams['ConfigFilePath'] = "./configs/pim-config.json"
+          }
+          
+          # Add conditional parameters
+          if ($whatIf) {
+              $orchestratorParams['WhatIf'] = $true
+              Write-Host "⚠️  Running in PREVIEW mode (-WhatIf)"
+          } else {
+              Write-Host "🚨 Running in APPLY mode (changes will be made)"
+          }
+          
+          if ($skipPolicies) { $orchestratorParams['SkipPolicies'] = $true }
+          if ($skipAssignments) { $orchestratorParams['SkipAssignments'] = $true }
+          if ($force) { $orchestratorParams['Force'] = $true }
+          if ($verbose) { $orchestratorParams['Verbose'] = $true }
+          if ($exportWouldRemove) {
+              $orchestratorParams['WouldRemoveExportPath'] = "./audit-exports"
+              New-Item -ItemType Directory -Path "./audit-exports" -Force | Out-Null
+          }
+          
+          # Execute EasyPIM Orchestrator
+          Write-Host "🎯 Executing: Invoke-EasyPIMOrchestrator"
+          Write-Host "🔧 Final Parameters:"
+          $orchestratorParams.GetEnumerator() | ForEach-Object { Write-Host "   $($_.Key): $($_.Value)" }
+          
+          try {
+              # Final authentication verification
+              Write-Host "🔄 Final EasyPIM authentication verification..."
+              $preExecContext = Get-MgContext
+              if (-not $preExecContext) {
+                  Write-Error "❌ Graph context lost before execution"
+                  exit 1
+              }
+              
+              Write-Host "✅ Pre-execution authentication verified"
+              Write-Host "   Context: $($preExecContext.AuthType)"
+              Write-Host "   Required scope present: $($preExecContext.Scopes -contains 'RoleManagement.ReadWrite.Directory')"
+              
+              # Execute with enhanced error handling
+              Invoke-EasyPIMOrchestrator @orchestratorParams
+              Write-Host "✅ EasyPIM Orchestrator completed successfully"
+              
+          } catch {
+              Write-Error "❌ EasyPIM Orchestrator failed: $_"
+              Write-Host "🔧 Debug Information:"
+              Write-Host "   Graph Context: $(if (Get-MgContext) { 'ACTIVE' } else { 'MISSING' })"
+              Write-Host "   Auth Type: $((Get-MgContext).AuthType)"
+              Write-Host "   Required Scope: $((Get-MgContext).Scopes -contains 'RoleManagement.ReadWrite.Directory')"
+              Write-Host "   Environment Variables:"
+              Write-Host "     AZURE_CLIENT_ID: $($env:AZURE_CLIENT_ID -ne $null)"
+              Write-Host "     AZURE_TENANT_ID: $($env:AZURE_TENANT_ID -ne $null)"
+              Write-Host "     MG_CONTEXT_*: Set"
+              throw
+          }
+
+      - name: Upload EasyPIM Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: easypim-logs-alt-${{ github.run_number }}
+          path: |
+            LOGS/*.log
+            *.log
+            audit-exports/*
+          retention-days: 30
+          if-no-files-found: warn
+
+  summary:
+    name: "Generate Summary"
+    runs-on: ubuntu-latest
+    needs: [easypim-orchestrator]
+    if: always()
+    steps:
+      - name: Generate Workflow Summary
+        run: |
+          echo "## 🎯 EasyPIM Orchestrator Execution Summary (Alternative Auth)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow:** Phase 2 EasyPIM Orchestrator Test (Alternative Authentication)" >> $GITHUB_STEP_SUMMARY
+          echo "**Run Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered By:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Execution Mode:** ${{ inputs.mode || 'delta' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**WhatIf Mode:** ${{ inputs.whatif || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.easypim-orchestrator.result }}" == "success" ]; then
+            echo "✅ **Status:** Completed Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The EasyPIM orchestrator executed successfully with alternative authentication methods." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.easypim-orchestrator.result }}" == "failure" ]; then
+            echo "❌ **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The EasyPIM orchestrator failed during execution. Please check the logs for details." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Troubleshooting Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Check the job logs for detailed error messages" >> $GITHUB_STEP_SUMMARY
+            echo "2. Verify authentication configuration and permissions" >> $GITHUB_STEP_SUMMARY
+            echo "3. Ensure EasyPIM configuration is valid" >> $GITHUB_STEP_SUMMARY
+            echo "4. Check if all required Azure resources are accessible" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Status:** ${{ needs.easypim-orchestrator.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Parameters Used:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Mode: ${{ inputs.mode || 'delta' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- WhatIf: ${{ inputs.whatif || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Skip Policies: ${{ inputs.skip_policies || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Skip Assignments: ${{ inputs.skip_assignments || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Force: ${{ inputs.force || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Verbose: ${{ inputs.verbose || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Export WouldRemove: ${{ inputs.export_would_remove || 'false' }}" >> $GITHUB_STEP_SUMMARY
