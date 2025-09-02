@@ -35,7 +35,7 @@ This guide provides a complete, secure setup for EasyPIM CI/CD testing using:
 2. [Step 1: Deploy Azure Infrastructure](#step-1-deploy-azure-infrastructure)
 3. [Step 2: Configure GitHub Repository](#step-2-configure-github-repository)
 4. [Step 3: Initial EasyPIM Configuration](#step-3-initial-easypim-configuration)
-5. [Step 4: Test Authentication Workflow](#step-4-test-authentication-workflow)
+5. [Step 4: Three-Phase Testing Approach](#step-4-three-phase-testing-approach)
 6. [Step 5: Progressive EasyPIM Validation](#step-5-progressive-easypim-validation)
 7. [Step 6: Policy Drift Detection](#step-6-policy-drift-detection)
 8. [Step 7: Full CI/CD Integration](#step-7-full-cicd-integration)
@@ -263,9 +263,9 @@ cd scripts
 2. **Navigate to:** Settings → Secrets and variables → Actions
 3. **Add Repository Secrets:**
    ```
-   AZURE_CLIENT_ID: [from deployment output]
-   AZURE_TENANT_ID: [from deployment output]
-   AZURE_SUBSCRIPTION_ID: [from deployment output]
+   AZURE_CLIENT_ID: [App ID from Azure AD application, e.g., b7375796-5ca8-447b-9966-3b27be75090e]
+   AZURE_TENANT_ID: [Your Azure tenant ID]
+   AZURE_SUBSCRIPTION_ID: [Your Azure subscription ID]
    ```
 
 ### 2.3 Configure GitHub Variables
@@ -277,13 +277,44 @@ cd scripts
 1. **In the same location:** Settings → Secrets and variables → Actions → Variables tab
 2. **Add Repository Variables:**
    ```
-   AZURE_KEYVAULT_NAME: [from deployment output]
+   AZURE_KEYVAULT_NAME: [Key Vault name, e.g., kv-easypim-8368]
    AZURE_KEYVAULT_SECRET_NAME: easypim-config-json
-   AZURE_RESOURCE_GROUP: [from deployment output]
-   AZURE_KEY_VAULT_URI: [from deployment output]
+   AZURE_RESOURCE_GROUP: [Resource group name, e.g., rg-easypim-cicd-test]
+   AZURE_KEY_VAULT_URI: [Key Vault URI, e.g., https://kv-easypim-8368.vault.azure.net/]
    ```
 
 > **💡 Tip:** The automated script `configure-github-cicd.ps1` handles both secrets and variables automatically by reading your Azure deployment outputs. It requires GitHub CLI (`gh`) to be installed and authenticated.
+
+### 2.4 Troubleshooting GitHub Configuration
+
+**If the automated script fails to find resources:**
+
+1. **Check existing resources manually:**
+   ```powershell
+   # Find your Key Vault
+   az keyvault list --query "[?contains(name, 'easypim')].{Name:name, ResourceGroup:resourceGroup}" --output table
+
+   # Find your Azure AD application
+   az ad app list --query "[?contains(displayName, 'EasyPIM')].{DisplayName:displayName, AppId:appId}" --output table
+   ```
+
+2. **If resources exist but script fails:**
+   ```powershell
+   # Use Force mode to overwrite existing configuration
+   .\configure-github-cicd.ps1 -GitHubRepository "kayasax/EasyPIM-CICD-test" -Force
+   ```
+
+3. **Manual verification of GitHub configuration:**
+   ```powershell
+   # Check current GitHub secrets and variables
+   gh secret list --repo "kayasax/EasyPIM-CICD-test"
+   gh variable list --repo "kayasax/EasyPIM-CICD-test"
+   ```
+
+**Common Issues:**
+- **Azure AD Application Name Mismatch**: The script looks for applications named "EasyPIM-CI-CD-Test", "EasyPIM-CICD-*", or "EasyPIM CICD"
+- **Resource Group Not Found**: Ensure the resource group name matches exactly (default: "rg-easypim-cicd-test")
+- **GitHub CLI Not Authenticated**: Run `gh auth login` to authenticate with GitHub
 
 ---
 
@@ -387,11 +418,21 @@ Write-Host "📄 Configuration file: $configPath" -ForegroundColor Cyan
 
 ---
 
-## Step 4: Test Authentication Workflow
+## Step 4: Three-Phase Testing Approach
+
+EasyPIM CI/CD testing follows a **progressive three-phase approach** to ensure safety and reliability:
+
+### 📋 **Testing Overview**
+
+| Phase | Purpose | Operations | Safety Level |
+|-------|---------|------------|--------------|
+| **Phase 1** | Authentication Test | ✅ Verify connections only | 🟢 **Safe** - No PIM changes |
+| **Phase 2** | EasyPIM Operations | ✅ Run actual PIM orchestrator | 🟡 **Controlled** - Real operations with test roles |
+| **Phase 3** | Drift Detection | ✅ Test policy compliance | 🟡 **Monitoring** - Detection only, no changes |
 
 ### 4.1 Commit and Push Changes
 
-Before running the GitHub Actions workflow, you need to commit and push your local changes:
+Before running any GitHub Actions workflows, commit and push your local changes:
 
 ```powershell
 # Check current git status
@@ -409,7 +450,9 @@ git push origin main
 
 > **💡 Note:** Ensure you're on the correct branch and have proper git remote configured before pushing.
 
-### 4.2 Run Authentication Test
+### 4.2 Phase 1: Authentication Test ✅
+
+**Purpose:** Verify all authentication components without performing any PIM operations.
 
 1. **Go to GitHub repository:** Actions tab
 2. **Select workflow:** "Phase 1: Authentication Test - EasyPIM CI/CD"
@@ -454,6 +497,62 @@ Check the workflow logs for successful authentication tests:
 ```
 
 > **📝 Note:** If Key Vault test shows a warning, configure the `AZURE_KEY_VAULT_NAME` secret in GitHub repository settings with your Key Vault name (e.g., `kv-easypim-8368`).
+
+### 4.3 Phase 2: EasyPIM Operations 🟡
+
+**Purpose:** Run actual EasyPIM orchestrator operations with safe test roles.
+
+**Prerequisites:** ✅ Phase 1 must pass successfully
+
+1. **Go to GitHub repository:** Actions tab
+2. **Select workflow:** "Phase 2: EasyPIM Orchestrator Test"
+3. **Configure inputs:**
+   - `WhatIf`: `true` (preview mode - shows changes without applying them)
+   - `Mode`: `delta` (recommended for testing)
+   - `SkipPolicies`: `false` (test policy operations)
+   - `SkipAssignments`: `false` (test assignment operations)
+4. **Click:** "Run workflow"
+5. **Monitor execution** for:
+   - ✅ Configuration retrieval from Key Vault
+   - ✅ EasyPIM orchestrator execution
+   - ✅ Policy operations (with safe test roles)
+   - ✅ Assignment operations (if configured)
+
+**Expected Results:**
+```
+🔄 EasyPIM Orchestrator Operations
+✅ Configuration loaded from Key Vault
+✅ Target roles processed: Printer Technician, Authentication Administrator
+✅ Policy operations completed (WhatIf mode)
+🎉 Phase 2 EasyPIM Operations Complete!
+```
+
+### 4.4 Phase 3: Drift Detection 🔍
+
+**Purpose:** Test policy compliance monitoring and drift detection capabilities.
+
+**Prerequisites:** ✅ Phase 1 and Phase 2 must pass successfully
+
+1. **Go to GitHub repository:** Actions tab
+2. **Select workflow:** "Phase 3: Drift Detection Test" (when available)
+3. **Configure inputs:**
+   - `detection_mode`: `monitor` (read-only detection)
+   - `scope`: `test-roles` (limit to safe test roles)
+4. **Click:** "Run workflow"
+5. **Monitor execution** for:
+   - ✅ Policy compliance scanning
+   - ✅ Drift detection analysis
+   - ✅ Compliance reporting
+   - ⚠️ Any policy deviations identified
+
+**Expected Results:**
+```
+🔍 Policy Drift Detection
+✅ Compliance scan completed
+✅ Test roles analyzed: 2 roles processed
+✅ Policy deviations: 0 detected (or list of safe deviations)
+🎉 Phase 3 Drift Detection Complete!
+```
 
 ---
 

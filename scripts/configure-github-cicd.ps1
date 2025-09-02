@@ -69,21 +69,73 @@ function Get-AzureDeploymentOutputs {
         # Get current Azure context
         $azAccount = az account show --query "{id: id, tenantId: tenantId}" | ConvertFrom-Json
 
-        # Get Key Vault information
-        $keyVaults = az keyvault list --resource-group $ResourceGroupName --query "[].{name:name, uri:properties.vaultUri}" | ConvertFrom-Json
+        # Get Key Vault information using tags to identify EasyPIM resources
+        $keyVaults = az keyvault list --resource-group $ResourceGroupName --query "[].{name:name, uri:properties.vaultUri, tags:tags}" | ConvertFrom-Json
         if (-not $keyVaults -or $keyVaults.Count -eq 0) {
             throw "No Key Vault found in resource group $ResourceGroupName"
         }
 
-        $keyVault = $keyVaults[0]  # Assume first Key Vault
+        # Handle Key Vault selection using tags
+        $keyVault = $null
+        if ($keyVaults.Count -eq 1) {
+            $keyVault = $keyVaults[0]
+            Write-Host "✅ Found Key Vault: $($keyVault.name)" -ForegroundColor Green
+        } else {
+            # Multiple Key Vaults - use tags to find the EasyPIM CI/CD one
+            $easypimKeyVaults = $keyVaults | Where-Object {
+                $_.tags -and (
+                    $_.tags.Project -eq "EasyPIM-CICD-Testing" -or
+                    $_.tags.Purpose -eq "EasyPIM-CI-CD-Testing" -or
+                    $_.tags.Purpose -eq "CI-CD-Automation" -or
+                    ($_.tags.Project -like "*EasyPIM*" -and $_.tags.Environment -eq "test")
+                )
+            }
 
-        # Get Service Principal information from deployment
-        $apps = az ad app list --display-name "EasyPIM-CICD-$($ResourceGroupName.Replace('rg-', ''))" --query "[].{appId:appId, displayName:displayName}" | ConvertFrom-Json
-        if (-not $apps -or $apps.Count -eq 0) {
-            throw "No Azure AD application found for EasyPIM CICD"
+            if ($easypimKeyVaults.Count -eq 1) {
+                $keyVault = $easypimKeyVaults[0]
+                Write-Host "✅ Found EasyPIM Key Vault by tags: $($keyVault.name)" -ForegroundColor Green
+                Write-Host "   Tags: Project=$($keyVault.tags.Project), Purpose=$($keyVault.tags.Purpose)" -ForegroundColor Gray
+            } elseif ($easypimKeyVaults.Count -gt 1) {
+                # Multiple EasyPIM Key Vaults - sort by name and take the latest
+                $easypimKeyVaults = $easypimKeyVaults | Sort-Object name -Descending
+                $keyVault = $easypimKeyVaults[0]
+                Write-Host "✅ Found multiple EasyPIM Key Vaults, using latest: $($keyVault.name)" -ForegroundColor Green
+                Write-Host "   Available: $($easypimKeyVaults.name -join ', ')" -ForegroundColor Gray
+            } else {
+                # Fallback to name pattern matching
+                $easypimKeyVaults = $keyVaults | Where-Object { $_.name -like "*easypim*" -or $_.name -like "*pim*" }
+
+                if ($easypimKeyVaults.Count -gt 0) {
+                    $keyVault = $easypimKeyVaults[0]
+                    Write-Host "⚠️  No Key Vault found with EasyPIM tags, using name pattern: $($keyVault.name)" -ForegroundColor Yellow
+                } else {
+                    $keyVault = $keyVaults[0]
+                    Write-Host "⚠️  No EasyPIM Key Vault identified, using first available: $($keyVault.name)" -ForegroundColor Yellow
+                }
+            }
         }
 
-        $app = $apps[0]  # Assume first app
+        # Get Service Principal information from deployment
+        # Try multiple patterns for the Azure AD application name
+        $appPatterns = @(
+            "EasyPIM-CI-CD-Test",
+            "EasyPIM-CICD-$($ResourceGroupName.Replace('rg-', ''))",
+            "EasyPIM CICD"
+        )
+
+        $app = $null
+        foreach ($pattern in $appPatterns) {
+            $apps = az ad app list --display-name $pattern --query "[].{appId:appId, displayName:displayName}" | ConvertFrom-Json
+            if ($apps -and $apps.Count -gt 0) {
+                $app = $apps[0]
+                Write-Host "✅ Found Azure AD application: $($app.displayName)" -ForegroundColor Green
+                break
+            }
+        }
+
+        if (-not $app) {
+            throw "No Azure AD application found for EasyPIM CICD. Tried patterns: $($appPatterns -join ', ')"
+        }
 
         # Return deployment outputs
         return @{

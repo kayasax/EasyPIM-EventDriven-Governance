@@ -3,26 +3,41 @@ name: 'Phase 2: EasyPIM Orchestrator Test'
 on:
   workflow_dispatch:
     inputs:
-      apply:
-        description: "Set to true to apply (omit -WhatIf)"
+      WhatIf:
+        description: "Preview mode - show what would be done without making changes"
         required: false
-        default: false
+        default: true
         type: boolean
-      mode:
-        description: "Orchestrator mode"
+      Mode:
+        description: "Orchestrator execution mode (delta=incremental, initial=destructive cleanup)"
         required: false
         default: "delta"
         type: choice
         options:
           - delta
           - initial
-      skip_policies:
-        description: "Skip policy operations"
+      SkipPolicies:
+        description: "Skip policy operations (assignments only)"
         required: false
-        default: true
+        default: false
         type: boolean
-      skip_assignments:
-        description: "Skip assignment operations"
+      SkipAssignments:
+        description: "Skip assignment operations (policies only)"
+        required: false
+        default: false
+        type: boolean
+      Force:
+        description: "Force execution (bypass confirmations)"
+        required: false
+        default: false
+        type: boolean
+      Verbose:
+        description: "Enable verbose output"
+        required: false
+        default: false
+        type: boolean
+      ExportWouldRemove:
+        description: "Export list of items that would be removed (audit purposes)"
         required: false
         default: false
         type: boolean
@@ -67,16 +82,22 @@ jobs:
           Import-Module EasyPIM.Orchestrator -Force -Verbose
 
           # Determine execution parameters
-          $apply = '${{ github.event.inputs.apply }}' -eq 'true'
-          $mode = if ('${{ github.event.inputs.mode }}') { '${{ github.event.inputs.mode }}' } else { 'delta' }
-          $skipPolicies = '${{ github.event.inputs.skip_policies }}' -eq 'true'
-          $skipAssignments = '${{ github.event.inputs.skip_assignments }}' -eq 'true'
+          $whatIf = '${{ github.event.inputs.WhatIf }}' -eq 'true'
+          $mode = if ('${{ github.event.inputs.Mode }}') { '${{ github.event.inputs.Mode }}' } else { 'delta' }
+          $skipPolicies = '${{ github.event.inputs.SkipPolicies }}' -eq 'true'
+          $skipAssignments = '${{ github.event.inputs.SkipAssignments }}' -eq 'true'
+          $force = '${{ github.event.inputs.Force }}' -eq 'true'
+          $verbose = '${{ github.event.inputs.Verbose }}' -eq 'true'
+          $exportWouldRemove = '${{ github.event.inputs.ExportWouldRemove }}' -eq 'true'
 
           Write-Host "🔧 Execution Parameters:"
-          Write-Host "   Apply: $apply"
+          Write-Host "   WhatIf: $whatIf"
           Write-Host "   Mode: $mode"
           Write-Host "   Skip Policies: $skipPolicies"
           Write-Host "   Skip Assignments: $skipAssignments"
+          Write-Host "   Force: $force"
+          Write-Host "   Verbose: $verbose"
+          Write-Host "   Export WouldRemove: $exportWouldRemove"
           Write-Host "   Tenant ID: $env:TENANT_ID"
           Write-Host "   Subscription ID: $env:SUBSCRIPTION_ID"
           Write-Host "   Key Vault: $env:KEYVAULT_NAME"
@@ -100,7 +121,7 @@ jobs:
           }
 
           # Add conditional parameters
-          if (-not $apply) {
+          if ($whatIf) {
               $orchestratorParams['WhatIf'] = $true
               Write-Host "⚠️  Running in PREVIEW mode (-WhatIf)"
           } else {
@@ -115,6 +136,23 @@ jobs:
           if ($skipAssignments) {
               $orchestratorParams['SkipAssignments'] = $true
               Write-Host "⏭️  Skipping assignment operations"
+          }
+
+          if ($force) {
+              $orchestratorParams['Force'] = $true
+              Write-Host "💪 Force mode enabled (bypassing confirmations)"
+          }
+
+          if ($verbose) {
+              $orchestratorParams['Verbose'] = $true
+              Write-Host "📝 Verbose output enabled"
+          }
+
+          if ($exportWouldRemove) {
+              $orchestratorParams['WouldRemoveExportPath'] = "./audit-exports"
+              Write-Host "📤 WouldRemove export enabled (audit purposes)"
+              # Ensure export directory exists
+              New-Item -ItemType Directory -Path "./audit-exports" -Force | Out-Null
           }
 
           # Execute EasyPIM Orchestrator
@@ -136,6 +174,7 @@ jobs:
           path: |
             LOGS/*.log
             *.log
+            audit-exports/*
           retention-days: 30
 
   policy-drift-check:
@@ -258,16 +297,19 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📊 Execution Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Apply Mode**: ${{ github.event.inputs.apply || 'false' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Mode**: ${{ github.event.inputs.mode || 'delta' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Skip Policies**: ${{ github.event.inputs.skip_policies || 'true' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Skip Assignments**: ${{ github.event.inputs.skip_assignments || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **WhatIf Mode**: ${{ github.event.inputs.WhatIf || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ github.event.inputs.Mode || 'delta' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Policies**: ${{ github.event.inputs.SkipPolicies || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Assignments**: ${{ github.event.inputs.SkipAssignments || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Force**: ${{ github.event.inputs.Force || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Verbose**: ${{ github.event.inputs.Verbose || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Export WouldRemove**: ${{ github.event.inputs.ExportWouldRemove || 'false' }}" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔗 Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "1. Review the uploaded logs for detailed execution information" >> $GITHUB_STEP_SUMMARY
           echo "2. Check policy drift results for any configuration discrepancies" >> $GITHUB_STEP_SUMMARY
-          echo "3. If running in preview mode, consider applying changes by setting apply=true" >> $GITHUB_STEP_SUMMARY
+          echo "3. If running in preview mode, consider applying changes by setting WhatIf=false" >> $GITHUB_STEP_SUMMARY
           echo "4. Review EasyPIM documentation for configuration guidance" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
