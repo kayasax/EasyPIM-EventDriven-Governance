@@ -175,6 +175,14 @@ jobs:
           Write-Host "🔧 Setting authentication context for EasyPIM compatibility..."
           $env:AZURE_CLIENT_ID = $context.ClientId
           $env:AZURE_TENANT_ID = $context.TenantId
+          
+          # Also try setting these global variables that some modules check
+          $global:AZURE_CLIENT_ID = $context.ClientId
+          $global:AZURE_TENANT_ID = $context.TenantId
+          
+          # Try setting Microsoft Graph specific environment variables
+          $env:MG_CONTEXT_TENANT_ID = $context.TenantId
+          $env:MG_CONTEXT_CLIENT_ID = $context.ClientId
 
           # Verify EasyPIM can detect the authentication by testing a basic command
           Write-Host "🧪 Testing EasyPIM authentication detection..."
@@ -271,9 +279,12 @@ jobs:
               # One more attempt to ensure Graph connection is recognized by EasyPIM
               Write-Host "🔄 Final Graph authentication verification for EasyPIM..."
 
-              # Disconnect and reconnect with the exact pattern EasyPIM expects
+              # Disconnect and reconnect with the exact pattern EasyPIM expects  
               Disconnect-MgGraph -ErrorAction SilentlyContinue
-              Connect-MgGraph -AccessToken $secureToken -NoWelcome
+              
+              # Connect with the EXACT scope EasyPIM is expecting
+              Write-Host "🔗 Connecting with EasyPIM-specific scopes..."
+              Connect-MgGraph -AccessToken $secureToken -Scopes @('RoleManagement.ReadWrite.Directory') -NoWelcome
 
               # Verify the connection one more time
               $finalContext = Get-MgContext
@@ -283,6 +294,7 @@ jobs:
               }
 
               Write-Host "✅ Final Graph context verified for EasyPIM execution"
+              Write-Host "   Final Scopes: $($finalContext.Scopes -join ', ')"
               
               # Display final parameters for debugging
               Write-Host "🔧 Final Parameters to Invoke-EasyPIMOrchestrator:"
