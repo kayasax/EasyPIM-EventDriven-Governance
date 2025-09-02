@@ -253,7 +253,7 @@ jobs:
               try {
                   # Use the token we set from Azure CLI
                   $token = $env:AZURE_ACCESS_TOKEN
-                  
+
                   if (-not $token) {
                       throw "No ARM access token available in environment variables"
                   }
