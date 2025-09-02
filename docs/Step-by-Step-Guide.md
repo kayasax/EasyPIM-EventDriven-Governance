@@ -461,8 +461,10 @@ git push origin main
    - ✅ EasyPIM module installation and import
    - ✅ Azure OIDC authentication
    - ✅ Key Vault access (requires AZURE_KEY_VAULT_NAME secret)
-   - ✅ Microsoft Graph connectivity
+   - ✅ Microsoft Graph connectivity **with OIDC authentication bridge**
    - ✅ EasyPIM function availability
+
+> **🔧 Critical:** The Microsoft Graph test includes validation of our OIDC authentication bridge, which allows EasyPIM modules to work with GitHub Actions OIDC authentication.
 
 ### 4.2 Verify Output
 
@@ -484,9 +486,15 @@ Check the workflow logs for successful authentication tests:
 ✅ Key Vault access confirmed
 ✅ Configuration retrieved successfully
 
-🌐 Test 4: Testing Microsoft Graph connectivity...
-✅ Microsoft Graph connectivity verified
+🌐 Test 4: Testing Microsoft Graph connectivity and authentication bridge...
+✅ Microsoft Graph connectivity via Azure CLI verified
    Tenant: [Your Tenant Name]
+🔐 Testing Graph PowerShell SDK authentication bridge...
+✅ Successfully obtained Microsoft Graph token from Azure CLI
+✅ Microsoft Graph PowerShell SDK connection successful
+   Client ID: [Your Client ID]
+   Tenant ID: [Your Tenant ID]
+✅ Graph API operations working correctly
 
 🔧 Test 5: Verifying EasyPIM functions are available...
 ✅ EasyPIM.Orchestrator commands available: 4
@@ -500,9 +508,11 @@ Check the workflow logs for successful authentication tests:
 
 ### 4.3 Phase 2: EasyPIM Operations 🟡
 
-**Purpose:** Run actual EasyPIM orchestrator operations with safe test roles.
+**Purpose:** Run actual EasyPIM orchestrator operations with safe test roles using OIDC authentication bridge.
 
-**Prerequisites:** ✅ Phase 1 must pass successfully
+**Prerequisites:** ✅ Phase 1 must pass successfully (including OIDC authentication bridge validation)
+
+**Important:** Phase 2 requires the OIDC authentication bridge to be properly functioning from Phase 1 testing. The EasyPIM modules require Microsoft Graph authentication which is provided through the Azure CLI token bridge implemented in the workflows.
 
 1. **Go to GitHub repository:** Actions tab
 2. **Select workflow:** "Phase 2: EasyPIM Orchestrator Test"
@@ -858,6 +868,16 @@ Solution: Install Azure Bicep CLI using one of the methods in Prerequisites sect
 After installation, restart PowerShell and verify with: bicep --version
 ```
 
+**Issue:** "Microsoft Graph authentication required. Please run Connect-MgGraph first"
+```
+Error: This error occurs when EasyPIM modules cannot authenticate with Microsoft Graph
+Solution: This is resolved by the OIDC authentication bridge in the workflows:
+1. Azure CLI obtains token using OIDC authentication
+2. Token is passed to Microsoft Graph PowerShell SDK
+3. EasyPIM modules can then access Graph API successfully
+Verify Phase 1 authentication test passes to confirm bridge is working
+```
+
 **Issue:** Graph API permissions denied
 ```
 Solution: Ensure admin consent granted for all required permissions:
@@ -869,6 +889,17 @@ Solution: Ensure admin consent granted for all required permissions:
 **Issue:** Key Vault access denied
 ```
 Solution: Verify service principal has "Key Vault Secrets User" role on Key Vault
+```
+
+**Issue:** OIDC authentication bridge fails
+```
+Error: Authentication bridge between Azure CLI and Graph PowerShell SDK fails
+Solution: Check the following components:
+1. Federated credential configuration is correct (see issue below)
+2. Service principal has required Graph API permissions
+3. Azure CLI can successfully authenticate with OIDC
+4. Microsoft Graph PowerShell SDK can receive token from Azure CLI
+Run Phase 1 authentication test to isolate the specific failure point
 ```
 
 **Issue:** Federated credential authentication fails

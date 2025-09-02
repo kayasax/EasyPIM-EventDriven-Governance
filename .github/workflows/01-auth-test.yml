@@ -130,18 +130,18 @@ jobs:
               # Test the authentication bridge for EasyPIM (Graph PowerShell SDK)
               Write-Host ""
               Write-Host "🔐 Testing Graph PowerShell SDK authentication bridge..."
-              
+
               # Get Microsoft Graph access token from Azure CLI
               $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
-              
+
               if ($graphToken) {
                   Write-Host "✅ Successfully obtained Microsoft Graph token from Azure CLI"
-                  
+
                   # Test connecting to Graph PowerShell SDK using the token
                   try {
                       $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
                       Connect-MgGraph -AccessToken $secureToken -NoWelcome
-                      
+
                       # Verify connection by getting current context
                       $context = Get-MgContext
                       if ($context) {
@@ -149,7 +149,7 @@ jobs:
                           Write-Host "   Client ID: $($context.ClientId)"
                           Write-Host "   Tenant ID: $($context.TenantId)"
                           Write-Host "   Account: $($context.Account)"
-                          
+
                           # Test a basic Graph operation
                           try {
                               $profile = Get-MgOrganization -ErrorAction SilentlyContinue
@@ -160,7 +160,7 @@ jobs:
                           catch {
                               Write-Warning "⚠️  Graph API test failed: $_"
                           }
-                          
+
                           # Disconnect to clean up
                           Disconnect-MgGraph -ErrorAction SilentlyContinue
                       } else {

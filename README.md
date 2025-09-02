@@ -38,19 +38,19 @@ graph TB
         WORKFLOW[Workflows]
         SECRETS[Secrets & Variables]
     end
-    
+
     subgraph "☁️ Azure Environment"
         AD[Azure AD]
         KV[Key Vault]
         PIM_SVC[PIM Service]
     end
-    
+
     subgraph "🔧 EasyPIM Engine"
         MODULE[PowerShell Module]
         CONFIG[Configuration]
         OPERATIONS[Operations]
     end
-    
+
     REPO --> WORKFLOW
     WORKFLOW --> SECRETS
     SECRETS --> AD
@@ -59,7 +59,7 @@ graph TB
     MODULE --> CONFIG
     CONFIG --> OPERATIONS
     OPERATIONS --> PIM_SVC
-    
+
     style REPO fill:#f9f9f9
     style AD fill:#e3f2fd
     style KV fill:#e8f5e8
@@ -75,25 +75,25 @@ This repository demonstrates how to integrate **EasyPIM** (Privileged Identity M
 ## 🎯 Testing Phases
 
 ### 🔐 Phase 1: Authentication Test
-> **Goal:** Verify secure connection to Azure services  
-> **Workflow:** `01-auth-test.yml`  
+> **Goal:** Verify secure connection to Azure services
+> **Workflow:** `01-auth-test.yml`
 > **What it tests:** OIDC login, Key Vault access, Graph API connectivity
 
-### ⚙️ Phase 2: PIM Operations  
-> **Goal:** Execute EasyPIM orchestrator with full control  
-> **Workflow:** `02-orchestrator-test.yml`  
+### ⚙️ Phase 2: PIM Operations
+> **Goal:** Execute EasyPIM orchestrator with full control
+> **Workflow:** `02-orchestrator-test.yml`
 > **What it tests:** Policy management, role assignments, configuration validation
 
 ### 🔍 Phase 3: Drift Detection
-> **Goal:** Ensure configuration compliance  
-> **Integrated:** Part of Phase 2 workflow  
+> **Goal:** Ensure configuration compliance
+> **Integrated:** Part of Phase 2 workflow
 > **What it tests:** Policy drift detection, compliance reporting
 
 ## 🔧 Setup Requirements
 
 ### Prerequisites
 - **Azure Subscription** with PIM enabled
-- **Azure AD/Entra ID** administrative access  
+- **Azure AD/Entra ID** administrative access
 - **GitHub Repository** with Actions enabled
 
 ### Quick Setup
@@ -108,9 +108,9 @@ This repository demonstrates how to integrate **EasyPIM** (Privileged Identity M
    ```yaml
    # Repository Secrets (sensitive data)
    AZURE_CLIENT_ID: "your-app-id"
-   AZURE_TENANT_ID: "your-tenant-id" 
+   AZURE_TENANT_ID: "your-tenant-id"
    AZURE_SUBSCRIPTION_ID: "your-subscription-id"
-   
+
    # Repository Variables (non-sensitive)
    AZURE_KEYVAULT_NAME: "your-keyvault-name"
    AZURE_KEYVAULT_SECRET_NAME: "pim-config"
@@ -148,7 +148,7 @@ This repository demonstrates how to integrate **EasyPIM** (Privileged Identity M
 ```yaml
 # Secrets (sensitive)
 AZURE_CLIENT_ID: "your-app-id"
-AZURE_TENANT_ID: "your-tenant-id" 
+AZURE_TENANT_ID: "your-tenant-id"
 AZURE_SUBSCRIPTION_ID: "your-subscription-id"
 
 # Variables (non-sensitive)
@@ -161,7 +161,7 @@ AZURE_KEYVAULT_SECRET_NAME: "pim-config"
 ```
 📦 EasyPIM-CICD-test
 ├── 🔄 .github/workflows/     # Three-phase testing workflows
-├── ⚙️ configs/              # PIM configuration examples  
+├── ⚙️ configs/              # PIM configuration examples
 ├── 📜 scripts/              # Setup and deployment scripts
 ├── 📚 docs/                 # Step-by-step guides & documentation
 │   └── Step-by-Step-Guide.md # 📖 Complete setup & testing guide
@@ -190,11 +190,11 @@ Connect-MgGraph -AccessToken $secureToken -NoWelcome
   run: |
     # Install modules
     Install-Module EasyPIM.Orchestrator -Force
-    
+
     # Bridge OIDC authentication to Graph SDK
     $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
     Connect-MgGraph -AccessToken (ConvertTo-SecureString $graphToken -AsPlainText -Force) -NoWelcome
-    
+
     # Execute EasyPIM operations
     Invoke-EasyPIMOrchestrator `
       -KeyVaultName ${{ vars.AZURE_KEYVAULT_NAME }} `
@@ -224,7 +224,7 @@ Connect-MgGraph -AccessToken $secureToken -NoWelcome
       "ApprovalRequired": false
     },
     "HighSecurity": {
-      "ActivationDuration": "PT2H", 
+      "ActivationDuration": "PT2H",
       "ApprovalRequired": true,
       "Approvers": [{"id": "security-team-id"}]
     }
