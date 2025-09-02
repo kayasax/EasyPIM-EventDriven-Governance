@@ -219,9 +219,9 @@ jobs:
 
           # Get ARM token that actually works in GitHub Actions
           $armToken = az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv
-          if (-not $armToken) { 
+          if (-not $armToken) {
               Write-Error "❌ Failed to get ARM token"
-              exit 1 
+              exit 1
           }
 
           # Store for global access
@@ -231,11 +231,11 @@ jobs:
           function Global:Invoke-ARM {
               [CmdletBinding()]
               param([Parameter(Mandatory = $true)][string]$restURI, [string]$method = "GET", [string]$body = "", [string]$SubscriptionId)
-              
+
               $headers = @{ 'Authorization' = "Bearer $env:AZURE_ACCESS_TOKEN"; 'Content-Type' = 'application/json' }
               $params = @{ Uri = $restURI; Method = $method; Headers = $headers; ErrorAction = 'Stop' }
               if ($method -in @("POST", "PUT", "PATCH") -and $body) { $params.Body = $body }
-              
+
               return Invoke-RestMethod @params
           }
 
@@ -430,23 +430,82 @@ jobs:
               Write-Host "🔧 Final Parameters to Invoke-EasyPIMOrchestrator:"
               $orchestratorParams.GetEnumerator() | ForEach-Object { Write-Host "   $($_.Key): $($_.Value)" }
 
+              # Enable PowerShell transcript for complete logging
+              $transcriptPath = "./easypim-transcript-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+              Start-Transcript -Path $transcriptPath -Force
+
+              Write-Host "📝 PowerShell transcript started: $transcriptPath"
+
+              # Capture EasyPIM execution with detailed output
+              $executionStartTime = Get-Date
+              Write-Host "🚀 Starting EasyPIM Orchestrator execution at: $executionStartTime"
+
               Invoke-EasyPIMOrchestrator @orchestratorParams
-              Write-Host "✅ EasyPIM Orchestrator completed successfully"
+
+              $executionEndTime = Get-Date
+              $executionDuration = $executionEndTime - $executionStartTime
+              Write-Host "✅ EasyPIM Orchestrator completed successfully at: $executionEndTime"
+              Write-Host "⏱️ Total execution time: $($executionDuration.TotalMinutes.ToString('F2')) minutes"
+
+              # Stop transcript
+              Stop-Transcript
+
+              # Create a summary log file
+              $summaryPath = "./easypim-summary-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+              "EasyPIM Orchestrator Execution Summary" | Out-File -FilePath $summaryPath -Encoding UTF8
+              "=====================================" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Start Time: $executionStartTime" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "End Time: $executionEndTime" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Duration: $($executionDuration.TotalMinutes.ToString('F2')) minutes" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Success: True" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Parameters Used:" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              ($orchestratorParams | ConvertTo-Json -Depth 3) | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Graph Context:" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "ClientId: $($finalContext.ClientId)" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "TenantId: $($finalContext.TenantId)" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Scopes: $($finalContext.Scopes -join ', ')" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "AuthType: $($finalContext.AuthType)" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+
+              Write-Host "📋 Execution summary saved to: $summaryPath"
           }
           catch {
-              Write-Error "❌ EasyPIM Orchestrator failed: $_"
+              $errorTime = Get-Date
+              Write-Error "❌ EasyPIM Orchestrator failed at: $errorTime"
+              Write-Error "❌ Error: $_"
+
+              # Stop transcript if it was started
+              try { Stop-Transcript -ErrorAction SilentlyContinue } catch { }
+
+              # Create error log
+              $errorPath = "./easypim-error-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+              "EasyPIM Orchestrator Execution Error" | Out-File -FilePath $errorPath -Encoding UTF8
+              "===================================" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "Error Time: $errorTime" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "Error Message: $_" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "Error Details: $($_.Exception | ConvertTo-Json -Depth 3)" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "Parameters Attempted:" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              ($orchestratorParams | ConvertTo-Json -Depth 3) | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+
+              Write-Host "📋 Error details saved to: $errorPath"
               throw
           }
 
-      - name: 'Upload EasyPIM Logs'
+      - name: 'Upload EasyPIM Logs and Artifacts'
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: easypim-logs-${{ github.run_number }}
           path: |
-            LOGS/*.log
-            *.log
-            audit-exports/*
+            **/*.log
+            LOGS/**/*
+            audit-exports/**/*
+            easypim-*.log
+            *transcript*.log
+            *summary*.log
+            *error*.log
           retention-days: 30
 
   generate-summary:
