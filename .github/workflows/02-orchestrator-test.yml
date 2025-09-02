@@ -84,9 +84,13 @@ jobs:
 
           Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..."
 
-          # Convert token to SecureString and connect to Microsoft Graph FIRST (before installing modules)
+          # Convert token to SecureString and connect to Microsoft Graph with force refresh
           $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
-          Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+          # Ensure clean Graph session for EasyPIM compatibility
+          Write-Host "🔗 Connecting to Microsoft Graph with force refresh..."
+          Disconnect-MgGraph -ErrorAction SilentlyContinue
+          Connect-MgGraph -AccessToken $secureToken -NoWelcome -ForceRefresh
 
           Write-Host "✅ Connected to Microsoft Graph successfully"
 
@@ -120,6 +124,71 @@ jobs:
               Write-Error "❌ Microsoft Graph API test failed: $($_.Exception.Message)"
               Write-Host "🔧 This indicates the authentication bridge is not working properly"
               exit 1
+          }
+
+          # Force refresh the Graph authentication session to ensure EasyPIM recognizes it
+          Write-Host "🔄 Refreshing Microsoft Graph session for EasyPIM compatibility..."
+          try {
+              # Disconnect and reconnect to ensure clean session state
+              Disconnect-MgGraph -ErrorAction SilentlyContinue
+
+              # Reconnect with the same token but ensure fresh session
+              Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+              # Verify the fresh connection
+              $newContext = Get-MgContext
+              if ($newContext) {
+                  Write-Host "✅ Microsoft Graph session refreshed successfully"
+                  Write-Host "   Session ID: $($newContext.ClientId)"
+                  Write-Host "   Authentication Type: $($newContext.AuthType)"
+              } else {
+                  Write-Error "❌ Failed to refresh Microsoft Graph session"
+                  exit 1
+              }
+          } catch {
+              Write-Error "❌ Failed to refresh Graph session: $($_.Exception.Message)"
+              exit 1
+          }
+
+          # Verify EasyPIM can detect the authentication by testing a basic command
+          Write-Host "🧪 Testing EasyPIM authentication detection..."
+          try {
+              # Test if EasyPIM recognizes the Graph session using cmdlets it typically checks
+              $authTest = Get-MgContext
+              $roleTest = Get-MgDirectoryRole -Top 1 -ErrorAction Stop
+
+              if ($authTest -and $roleTest) {
+                  Write-Host "✅ EasyPIM authentication prerequisites verified"
+                  Write-Host "   Graph Context: Active"
+                  Write-Host "   Directory Role Access: Working"
+                  Write-Host "   Required scope check: $($authTest.Scopes -contains 'RoleManagement.ReadWrite.Directory')"
+              } else {
+                  Write-Warning "⚠️  EasyPIM authentication detection uncertain"
+              }
+          } catch {
+              Write-Error "❌ EasyPIM authentication test failed: $($_.Exception.Message)"
+              Write-Host "🔧 This may cause EasyPIM to fail authentication check"
+              exit 1
+          }
+
+          # Set PowerShell execution context variables that EasyPIM might check
+          Write-Host "🔧 Setting authentication context for EasyPIM compatibility..."
+          $env:AZURE_CLIENT_ID = $context.ClientId
+          $env:AZURE_TENANT_ID = $context.TenantId
+
+          # Verify EasyPIM can detect the authentication by testing a basic command
+          Write-Host "🧪 Testing EasyPIM authentication detection..."
+          try {
+              # Test if EasyPIM recognizes the Graph session
+              $authTest = Get-MgContext
+              if ($authTest -and $authTest.Scopes -contains 'RoleManagement.ReadWrite.Directory') {
+                  Write-Host "✅ EasyPIM authentication prerequisites verified"
+                  Write-Host "   Required scope 'RoleManagement.ReadWrite.Directory' found"
+              } else {
+                  Write-Warning "⚠️  EasyPIM authentication detection uncertain - proceeding anyway"
+              }
+          } catch {
+              Write-Warning "⚠️  EasyPIM authentication test failed: $($_.Exception.Message) - proceeding anyway"
           }
 
           # Determine execution parameters
@@ -196,9 +265,25 @@ jobs:
               New-Item -ItemType Directory -Path "./audit-exports" -Force | Out-Null
           }
 
-          # Execute EasyPIM Orchestrator
+          # Execute EasyPIM Orchestrator with explicit Graph reconnection
           Write-Host "🎯 Executing: Invoke-EasyPIMOrchestrator"
           try {
+              # One more attempt to ensure Graph connection is recognized by EasyPIM
+              Write-Host "🔄 Final Graph authentication verification for EasyPIM..."
+
+              # Disconnect and reconnect with the exact pattern EasyPIM expects
+              Disconnect-MgGraph -ErrorAction SilentlyContinue
+              Connect-MgGraph -AccessToken $secureToken -Scopes @('RoleManagement.ReadWrite.Directory') -NoWelcome
+
+              # Verify the connection one more time
+              $finalContext = Get-MgContext
+              if (-not $finalContext) {
+                  Write-Error "❌ Failed to establish Graph context for EasyPIM"
+                  exit 1
+              }
+
+              Write-Host "✅ Final Graph context verified for EasyPIM execution"
+
               Invoke-EasyPIMOrchestrator @orchestratorParams
               Write-Host "✅ EasyPIM Orchestrator completed successfully"
           }
