@@ -88,9 +88,9 @@ jobs:
           $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
 
           # Ensure clean Graph session for EasyPIM compatibility
-          Write-Host "🔗 Connecting to Microsoft Graph with force refresh..."
+          Write-Host "🔗 Connecting to Microsoft Graph with clean session..."
           Disconnect-MgGraph -ErrorAction SilentlyContinue
-          Connect-MgGraph -AccessToken $secureToken -NoWelcome -ForceRefresh
+          Connect-MgGraph -AccessToken $secureToken -NoWelcome
 
           Write-Host "✅ Connected to Microsoft Graph successfully"
 
