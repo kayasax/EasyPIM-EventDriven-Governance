@@ -134,9 +134,20 @@ jobs:
               Import-Module Az.Accounts -Force
               Import-Module Az.KeyVault -Force
               
-              # Connect to Azure PowerShell using access token
+              # Connect to Azure PowerShell using access token with Key Vault token
               Write-Host "🔗 Connecting to Azure PowerShell with OIDC token..."
-              Connect-AzAccount -AccessToken $azToken -TenantId $env:TENANT_ID -AccountId $env:AZURE_CLIENT_ID
+              
+              # Also get a Key Vault specific token for PoP authentication
+              $kvToken = az account get-access-token --resource https://vault.azure.net --query accessToken --output tsv
+              
+              if (-not $kvToken) {
+                  Write-Warning "⚠️  Failed to obtain Key Vault access token - Key Vault operations may fail"
+              } else {
+                  Write-Host "✅ Successfully obtained Key Vault access token"
+              }
+              
+              # Connect with both management and Key Vault tokens
+              Connect-AzAccount -AccessToken $azToken -KeyVaultAccessToken $kvToken -TenantId $env:TENANT_ID -AccountId $env:AZURE_CLIENT_ID
               
               # Verify Azure PowerShell connection
               $azContext = Get-AzContext
@@ -147,9 +158,7 @@ jobs:
                   Write-Host "   Subscription: $($azContext.Subscription)"
               } else {
                   Write-Warning "⚠️  Azure PowerShell context not found - this may cause EasyPIM to fail"
-              }
-              
-          } catch {
+              }          } catch {
               Write-Warning "⚠️  Azure PowerShell authentication failed: $($_.Exception.Message)"
               Write-Host "🔧 Attempting alternative Azure PowerShell authentication..."
               
