@@ -1,0 +1,220 @@
+name: 'Phase 3: PIM Policy Drift Detection'
+
+on:
+  workflow_dispatch:
+    inputs:
+      Verbose:
+        description: "Enable verbose output"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # Run daily at 6 AM UTC (optional automated drift detection)
+    - cron: '0 6 * * *'
+
+env:
+  KEYVAULT_NAME: ${{ vars.AZURE_KEYVAULT_NAME }}
+  SECRET_NAME: ${{ vars.AZURE_KEYVAULT_SECRET_NAME }}
+  TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+
+permissions:
+  id-token: write   # for OIDC
+  contents: read
+
+jobs:
+  policy-drift-check:
+    name: 'Policy Drift Detection'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Azure OIDC Login'
+        uses: azure/login@v2
+        with:
+          tenant-id: ${{ env.TENANT_ID }}
+          subscription-id: ${{ env.SUBSCRIPTION_ID }}
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+
+      - name: 'Install EasyPIM Modules'
+        shell: pwsh
+        run: |
+          Write-Host "🔍 Installing EasyPIM modules for drift detection..."
+
+          # Install required modules from PowerShell Gallery
+          Install-Module -Name EasyPIM -Force -Scope CurrentUser -Verbose
+          Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Verbose
+
+          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
+          Import-Module EasyPIM.Orchestrator -Force -Verbose
+
+          Write-Host "🔐 Setting up Microsoft Graph authentication using Azure CLI token..."
+
+          # Get Microsoft Graph access token from Azure CLI (already authenticated via OIDC)
+          $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+
+          if (-not $graphToken) {
+              Write-Error "❌ Failed to obtain Microsoft Graph access token from Azure CLI"
+              exit 1
+          }
+
+          Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..."
+
+          # Convert token to SecureString and connect to Microsoft Graph
+          $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+          Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+          Write-Host "✅ Connected to Microsoft Graph successfully"
+
+      - name: 'Run Policy Drift Detection'
+        shell: pwsh
+        run: |
+          Write-Host "🔍 Running PIM policy drift detection..."
+
+          $verbose = '${{ github.event.inputs.Verbose }}' -eq 'true'
+
+          if ($verbose) {
+              Write-Host "📝 Verbose output enabled"
+          }
+
+          # Use Key Vault configuration (current workaround approach)
+          # TODO: Future enhancement - when EasyPIM adds native AKV support for Test-PIMPolicyDrift,
+          # we can simplify this to: Test-PIMPolicyDrift -KeyVaultName $env:KEYVAULT_NAME -SecretName $env:SECRET_NAME
+          if ($env:KEYVAULT_NAME) {
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
+
+              try {
+                  # Get the configuration from Key Vault and save to temp file
+                  # NOTE: Current implementation downloads config to temp file since Test-PIMPolicyDrift
+                  # doesn't yet support KeyVault parameters directly. This will be simplified in future versions.
+                  $configJson = az keyvault secret show --vault-name $env:KEYVAULT_NAME --name $env:SECRET_NAME --query "value" -o tsv
+                  $tempConfigPath = "./temp-drift-config.json"
+                  $configJson | Out-File -FilePath $tempConfigPath -Encoding UTF8
+
+                  Write-Host "🎯 Executing Test-PIMPolicyDrift with parameters:"
+                  Write-Host "   TenantId: $env:TENANT_ID"
+                  Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
+                  Write-Host "   ConfigPath: $tempConfigPath"
+                  if ($verbose) {
+                      Write-Host "   Verbose: enabled"
+                  }
+
+                  # Build command parameters
+                  $driftParams = @{
+                      'TenantId' = $env:TENANT_ID
+                      'SubscriptionId' = $env:SUBSCRIPTION_ID
+                      'ConfigPath' = $tempConfigPath
+                  }
+
+                  if ($verbose) {
+                      $driftParams['Verbose'] = $true
+                  }
+
+                  # Run drift detection with file (Test-PIMPolicyDrift doesn't support KeyVault params directly)
+                  Test-PIMPolicyDrift @driftParams
+
+                  Write-Host "✅ Policy drift check completed successfully"
+
+                  # Clean up temp file
+                  Remove-Item $tempConfigPath -ErrorAction SilentlyContinue
+              }
+              catch {
+                  Write-Error "❌ Policy drift check failed: $_"
+                  Write-Host "🔧 Error details: $($_.Exception.Message)"
+                  throw
+              }
+          } else {
+              Write-Host "📋 Using local configuration file"
+              try {
+                  Write-Host "🎯 Executing Test-PIMPolicyDrift with parameters:"
+                  Write-Host "   TenantId: $env:TENANT_ID"
+                  Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
+                  Write-Host "   ConfigPath: ./configs/pim-config.json"
+                  if ($verbose) {
+                      Write-Host "   Verbose: enabled"
+                  }
+
+                  # Build command parameters
+                  $driftParams = @{
+                      'TenantId' = $env:TENANT_ID
+                      'SubscriptionId' = $env:SUBSCRIPTION_ID
+                      'ConfigPath' = "./configs/pim-config.json"
+                  }
+
+                  if ($verbose) {
+                      $driftParams['Verbose'] = $true
+                  }
+
+                  Test-PIMPolicyDrift @driftParams
+                  Write-Host "✅ Policy drift check completed successfully"
+              }
+              catch {
+                  Write-Error "❌ Policy drift check failed: $_"
+                  Write-Host "🔧 Error details: $($_.Exception.Message)"
+                  throw
+              }
+          }
+
+      - name: 'Upload Drift Detection Results'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-drift-results-${{ github.run_number }}
+          path: |
+            LOGS/*.log
+            *.log
+            drift-report.*
+          retention-days: 30
+
+  generate-summary:
+    name: 'Generate Drift Summary'
+    runs-on: ubuntu-latest
+    needs: policy-drift-check
+    if: always()
+
+    steps:
+      - name: 'Generate Workflow Summary'
+        run: |
+          echo "# 🔍 PIM Policy Drift Detection Results - Phase 3" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Run:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Drift check results
+          DRIFT_STATUS="${{ needs.policy-drift-check.result }}"
+          if [ "$DRIFT_STATUS" = "success" ]; then
+            echo "## ✅ Policy Drift Detection: SUCCESS" >> $GITHUB_STEP_SUMMARY
+            echo "- No policy drift detected" >> $GITHUB_STEP_SUMMARY
+            echo "- All PIM policies match the desired configuration" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ Policy Drift Detection: ISSUES FOUND" >> $GITHUB_STEP_SUMMARY
+            echo "- Policy drift detected or errors occurred" >> $GITHUB_STEP_SUMMARY
+            echo "- Review the detailed logs for specific issues" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Verbose**: ${{ github.event.inputs.Verbose || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Configuration Source**: ${{ vars.AZURE_KEYVAULT_NAME && 'Azure Key Vault' || 'Local File' }}" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Next Steps" >> $GITHUB_STEP_SUMMARY
+          if [ "$DRIFT_STATUS" = "success" ]; then
+            echo "1. ✅ No action required - policies are in compliance" >> $GITHUB_STEP_SUMMARY
+            echo "2. 📅 Consider scheduling regular drift detection runs" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "1. 📋 Review the uploaded drift detection results" >> $GITHUB_STEP_SUMMARY
+            echo "2. 🔧 Investigate any policy configuration discrepancies" >> $GITHUB_STEP_SUMMARY
+            echo "3. ⚡ Run Phase 2 orchestrator to remediate drift if needed" >> $GITHUB_STEP_SUMMARY
+            echo "4. 📚 Check EasyPIM documentation for policy guidance" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "**📝 Note**: This is Phase 3 - dedicated policy drift detection." >> $GITHUB_STEP_SUMMARY
+          echo "Use Phase 2 orchestrator workflow to apply configuration changes." >> $GITHUB_STEP_SUMMARY
