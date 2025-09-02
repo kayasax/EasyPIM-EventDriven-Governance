@@ -18,6 +18,9 @@ param azureClientId string = ''
 @description('Key Vault access policies - additional users/groups with admin access')
 param keyVaultAdministrators array = []
 
+@description('Grant subscription Owner role to the service principal (required for Azure role policy management)')
+param grantSubscriptionOwner bool = false
+
 @description('Location for all resources')
 param location string = resourceGroup().location
 
@@ -145,6 +148,18 @@ resource kvAdminRoles 'Microsoft.Authorization/roleAssignments@2022-04-01' = [fo
     description: 'Administrative access to Key Vault for EasyPIM CI/CD'
   }
 }]
+
+// Role Assignment: Subscription Owner for Service Principal (optional, for Azure role policy management)
+resource subscriptionOwnerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (grantSubscriptionOwner && azureClientId != '') {
+  name: guid(subscription().id, azureClientId, 'Owner')
+  scope: subscription()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635') // Owner
+    principalId: azureClientId // Note: This should be the service principal object ID, but we're using client ID as a workaround
+    principalType: 'ServicePrincipal'
+    description: 'Allow EasyPIM CI/CD to manage Azure role policies'
+  }
+}
 
 // Store essential configuration in Key Vault
 resource secretTenantId 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {

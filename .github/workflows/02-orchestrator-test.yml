@@ -68,6 +68,7 @@ jobs:
           tenant-id: ${{ env.TENANT_ID }}
           subscription-id: ${{ env.SUBSCRIPTION_ID }}
           client-id: ${{ env.AZURE_CLIENT_ID }}
+          enable-AzPSSession: true
 
       - name: 'Install and Run EasyPIM Orchestrator'
         shell: pwsh
@@ -109,63 +110,85 @@ jobs:
           # Connect to Azure PowerShell using OIDC as well (EasyPIM requires both!)
           Write-Host "🔗 Setting up Azure PowerShell authentication for EasyPIM compatibility..."
           try {
-              # Get Azure management token from Azure CLI for Azure PowerShell
-              $azToken = az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv
-              
-              if (-not $azToken) {
-                  Write-Error "❌ Failed to obtain Azure management access token from Azure CLI"
-                  exit 1
-              }
-              
-              Write-Host "✅ Successfully obtained Azure management token"
-              
               # Install required Azure PowerShell modules if not available
               if (-not (Get-Module -ListAvailable Az.Accounts)) {
                   Write-Host "📦 Installing Az.Accounts module..."
                   Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
               }
-              
+
               if (-not (Get-Module -ListAvailable Az.KeyVault)) {
                   Write-Host "📦 Installing Az.KeyVault module..."
                   Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
               }
-              
+
               # Import required modules
               Import-Module Az.Accounts -Force
               Import-Module Az.KeyVault -Force
-              
-              # Connect to Azure PowerShell using access token with Key Vault token
-              Write-Host "🔗 Connecting to Azure PowerShell with OIDC token..."
-              
-              # Also get a Key Vault specific token for PoP authentication
-              $kvToken = az account get-access-token --resource https://vault.azure.net --query accessToken --output tsv
-              
-              if (-not $kvToken) {
-                  Write-Warning "⚠️  Failed to obtain Key Vault access token - Key Vault operations may fail"
-              } else {
-                  Write-Host "✅ Successfully obtained Key Vault access token"
-              }
-              
-              # Connect with both management and Key Vault tokens
-              Connect-AzAccount -AccessToken $azToken -KeyVaultAccessToken $kvToken -TenantId $env:TENANT_ID -AccountId $env:AZURE_CLIENT_ID
-              
-              # Verify Azure PowerShell connection
+
+              # Try the most compatible authentication method first: Service Principal with OIDC
+              Write-Host "🔗 Connecting to Azure PowerShell with service principal OIDC..."
+              Connect-AzAccount -TenantId $env:TENANT_ID -Subscription $env:SUBSCRIPTION_ID -Identity -ErrorAction Stop
+
+              # Verify Azure PowerShell connection and set subscription context
               $azContext = Get-AzContext
               if ($azContext) {
+                  # Ensure we're using the correct subscription
+                  Set-AzContext -SubscriptionId $env:SUBSCRIPTION_ID -ErrorAction SilentlyContinue
+                  $azContext = Get-AzContext
+
                   Write-Host "✅ Azure PowerShell authentication successful"
                   Write-Host "   Account: $($azContext.Account)"
                   Write-Host "   Tenant: $($azContext.Tenant)"
                   Write-Host "   Subscription: $($azContext.Subscription)"
               } else {
                   Write-Warning "⚠️  Azure PowerShell context not found - this may cause EasyPIM to fail"
-              }          } catch {
-              Write-Warning "⚠️  Azure PowerShell authentication failed: $($_.Exception.Message)"
-              Write-Host "🔧 Attempting alternative Azure PowerShell authentication..."
-              
+              }
+          } catch {
+              Write-Warning "⚠️  Primary Azure PowerShell authentication failed: $($_.Exception.Message)"
+              Write-Host "� Attempting fallback token-based authentication..."
+
               try {
-                  # Alternative: Use service principal authentication method
-                  Connect-AzAccount -TenantId $env:TENANT_ID -Subscription $env:SUBSCRIPTION_ID -Identity -ErrorAction Stop
-                  Write-Host "✅ Alternative Azure PowerShell authentication successful"
+                  # Fallback: Get Azure management token from Azure CLI for Azure PowerShell
+                  $azToken = az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv
+
+                  if (-not $azToken) {
+                      Write-Error "❌ Failed to obtain Azure management access token from Azure CLI"
+                      exit 1
+                  }
+
+                  Write-Host "✅ Successfully obtained Azure management token"
+
+                  # Also get a Key Vault specific token for PoP authentication
+                  $kvToken = az account get-access-token --resource https://vault.azure.net --query accessToken --output tsv
+
+                  if (-not $kvToken) {
+                      Write-Warning "⚠️  Failed to obtain Key Vault access token - Key Vault operations may fail"
+                  } else {
+                      Write-Host "✅ Successfully obtained Key Vault access token"
+                  }
+
+                  # Connect with both management and Key Vault tokens
+                  Connect-AzAccount -AccessToken $azToken -KeyVaultAccessToken $kvToken -TenantId $env:TENANT_ID -AccountId $env:AZURE_CLIENT_ID
+
+                  # Verify Azure PowerShell connection and set subscription context
+                  $azContext = Get-AzContext
+                  if ($azContext) {
+                      # Ensure we're using the correct subscription
+                      Set-AzContext -SubscriptionId $env:SUBSCRIPTION_ID -ErrorAction SilentlyContinue
+                      $azContext = Get-AzContext
+
+                      Write-Host "✅ Fallback Azure PowerShell authentication successful"
+                      Write-Host "   Account: $($azContext.Account)"
+                      Write-Host "   Tenant: $($azContext.Tenant)"
+                      Write-Host "   Subscription: $($azContext.Subscription)"
+
+                      # Set ARM token environment variable for EasyPIM direct ARM API access
+                      $env:AZURE_ACCESS_TOKEN = $azToken
+                      $env:ARM_ACCESS_TOKEN = $azToken
+                      Write-Host "✅ ARM access tokens set for EasyPIM compatibility"
+                  } else {
+                      Write-Warning "⚠️  Azure PowerShell context still not found - EasyPIM may fail"
+                  }
               } catch {
                   Write-Warning "⚠️  All Azure PowerShell authentication methods failed - EasyPIM may not work properly"
                   Write-Host "🔧 Proceeding anyway - some EasyPIM operations might still work with Graph-only authentication"
@@ -241,11 +264,11 @@ jobs:
           Write-Host "🔧 Setting authentication context for EasyPIM compatibility..."
           $env:AZURE_CLIENT_ID = $context.ClientId
           $env:AZURE_TENANT_ID = $context.TenantId
-          
+
           # Also try setting these global variables that some modules check
           $global:AZURE_CLIENT_ID = $context.ClientId
           $global:AZURE_TENANT_ID = $context.TenantId
-          
+
           # Try setting Microsoft Graph specific environment variables
           $env:MG_CONTEXT_TENANT_ID = $context.TenantId
           $env:MG_CONTEXT_CLIENT_ID = $context.ClientId
@@ -345,9 +368,9 @@ jobs:
               # One more attempt to ensure Graph connection is recognized by EasyPIM
               Write-Host "🔄 Final Graph authentication verification for EasyPIM..."
 
-              # Disconnect and reconnect with the exact pattern EasyPIM expects  
+              # Disconnect and reconnect with the exact pattern EasyPIM expects
               Disconnect-MgGraph -ErrorAction SilentlyContinue
-              
+
               # Connect with access token (can't use -Scopes with -AccessToken)
               Write-Host "🔗 Connecting with EasyPIM-compatible authentication..."
               Connect-MgGraph -AccessToken $secureToken -NoWelcome
@@ -361,7 +384,7 @@ jobs:
 
               Write-Host "✅ Final Graph context verified for EasyPIM execution"
               Write-Host "   Final Scopes: $($finalContext.Scopes -join ', ')"
-              
+
               # Display final parameters for debugging
               Write-Host "🔧 Final Parameters to Invoke-EasyPIMOrchestrator:"
               $orchestratorParams.GetEnumerator() | ForEach-Object { Write-Host "   $($_.Key): $($_.Value)" }
