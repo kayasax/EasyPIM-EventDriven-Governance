@@ -42,16 +42,7 @@ jobs:
       - name: 'Install EasyPIM Modules'
         shell: pwsh
         run: |
-          Write-Host "🔍 Installing EasyPIM modules for drift detection..."
-
-          # Install required modules from PowerShell Gallery
-          Install-Module -Name EasyPIM -Force -Scope CurrentUser -Verbose
-          Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Verbose
-
-          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
-          Import-Module EasyPIM.Orchestrator -Force -Verbose
-
-          Write-Host "🔐 Setting up Microsoft Graph authentication using Azure CLI token..."
+          Write-Host " Setting up Microsoft Graph authentication using Azure CLI token..."
 
           # Get Microsoft Graph access token from Azure CLI (already authenticated via OIDC)
           $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
@@ -63,11 +54,43 @@ jobs:
 
           Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..."
 
-          # Convert token to SecureString and connect to Microsoft Graph
+          # Convert token to SecureString and connect to Microsoft Graph FIRST
           $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
           Connect-MgGraph -AccessToken $secureToken -NoWelcome
 
           Write-Host "✅ Connected to Microsoft Graph successfully"
+
+          # Verify the connection
+          $context = Get-MgContext
+          if ($context) {
+              Write-Host "🔍 Microsoft Graph Context:"
+              Write-Host "   ClientId: $($context.ClientId)"
+              Write-Host "   TenantId: $($context.TenantId)"
+              Write-Host "   Scopes: $($context.Scopes -join ', ')"
+          } else {
+              Write-Error "❌ Microsoft Graph context not found after connection"
+              exit 1
+          }
+
+          Write-Host "🔍 Installing EasyPIM modules for drift detection..."
+
+          # Install required modules from PowerShell Gallery AFTER Graph connection
+          Install-Module -Name EasyPIM -Force -Scope CurrentUser -Verbose
+          Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Verbose
+
+          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
+          Import-Module EasyPIM.Orchestrator -Force -Verbose
+
+          # Test a simple Graph API call to ensure authentication works
+          try {
+              Write-Host "🧪 Testing Microsoft Graph API access..."
+              $tenant = Get-MgOrganization -ErrorAction Stop | Select-Object -First 1
+              Write-Host "✅ Microsoft Graph API test successful - Connected to tenant: $($tenant.DisplayName)"
+          } catch {
+              Write-Error "❌ Microsoft Graph API test failed: $($_.Exception.Message)"
+              Write-Host "🔧 This indicates the authentication bridge is not working properly"
+              exit 1
+          }
 
       - name: 'Run Policy Drift Detection'
         shell: pwsh
