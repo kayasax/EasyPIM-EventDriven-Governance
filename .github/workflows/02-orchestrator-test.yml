@@ -119,14 +119,20 @@ jobs:
               
               Write-Host "✅ Successfully obtained Azure management token"
               
-              # Install Az.Accounts if not available (needed for Connect-AzAccount)
+              # Install required Azure PowerShell modules if not available
               if (-not (Get-Module -ListAvailable Az.Accounts)) {
                   Write-Host "📦 Installing Az.Accounts module..."
                   Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
               }
               
-              # Import Az.Accounts
+              if (-not (Get-Module -ListAvailable Az.KeyVault)) {
+                  Write-Host "📦 Installing Az.KeyVault module..."
+                  Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
+              }
+              
+              # Import required modules
               Import-Module Az.Accounts -Force
+              Import-Module Az.KeyVault -Force
               
               # Connect to Azure PowerShell using access token
               Write-Host "🔗 Connecting to Azure PowerShell with OIDC token..."
