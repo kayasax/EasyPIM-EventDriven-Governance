@@ -282,9 +282,9 @@ jobs:
               # Disconnect and reconnect with the exact pattern EasyPIM expects  
               Disconnect-MgGraph -ErrorAction SilentlyContinue
               
-              # Connect with the EXACT scope EasyPIM is expecting
-              Write-Host "🔗 Connecting with EasyPIM-specific scopes..."
-              Connect-MgGraph -AccessToken $secureToken -Scopes @('RoleManagement.ReadWrite.Directory') -NoWelcome
+              # Connect with access token (can't use -Scopes with -AccessToken)
+              Write-Host "🔗 Connecting with EasyPIM-compatible authentication..."
+              Connect-MgGraph -AccessToken $secureToken -NoWelcome
 
               # Verify the connection one more time
               $finalContext = Get-MgContext
