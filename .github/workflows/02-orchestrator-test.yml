@@ -5,7 +5,14 @@ on:
     inputs:
       WhatIf:
         description: "Preview mode - show what would be done without making changes"
-        required: false
+        re          Write-Host "🚀 Installing EasyPIM modules from PowerShell Gallery..."
+
+          # Install modules efficiently - install both together to share dependencies
+          Write-Host "📦 Installing EasyPIM and EasyPIM.Orchestrator (with shared dependencies)..."
+          Install-Module -Name EasyPIM, EasyPIM.Orchestrator -Force -Scope CurrentUser -AllowClobber
+
+          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
+          Import-Module EasyPIM.Orchestrator -Forcefalse
         default: true
         type: boolean
       Mode:
@@ -110,15 +117,18 @@ jobs:
           # Connect to Azure PowerShell using OIDC as well (EasyPIM requires both!)
           Write-Host "🔗 Setting up Azure PowerShell authentication for EasyPIM compatibility..."
           try {
-              # Install required Azure PowerShell modules if not available
+              # Install required Azure PowerShell modules if not available (install together to share dependencies)
+              $missingModules = @()
               if (-not (Get-Module -ListAvailable Az.Accounts)) {
-                  Write-Host "📦 Installing Az.Accounts module..."
-                  Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
+                  $missingModules += "Az.Accounts"
               }
-
               if (-not (Get-Module -ListAvailable Az.KeyVault)) {
-                  Write-Host "📦 Installing Az.KeyVault module..."
-                  Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
+                  $missingModules += "Az.KeyVault"
+              }
+              
+              if ($missingModules.Count -gt 0) {
+                  Write-Host "📦 Installing Azure modules: $($missingModules -join ', ')..."
+                  Install-Module -Name $missingModules -Force -Scope CurrentUser -AllowClobber
               }
 
               # Import required modules
@@ -195,11 +205,14 @@ jobs:
               }
           }
 
-          Write-Host "�🚀 Installing EasyPIM modules from PowerShell Gallery..."
+          Write-Host "🚀 Installing EasyPIM modules from PowerShell Gallery..."
 
-          # Install required modules from PowerShell Gallery AFTER Graph connection
-          Install-Module -Name EasyPIM -Force -Scope CurrentUser -Verbose
-          Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Verbose
+          # Install modules efficiently - install both together to share dependencies
+          Write-Host "📦 Installing EasyPIM and EasyPIM.Orchestrator (with shared dependencies)..."
+          Install-Module -Name EasyPIM, EasyPIM.Orchestrator -Force -Scope CurrentUser -AllowClobber
+
+          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
+          Import-Module EasyPIM.Orchestrator -Force
 
           Write-Host "📦 Importing EasyPIM.Orchestrator module..."
           Import-Module EasyPIM.Orchestrator -Force -Verbose
