@@ -1,3 +1,4 @@
+[![Phase 2: EasyPIM Orchestrator Test](https://github.com/kayasax/EasyPIM-CICD-test/actions/workflows/02-orchestrator-test.yml/badge.svg)](https://github.com/kayasax/EasyPIM-CICD-test/actions/workflows/02-orchestrator-test.yml)
 # EasyPIM CI/CD Testing Framework
 
 A comprehensive testing framework for demonstrating **EasyPIM** integration in CI/CD pipelines using Azure Privileged Identity Management with automated workflow orchestration.
