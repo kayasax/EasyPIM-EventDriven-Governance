@@ -113,24 +113,75 @@ jobs:
               }
           }
 
-          # Test 4: Microsoft Graph Connectivity (Basic)
+          # Test 4: Microsoft Graph Connectivity & Authentication Bridge
           Write-Host ""
-          Write-Host "🌐 Test 4: Testing Microsoft Graph connectivity..."
+          Write-Host "🌐 Test 4: Testing Microsoft Graph connectivity and authentication bridge..."
           try {
-              # Test Graph connection using the current authenticated context
+              # Test basic Graph connection using Azure CLI
               $tenantInfo = az rest --method GET --url "https://graph.microsoft.com/v1.0/organization" --query "value[0].{id:id,displayName:displayName}" 2>$null
               if ($tenantInfo) {
                   $tenant = $tenantInfo | ConvertFrom-Json
-                  Write-Host "✅ Microsoft Graph connectivity verified"
+                  Write-Host "✅ Microsoft Graph connectivity via Azure CLI verified"
                   Write-Host "   Tenant: $($tenant.displayName) ($($tenant.id))"
               } else {
-                  Write-Warning "⚠️  Could not verify Graph connectivity (may need additional permissions)"
+                  Write-Warning "⚠️  Could not verify Graph connectivity via Azure CLI"
+              }
+
+              # Test the authentication bridge for EasyPIM (Graph PowerShell SDK)
+              Write-Host ""
+              Write-Host "🔐 Testing Graph PowerShell SDK authentication bridge..."
+              
+              # Get Microsoft Graph access token from Azure CLI
+              $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+              
+              if ($graphToken) {
+                  Write-Host "✅ Successfully obtained Microsoft Graph token from Azure CLI"
+                  
+                  # Test connecting to Graph PowerShell SDK using the token
+                  try {
+                      $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+                      Connect-MgGraph -AccessToken $secureToken -NoWelcome
+                      
+                      # Verify connection by getting current context
+                      $context = Get-MgContext
+                      if ($context) {
+                          Write-Host "✅ Microsoft Graph PowerShell SDK connection successful"
+                          Write-Host "   Client ID: $($context.ClientId)"
+                          Write-Host "   Tenant ID: $($context.TenantId)"
+                          Write-Host "   Account: $($context.Account)"
+                          
+                          # Test a basic Graph operation
+                          try {
+                              $profile = Get-MgOrganization -ErrorAction SilentlyContinue
+                              if ($profile) {
+                                  Write-Host "✅ Graph API operations working correctly"
+                              }
+                          }
+                          catch {
+                              Write-Warning "⚠️  Graph API test failed: $_"
+                          }
+                          
+                          # Disconnect to clean up
+                          Disconnect-MgGraph -ErrorAction SilentlyContinue
+                      } else {
+                          Write-Warning "⚠️  Graph PowerShell SDK connection failed - no context available"
+                      }
+                  }
+                  catch {
+                      Write-Warning "⚠️  Failed to connect to Graph PowerShell SDK: $_"
+                      Write-Host "   This may indicate an authentication compatibility issue"
+                  }
+              } else {
+                  Write-Error "❌ Failed to obtain Microsoft Graph access token from Azure CLI"
+                  Write-Host "   This may indicate insufficient permissions or authentication issues"
+                  throw
               }
           }
           catch {
-              Write-Warning "⚠️  Microsoft Graph connectivity test failed: $_"
-              Write-Host "   This may be due to insufficient permissions or network issues"
-              Write-Host "   This won't prevent EasyPIM operations if permissions are correctly configured"
+              Write-Warning "⚠️  Microsoft Graph authentication bridge test failed: $_"
+              Write-Host "   This is critical for EasyPIM operations - check service principal permissions"
+              Write-Host "   Required: RoleManagement.ReadWrite.Directory, Directory.Read.All"
+              throw
           }
 
           # Test 5: EasyPIM Module Functions Available

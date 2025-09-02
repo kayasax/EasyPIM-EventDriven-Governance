@@ -81,6 +81,24 @@ jobs:
           Write-Host "📦 Importing EasyPIM.Orchestrator module..."
           Import-Module EasyPIM.Orchestrator -Force -Verbose
 
+          Write-Host "🔐 Setting up Microsoft Graph authentication using Azure CLI token..."
+          
+          # Get Microsoft Graph access token from Azure CLI (already authenticated via OIDC)
+          $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+          
+          if (-not $graphToken) {
+              Write-Error "❌ Failed to obtain Microsoft Graph access token from Azure CLI"
+              exit 1
+          }
+          
+          Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..."
+          
+          # Convert token to SecureString and connect to Microsoft Graph
+          $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+          Connect-MgGraph -AccessToken $secureToken -NoWelcome
+          
+          Write-Host "✅ Connected to Microsoft Graph successfully"
+
           # Determine execution parameters
           $whatIf = '${{ github.event.inputs.WhatIf }}' -eq 'true'
           $mode = if ('${{ github.event.inputs.Mode }}') { '${{ github.event.inputs.Mode }}' } else { 'delta' }

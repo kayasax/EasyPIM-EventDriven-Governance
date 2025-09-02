@@ -1,6 +1,70 @@
 # EasyPIM CI/CD Testing Framework
 
-A comprehensive testing framework for demonstrating **EasyPIM** integration in CI/CD pipelines using the `invoke-easypimorchestrator` GitHub Action.
+A comprehensive testing framework for demonstrating **EasyPIM** integration in CI/CD pipelines using Azure Privileged Identity Management with automated workflow orchestration.
+
+## 🏗️ Architecture Overview
+
+### System Flow
+```mermaid
+flowchart LR
+    DEV[👨‍💻 Developer] --> |Push Code| GH[📂 GitHub]
+    GH --> |Trigger| CICD[🔄 CI/CD Pipeline]
+    CICD --> |Authenticate| AZURE[☁️ Azure]
+    AZURE --> |Execute| PIM[🔐 PIM Operations]
+    PIM --> |Report| RESULTS[📊 Results]
+
+    style DEV fill:#e1f5fe
+    style GH fill:#f3e5f5
+    style CICD fill:#fff3e0
+    style AZURE fill:#e8f5e8
+    style PIM fill:#fce4ec
+    style RESULTS fill:#f1f8e9
+```
+
+### Three-Phase Testing Strategy
+
+| Phase | Focus | Status Check |
+|-------|-------|--------------|
+| **🔐 Phase 1** | Authentication & Connectivity | ✅ Can we connect? |
+| **⚙️ Phase 2** | PIM Operations & Configuration | 🔧 Can we manage roles? |
+| **🔍 Phase 3** | Drift Detection & Compliance | 📋 Are we compliant? |
+
+### Key Components
+
+```mermaid
+graph TB
+    subgraph "🏠 GitHub Environment"
+        REPO[Repository]
+        WORKFLOW[Workflows]
+        SECRETS[Secrets & Variables]
+    end
+    
+    subgraph "☁️ Azure Environment"
+        AD[Azure AD]
+        KV[Key Vault]
+        PIM_SVC[PIM Service]
+    end
+    
+    subgraph "🔧 EasyPIM Engine"
+        MODULE[PowerShell Module]
+        CONFIG[Configuration]
+        OPERATIONS[Operations]
+    end
+    
+    REPO --> WORKFLOW
+    WORKFLOW --> SECRETS
+    SECRETS --> AD
+    AD --> KV
+    KV --> MODULE
+    MODULE --> CONFIG
+    CONFIG --> OPERATIONS
+    OPERATIONS --> PIM_SVC
+    
+    style REPO fill:#f9f9f9
+    style AD fill:#e3f2fd
+    style KV fill:#e8f5e8
+    style MODULE fill:#fff3e0
+```
 
 ## Overview
 
@@ -8,134 +72,199 @@ This repository demonstrates how to integrate **EasyPIM** (Privileged Identity M
 
 ## 🎯 Testing Phases
 
-### Phase 1: EasyPIM Authentication Test
-- **Workflow**: `01-auth-test.yml`
-- **Scope**: OIDC authentication, EasyPIM orchestrator connectivity
-- **Purpose**: Establish secure connection patterns using `invoke-easypimorchestrator`
+## 🎯 Testing Phases
 
-### Phase 2: PIM Read Operations
-- **Workflow**: `02-pim-read-test.yml`
-- **Scope**: List eligible roles, get PIM settings, read-only operations
-- **Purpose**: Test safe PIM query operations
+### 🔐 Phase 1: Authentication Test
+> **Goal:** Verify secure connection to Azure services  
+> **Workflow:** `01-auth-test.yml`  
+> **What it tests:** OIDC login, Key Vault access, Graph API connectivity
 
-### Phase 3: PIM Role Activation
-- **Workflow**: `03-pim-activation-test.yml`
-- **Scope**: Role activation/deactivation with EasyPIM orchestrator
-- **Purpose**: Test controlled privilege escalation
+### ⚙️ Phase 2: PIM Operations  
+> **Goal:** Execute EasyPIM orchestrator with full control  
+> **Workflow:** `02-orchestrator-test.yml`  
+> **What it tests:** Policy management, role assignments, configuration validation
 
-### Phase 4: Full Deployment Integration
-- **Workflow**: `04-full-deployment.yml`
-- **Scope**: Complete deployment with PIM-enabled roles
-- **Purpose**: Real-world deployment scenarios
+### 🔍 Phase 3: Drift Detection
+> **Goal:** Ensure configuration compliance  
+> **Integrated:** Part of Phase 2 workflow  
+> **What it tests:** Policy drift detection, compliance reporting
 
 ## 🔧 Setup Requirements
+
+### Prerequisites
+- **Azure Subscription** with PIM enabled
+- **Azure AD/Entra ID** administrative access  
+- **GitHub Repository** with Actions enabled
+
+### Quick Setup
+1. **Azure Configuration**
+   ```bash
+   # Create Azure AD App with federated credentials
+   # Assign required PIM permissions
+   # Deploy Key Vault for configuration storage
+   ```
+
+2. **GitHub Configuration**
+   ```yaml
+   # Repository Secrets (sensitive data)
+   AZURE_CLIENT_ID: "your-app-id"
+   AZURE_TENANT_ID: "your-tenant-id" 
+   AZURE_SUBSCRIPTION_ID: "your-subscription-id"
+   
+   # Repository Variables (non-sensitive)
+   AZURE_KEYVAULT_NAME: "your-keyvault-name"
+   AZURE_KEYVAULT_SECRET_NAME: "pim-config"
+   ```
+
+3. **EasyPIM Configuration**
+   ```json
+   {
+     "ProtectedUsers": ["breakglass-user-id"],
+     "PolicyTemplates": {
+       "Standard": {
+         "ActivationDuration": "PT8H",
+         "ApprovalRequired": false
+       }
+     },
+     "EntraRoles": {
+       "Policies": {
+         "User Administrator": { "Template": "Standard" }
+       }
+     }
+   }
+   ```
 
 ### Azure Configuration
 1. **Entra ID Application Registration**
    - Federated credentials for GitHub OIDC
-   - Microsoft Graph permissions:
-     - `User.Read.All`
-     - `RoleManagement.ReadWrite.Directory`
-     - `PrivilegedAccess.ReadWrite.AzureResources`
+   - Required Graph permissions for PIM operations
 
 2. **PIM Configuration**
-   - Eligible role assignments for the service principal
-   - Activation policies configured
-   - Approval workflows (if required)
+   - Eligible role assignments
+   - Activation policies
+   - Approval workflows (optional)
 
 ### GitHub Configuration
-1. **Repository Secrets**
-   ```
-   AZURE_CLIENT_ID          # Application (client) ID
-   AZURE_TENANT_ID          # Directory (tenant) ID
-   AZURE_SUBSCRIPTION_ID    # Target subscription
-   ```
+```yaml
+# Secrets (sensitive)
+AZURE_CLIENT_ID: "your-app-id"
+AZURE_TENANT_ID: "your-tenant-id" 
+AZURE_SUBSCRIPTION_ID: "your-subscription-id"
 
-2. **Environment Protection Rules**
-   - Required reviewers for production deployments
-   - Environment-specific configurations
+# Variables (non-sensitive)
+AZURE_KEYVAULT_NAME: "your-keyvault"
+AZURE_KEYVAULT_SECRET_NAME: "pim-config"
+```
 
-## 📁 Repository Structure
+## 📁 What's Included
 
 ```
-├── .github/
-│   └── workflows/              # GitHub Actions workflows
-│       ├── 01-auth-test.yml    # EasyPIM authentication test
-│       ├── 02-pim-read-test.yml
-│       ├── 03-pim-activation-test.yml
-│       └── 04-full-deployment.yml
-├── configs/                    # EasyPIM configuration files
-│   ├── pim-config.json        # Main EasyPIM configuration
-│   └── test-resources.json    # Test resource configurations
-├── docs/                      # Documentation
-│   ├── setup-guide.md         # Detailed setup instructions
-│   ├── troubleshooting.md     # Common issues and solutions
-│   └── best-practices.md      # PIM CI/CD best practices
-└── tests/                     # Test configurations
-    ├── unit/                  # Unit test scenarios
-    └── integration/           # Integration test scenarios
+📦 EasyPIM-CICD-test
+├── 🔄 .github/workflows/     # Three-phase testing workflows
+├── ⚙️ configs/              # PIM configuration examples  
+├── 📜 scripts/              # Setup and deployment scripts
+├── 📚 docs/                 # Step-by-step guides & documentation
+│   └── Step-by-Step-Guide.md # 📖 Complete setup & testing guide
+└── 🧪 tests/               # Test configurations
+```
+
+## ⚡ EasyPIM Integration
+
+### OIDC Authentication Bridge
+EasyPIM modules require `Connect-MgGraph` authentication, but our GitHub Actions use OIDC. We bridge this gap by:
+
+```yaml
+# Get Graph token from Azure CLI (already OIDC authenticated)
+$graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+
+# Use token to authenticate Graph PowerShell SDK
+$secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+Connect-MgGraph -AccessToken $secureToken -NoWelcome
+```
+
+### How It Works
+```yaml
+# Simple workflow step that does it all
+- name: 'Run EasyPIM Orchestrator'
+  shell: pwsh
+  run: |
+    # Install modules
+    Install-Module EasyPIM.Orchestrator -Force
+    
+    # Bridge OIDC authentication to Graph SDK
+    $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+    Connect-MgGraph -AccessToken (ConvertTo-SecureString $graphToken -AsPlainText -Force) -NoWelcome
+    
+    # Execute EasyPIM operations
+    Invoke-EasyPIMOrchestrator `
+      -KeyVaultName ${{ vars.AZURE_KEYVAULT_NAME }} `
+      -TenantId ${{ secrets.AZURE_TENANT_ID }} `
+      -WhatIf:${{ inputs.WhatIf }}
+```
+
+### Available Controls
+
+| Input | Purpose | Default |
+|-------|---------|---------|
+| **WhatIf** | Preview without changes | `true` ✅ |
+| **Mode** | `delta` or `initial` | `delta` |
+| **SkipPolicies** | Assignments only | `false` |
+| **SkipAssignments** | Policies only | `false` |
+| **Force** | Skip confirmations | `false` |
+| **Verbose** | Detailed logging | `false` |
+
+### Configuration Example
+
+```json
+{
+  "ProtectedUsers": ["emergency-access-account-id"],
+  "PolicyTemplates": {
+    "Standard": {
+      "ActivationDuration": "PT8H",
+      "ApprovalRequired": false
+    },
+    "HighSecurity": {
+      "ActivationDuration": "PT2H", 
+      "ApprovalRequired": true,
+      "Approvers": [{"id": "security-team-id"}]
+    }
+  },
+  "EntraRoles": {
+    "Policies": {
+      "User Administrator": {"Template": "Standard"},
+      "Global Administrator": {"Template": "HighSecurity"}
+    }
+  },
+  "Assignments": {
+    "EntraRoles": [{
+      "roleName": "User Administrator",
+      "assignments": [{
+        "principalId": "user-id",
+        "assignmentType": "Eligible",
+        "justification": "Administrative access"
+      }]
+    }]
+  }
+}
 ```
 
 ## 🚀 Quick Start
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/kayasax/EasyPIM-CICD-test.git
-   cd EasyPIM-CICD-test
+1. **Fork this repository**
+2. **Set up Azure resources** using our deployment script:
+   ```powershell
+   .\scripts\deploy-azure-resources.ps1
    ```
+3. **Configure GitHub secrets** automatically:
+   ```powershell
+   .\scripts\configure-github-cicd.ps1
+   ```
+4. **Run Phase 1** to test authentication
+5. **Run Phase 2** to execute PIM operations
 
-2. **Configure Azure resources** (see `docs/setup-guide.md`)
+> 💡 **Tip:** Start with `WhatIf=true` to preview changes safely!
 
-3. **Set up GitHub secrets** (see configuration section above)
-
-4. **Run Phase 1 workflow**
-   - Navigate to Actions tab in GitHub
-   - Select "Phase 1: EasyPIM Authentication Test"
-   - Click "Run workflow"
-
-## 🔍 EasyPIM Integration
-
-### Using invoke-easypimorchestrator Action
-
-All workflows use the official `kayasax/invoke-easypimorchestrator` GitHub Action:
-
-```yaml
-- name: 'List Eligible Roles'
-  uses: kayasax/invoke-easypimorchestrator@main
-  with:
-    operation: 'ListEligibleRoles'
-    config-path: './configs/pim-config.json'
-    dry-run: true
-```
-
-### Configuration Schema
-
-The `pim-config.json` follows the EasyPIM standard schema:
-
-```json
-{
-  "version": "1.0",
-  "configuration": {
-    "tenant_id": "{{ .Env.AZURE_TENANT_ID }}",
-    "subscription_id": "{{ .Env.AZURE_SUBSCRIPTION_ID }}",
-    "dry_run": true
-  },
-  "pim_groups": [
-    {
-      "group_name": "Development Environment Access",
-      "roles": [
-        {
-          "role_definition_id": "21090545-7ca7-4776-b22c-e363652d74d2",
-          "role_name": "Key Vault Reader",
-          "scope": "/subscriptions/.../resourceGroups/rg-dev",
-          "justification": "CI/CD pipeline access",
-          "duration": "PT1H"
-        }
-      ]
-    }
-  ]
-}
-```
+> 📖 **Need detailed instructions?** See our comprehensive [Step-by-Step Guide](docs/Step-by-Step-Guide.md) for complete setup and testing procedures.
 
 ## 📊 Monitoring & Logging
 
