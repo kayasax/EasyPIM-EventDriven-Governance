@@ -128,9 +128,16 @@ jobs:
               Import-Module Az.Accounts -Force
               Import-Module Az.KeyVault -Force
 
-              # Try the most compatible authentication method first: Service Principal with OIDC
-              Write-Host "🔗 Connecting to Azure PowerShell with service principal OIDC..."
-              Connect-AzAccount -TenantId $env:TENANT_ID -Subscription $env:SUBSCRIPTION_ID -Identity -ErrorAction Stop
+              # Check if Azure PowerShell session is already established by azure/login@v2
+              Write-Host "🔗 Verifying Azure PowerShell session established by azure/login@v2..."
+              $azContext = Get-AzContext -ErrorAction SilentlyContinue
+              if (-not $azContext) {
+                  Write-Host "🔗 No existing session found, connecting to Azure PowerShell with OIDC..."
+                  # Since azure/login@v2 with enable-AzPSSession should handle this, try without -Identity
+                  Connect-AzAccount -TenantId $env:TENANT_ID -Subscription $env:SUBSCRIPTION_ID -ErrorAction Stop
+              } else {
+                  Write-Host "✅ Azure PowerShell session already established by azure/login@v2"
+              }
 
               # Verify Azure PowerShell connection and set subscription context
               $azContext = Get-AzContext
