@@ -155,7 +155,7 @@ jobs:
           try {
               # Test if EasyPIM recognizes the Graph session using cmdlets it typically checks
               $authTest = Get-MgContext
-              $roleTest = Get-MgDirectoryRole -Top 1 -ErrorAction Stop
+              $roleTest = Get-MgDirectoryRole -ErrorAction Stop | Select-Object -First 1
 
               if ($authTest -and $roleTest) {
                   Write-Host "✅ EasyPIM authentication prerequisites verified"
