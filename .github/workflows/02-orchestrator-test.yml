@@ -106,6 +106,57 @@ jobs:
               exit 1
           }
 
+          # Connect to Azure PowerShell using OIDC as well (EasyPIM requires both!)
+          Write-Host "🔗 Setting up Azure PowerShell authentication for EasyPIM compatibility..."
+          try {
+              # Get Azure management token from Azure CLI for Azure PowerShell
+              $azToken = az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv
+              
+              if (-not $azToken) {
+                  Write-Error "❌ Failed to obtain Azure management access token from Azure CLI"
+                  exit 1
+              }
+              
+              Write-Host "✅ Successfully obtained Azure management token"
+              
+              # Install Az.Accounts if not available (needed for Connect-AzAccount)
+              if (-not (Get-Module -ListAvailable Az.Accounts)) {
+                  Write-Host "📦 Installing Az.Accounts module..."
+                  Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
+              }
+              
+              # Import Az.Accounts
+              Import-Module Az.Accounts -Force
+              
+              # Connect to Azure PowerShell using access token
+              Write-Host "🔗 Connecting to Azure PowerShell with OIDC token..."
+              Connect-AzAccount -AccessToken $azToken -TenantId $env:TENANT_ID -AccountId $env:AZURE_CLIENT_ID
+              
+              # Verify Azure PowerShell connection
+              $azContext = Get-AzContext
+              if ($azContext) {
+                  Write-Host "✅ Azure PowerShell authentication successful"
+                  Write-Host "   Account: $($azContext.Account)"
+                  Write-Host "   Tenant: $($azContext.Tenant)"
+                  Write-Host "   Subscription: $($azContext.Subscription)"
+              } else {
+                  Write-Warning "⚠️  Azure PowerShell context not found - this may cause EasyPIM to fail"
+              }
+              
+          } catch {
+              Write-Warning "⚠️  Azure PowerShell authentication failed: $($_.Exception.Message)"
+              Write-Host "🔧 Attempting alternative Azure PowerShell authentication..."
+              
+              try {
+                  # Alternative: Use service principal authentication method
+                  Connect-AzAccount -TenantId $env:TENANT_ID -Subscription $env:SUBSCRIPTION_ID -Identity -ErrorAction Stop
+                  Write-Host "✅ Alternative Azure PowerShell authentication successful"
+              } catch {
+                  Write-Warning "⚠️  All Azure PowerShell authentication methods failed - EasyPIM may not work properly"
+                  Write-Host "🔧 Proceeding anyway - some EasyPIM operations might still work with Graph-only authentication"
+              }
+          }
+
           Write-Host "�🚀 Installing EasyPIM modules from PowerShell Gallery..."
 
           # Install required modules from PowerShell Gallery AFTER Graph connection
