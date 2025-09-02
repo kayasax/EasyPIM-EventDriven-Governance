@@ -5,14 +5,7 @@ on:
     inputs:
       WhatIf:
         description: "Preview mode - show what would be done without making changes"
-        re          Write-Host "🚀 Installing EasyPIM modules from PowerShell Gallery..."
-
-          # Install modules efficiently - install both together to share dependencies
-          Write-Host "📦 Installing EasyPIM and EasyPIM.Orchestrator (with shared dependencies)..."
-          Install-Module -Name EasyPIM, EasyPIM.Orchestrator -Force -Scope CurrentUser -AllowClobber
-
-          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
-          Import-Module EasyPIM.Orchestrator -Forcefalse
+        required: false
         default: true
         type: boolean
       Mode:
@@ -125,7 +118,7 @@ jobs:
               if (-not (Get-Module -ListAvailable Az.KeyVault)) {
                   $missingModules += "Az.KeyVault"
               }
-              
+
               if ($missingModules.Count -gt 0) {
                   Write-Host "📦 Installing Azure modules: $($missingModules -join ', ')..."
                   Install-Module -Name $missingModules -Force -Scope CurrentUser -AllowClobber
@@ -213,9 +206,6 @@ jobs:
 
           Write-Host "📦 Importing EasyPIM.Orchestrator module..."
           Import-Module EasyPIM.Orchestrator -Force
-
-          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
-          Import-Module EasyPIM.Orchestrator -Force -Verbose
 
           # Test Graph API access to ensure authentication works for EasyPIM
           try {
