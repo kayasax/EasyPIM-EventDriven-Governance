@@ -214,75 +214,36 @@ jobs:
           Write-Host "📦 Importing EasyPIM.Orchestrator module..."
           Import-Module EasyPIM.Orchestrator -Force
 
-          # === ARM AUTHENTICATION HOTFIX FOR GITHUB ACTIONS OIDC ===
-          Write-Host "🔧 Applying ARM authentication hotfix for GitHub Actions OIDC..." -ForegroundColor Cyan
+          # === CRITICAL ARM AUTHENTICATION FIX ===
+          Write-Host "� CRITICAL: Applying ARM authentication fix..." -ForegroundColor Red
 
-          # Get ARM token from Azure CLI (this works with azure/login@v2)
+          # Get ARM token that actually works in GitHub Actions
           $armToken = az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv
-
-          if (-not $armToken) {
-              Write-Error "❌ Failed to get ARM token from Azure CLI - OIDC setup issue"
-              exit 1
+          if (-not $armToken) { 
+              Write-Error "❌ Failed to get ARM token"
+              exit 1 
           }
 
-          # Set environment variables for EasyPIM fallback
+          # Store for global access
           $env:AZURE_ACCESS_TOKEN = $armToken
-          $env:ARM_ACCESS_TOKEN = $armToken
 
-          Write-Host "✅ Set ARM token environment variables for EasyPIM" -ForegroundColor Green
-
-          # Override Invoke-ARM function to prioritize environment variable authentication
-          function Invoke-ARM {
+          # CRITICAL: Override Invoke-ARM globally so module calls use it
+          function Global:Invoke-ARM {
               [CmdletBinding()]
-              param (
-                  [Parameter(Position = 0, Mandatory = $true)]
-                  [ValidateNotNullOrEmpty()]
-                  [System.String]
-                  $restURI,
-                  [Parameter(Position = 1)]
-                  [System.String]
-                  $method = "GET",
-                  [Parameter(Position = 2)]
-                  [System.String]
-                  $body = "",
-                  [Parameter(Position = 3)]
-                  [System.String]
-                  $SubscriptionId
-              )
-
-              try {
-                  # Use the token we set from Azure CLI
-                  $token = $env:AZURE_ACCESS_TOKEN
-
-                  if (-not $token) {
-                      throw "No ARM access token available in environment variables"
-                  }
-
-                  $headers = @{
-                      'Authorization' = "Bearer $token"
-                      'Content-Type' = 'application/json'
-                  }
-
-                  $requestParams = @{
-                      Uri = $restURI
-                      Method = $method
-                      Headers = $headers
-                      ErrorAction = 'Stop'
-                  }
-
-                  if ($method -in @("POST", "PUT", "PATCH") -and $body) {
-                      $requestParams.Body = $body
-                  }
-
-                  return Invoke-RestMethod @requestParams
-
-              } catch {
-                  throw "ARM API call failed: $($_.Exception.Message)"
-              }
+              param([Parameter(Mandatory = $true)][string]$restURI, [string]$method = "GET", [string]$body = "", [string]$SubscriptionId)
+              
+              $headers = @{ 'Authorization' = "Bearer $env:AZURE_ACCESS_TOKEN"; 'Content-Type' = 'application/json' }
+              $params = @{ Uri = $restURI; Method = $method; Headers = $headers; ErrorAction = 'Stop' }
+              if ($method -in @("POST", "PUT", "PATCH") -and $body) { $params.Body = $body }
+              
+              return Invoke-RestMethod @params
           }
 
-          Write-Host "✅ ARM authentication hotfix applied successfully" -ForegroundColor Green
-          # === END HOTFIX ===
+          # Force module to see our function
+          Set-Alias -Name Invoke-ARM -Value Global:Invoke-ARM -Scope Global -Force
+
+          Write-Host "✅ CRITICAL FIX APPLIED" -ForegroundColor Green
+          # === END CRITICAL FIX ===
 
           # Test Graph API access to ensure authentication works for EasyPIM
           try {
