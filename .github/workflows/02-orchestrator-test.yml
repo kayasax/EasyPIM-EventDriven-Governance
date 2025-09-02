@@ -273,7 +273,7 @@ jobs:
 
               # Disconnect and reconnect with the exact pattern EasyPIM expects
               Disconnect-MgGraph -ErrorAction SilentlyContinue
-              Connect-MgGraph -AccessToken $secureToken -Scopes @('RoleManagement.ReadWrite.Directory') -NoWelcome
+              Connect-MgGraph -AccessToken $secureToken -NoWelcome
 
               # Verify the connection one more time
               $finalContext = Get-MgContext
@@ -283,6 +283,10 @@ jobs:
               }
 
               Write-Host "✅ Final Graph context verified for EasyPIM execution"
+              
+              # Display final parameters for debugging
+              Write-Host "🔧 Final Parameters to Invoke-EasyPIMOrchestrator:"
+              $orchestratorParams.GetEnumerator() | ForEach-Object { Write-Host "   $($_.Key): $($_.Value)" }
 
               Invoke-EasyPIMOrchestrator @orchestratorParams
               Write-Host "✅ EasyPIM Orchestrator completed successfully"
