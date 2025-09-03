@@ -67,7 +67,16 @@ function global:Send-TelemetryEventFromConfig {
         # Try to get telemetry identifier
         $TenantIdentifier = $null
         try {
-            $TenantIdentifier = Get-TelemetryIdentifier -TenantId $Context.TenantId
+            # Try EasyPIM's Get-TelemetryIdentifier first
+            if (Get-Command Get-TelemetryIdentifier -ErrorAction SilentlyContinue) {
+                $TenantIdentifier = Get-TelemetryIdentifier -TenantId $Context.TenantId
+            } else {
+                # Create a simple hash-based identifier as fallback
+                $hasher = [System.Security.Cryptography.SHA256]::Create()
+                $hash = $hasher.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Context.TenantId))
+                $TenantIdentifier = [System.BitConverter]::ToString($hash).Replace('-', '').Substring(0, 16).ToLower()
+                Write-Host "🔧 [DEBUG] Created fallback tenant identifier" -ForegroundColor Cyan
+            }
         }
         catch {
             Write-Host "❌ [DEBUG] Failed to create telemetry identifier: $($_.Exception.Message)" -ForegroundColor Red
