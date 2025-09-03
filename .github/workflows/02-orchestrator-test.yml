@@ -176,8 +176,9 @@ jobs:
           Write-Host "🔧 Retrieved parameters from environment" -ForegroundColor Blue
           $orchestratorParams = $env:ORCHESTRATOR_PARAMS | ConvertFrom-Json -AsHashtable
 
-          # Execute using the dedicated script (no GraphContext needed - script handles authentication)
-          & "./scripts/workflows/Invoke-EasyPIMExecution.ps1" -OrchestratorParams $orchestratorParams
+          # Execute using the dedicated script WITH ultimate telemetry wrapper
+          Write-Host "🎯 Using Ultimate Telemetry Wrapper for guaranteed telemetry events!" -ForegroundColor Magenta
+          & "./scripts/workflows/Invoke-EasyPIMExecution.ps1" -OrchestratorParams $orchestratorParams -UseUltimateWrapper
 
       - name: 'Upload EasyPIM Logs and Artifacts'
         if: always()
