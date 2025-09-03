@@ -30,8 +30,16 @@ jobs:
 
       - name: 'Setup Authentication'
         shell: pwsh
+        env:
+          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         run: |
-          & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1"
+          $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
+          if (-not $authResult.Success) {
+            Write-Error "❌ Authentication setup failed: $($authResult.Message)"
+            exit 1
+          }
 
       - name: 'Install EasyPIM Modules'
         shell: pwsh
