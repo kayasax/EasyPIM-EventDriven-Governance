@@ -6,7 +6,10 @@ param(
     [hashtable]$OrchestratorParams,
 
     [Parameter(Mandatory = $false)]
-    [object]$GraphContext = $null
+    [object]$GraphContext = $null,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$UseUltimateWrapper
 )
 
 Write-Host "🎯 Executing: Invoke-EasyPIMOrchestrator" -ForegroundColor Cyan
@@ -98,8 +101,35 @@ try {
         Write-Host "🔧 Loading EasyPIM Telemetry Hotpatch..." -ForegroundColor Cyan
         . "./scripts/workflows/Apply-EasyPIMTelemetryHotpatch.ps1"
 
-        # Execute EasyPIM Orchestrator
-        Invoke-EasyPIMOrchestrator @OrchestratorParams
+        # Execute EasyPIM Orchestrator with wrapper if requested
+        if ($UseUltimateWrapper) {
+            Write-Host "🎯 Using Ultimate Telemetry Wrapper - GUARANTEES telemetry events!" -ForegroundColor Magenta
+            
+            # Convert hashtable params to wrapper function call
+            if ($OrchestratorParams.ContainsKey('KeyVaultName') -and $OrchestratorParams.ContainsKey('SecretName')) {
+                $wrapperParams = @{
+                    KeyVaultName = $OrchestratorParams.KeyVaultName
+                    SecretName = $OrchestratorParams.SecretName
+                }
+                
+                # Add optional parameters
+                if ($OrchestratorParams.ContainsKey('TenantId')) { $wrapperParams.TenantId = $OrchestratorParams.TenantId }
+                if ($OrchestratorParams.ContainsKey('SubscriptionId')) { $wrapperParams.SubscriptionId = $OrchestratorParams.SubscriptionId }
+                if ($OrchestratorParams.ContainsKey('Mode')) { $wrapperParams.Mode = $OrchestratorParams.Mode }
+                if ($OrchestratorParams.ContainsKey('WhatIf') -and $OrchestratorParams.WhatIf) { $wrapperParams.WhatIf = $true }
+                if ($OrchestratorParams.ContainsKey('SkipPolicies') -and $OrchestratorParams.SkipPolicies) { $wrapperParams.SkipPolicies = $true }
+                if ($OrchestratorParams.ContainsKey('SkipAssignments') -and $OrchestratorParams.SkipAssignments) { $wrapperParams.SkipAssignments = $true }
+                if ($OrchestratorParams.ContainsKey('SkipCleanup') -and $OrchestratorParams.SkipCleanup) { $wrapperParams.SkipCleanup = $true }
+                
+                Invoke-EasyPIMOrchestratorWithTelemetry @wrapperParams
+            } else {
+                Write-Host "⚠️  Ultimate wrapper requires KeyVault parameters - falling back to standard orchestrator" -ForegroundColor Yellow
+                Invoke-EasyPIMOrchestrator @OrchestratorParams
+            }
+        } else {
+            # Standard execution
+            Invoke-EasyPIMOrchestrator @OrchestratorParams
+        }
     } catch {
         # Check for common Key Vault access issues
         $errorMessage = $_.Exception.Message
