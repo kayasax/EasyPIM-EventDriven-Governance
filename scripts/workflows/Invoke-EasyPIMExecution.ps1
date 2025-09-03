@@ -47,13 +47,14 @@ try {
     Write-Host "🔧 Final Parameters to Invoke-EasyPIMOrchestrator:" -ForegroundColor Blue
     $OrchestratorParams.GetEnumerator() | ForEach-Object { Write-Host "   $($_.Key): $($_.Value)" }
 
+    
     # Pre-flight check for Key Vault connectivity (if using Key Vault)
     if ($OrchestratorParams.ContainsKey('KeyVaultName')) {
         Write-Host "🔍 Testing Key Vault connectivity..." -ForegroundColor Blue
         try {
             $kvName = $OrchestratorParams.KeyVaultName
             $secretName = $OrchestratorParams.SecretName
-            
+
             # Test Key Vault access
             $testResult = Get-AzKeyVaultSecret -VaultName $kvName -Name $secretName -AsPlainText -ErrorAction Stop
             if ($testResult) {
@@ -64,7 +65,7 @@ try {
         } catch {
             $kvError = $_.Exception.Message
             Write-Host "⚠️  Key Vault connectivity test failed: $kvError" -ForegroundColor Yellow
-            
+
             # Provide specific guidance based on error type
             if ($kvError -match "network access" -or $kvError -match "Forbidden" -or $kvError -match "403") {
                 Write-Host "💡 TIP: Key Vault may be blocking public network access" -ForegroundColor Cyan
@@ -76,7 +77,7 @@ try {
                 Write-Host "💡 TIP: Key Vault or secret may not exist" -ForegroundColor Cyan
                 Write-Host "   Verify Key Vault name and secret name are correct" -ForegroundColor Cyan
             }
-            
+
             Write-Host "🚀 Proceeding with execution - EasyPIM will provide detailed error if this fails..." -ForegroundColor Yellow
         }
     }
@@ -103,14 +104,14 @@ try {
         # Check for common Key Vault access issues
         $errorMessage = $_.Exception.Message
         $innerException = $_.Exception.InnerException?.Message
-        
-        if ($errorMessage -match "network access" -or 
-            $errorMessage -match "public network" -or 
-            $errorMessage -match "Forbidden" -or 
+
+        if ($errorMessage -match "network access" -or
+            $errorMessage -match "public network" -or
+            $errorMessage -match "Forbidden" -or
             $errorMessage -match "403" -or
-            $innerException -match "network access" -or 
+            $innerException -match "network access" -or
             $innerException -match "public network") {
-            
+
             Write-Host "🚨 KEY VAULT NETWORK ACCESS ISSUE DETECTED" -ForegroundColor Red
             Write-Host "❌ Error: Key Vault is likely blocking public network access" -ForegroundColor Red
             Write-Host "" -ForegroundColor White
@@ -123,28 +124,28 @@ try {
             Write-Host "📋 To enable public access temporarily:" -ForegroundColor Blue
             Write-Host "   az keyvault update --name `"$($OrchestratorParams.KeyVaultName)`" --default-action Allow" -ForegroundColor Gray
             Write-Host "" -ForegroundColor White
-            
-        } elseif ($errorMessage -match "authentication" -or 
-                  $errorMessage -match "unauthorized" -or 
+
+        } elseif ($errorMessage -match "authentication" -or
+                  $errorMessage -match "unauthorized" -or
                   $errorMessage -match "401") {
-            
+
             Write-Host "🚨 KEY VAULT AUTHENTICATION ISSUE DETECTED" -ForegroundColor Red
             Write-Host "❌ Error: Service principal lacks Key Vault permissions" -ForegroundColor Red
             Write-Host "" -ForegroundColor White
             Write-Host "🔧 SOLUTION:" -ForegroundColor Yellow
             Write-Host "   Grant 'Key Vault Secrets User' role to the service principal" -ForegroundColor Cyan
             Write-Host "" -ForegroundColor White
-            
-        } elseif ($errorMessage -match "secret.*not found" -or 
+
+        } elseif ($errorMessage -match "secret.*not found" -or
                   $errorMessage -match "404") {
-            
+
             Write-Host "🚨 KEY VAULT SECRET NOT FOUND" -ForegroundColor Red
             Write-Host "❌ Error: Secret '$($OrchestratorParams.SecretName)' not found in Key Vault" -ForegroundColor Red
             Write-Host "" -ForegroundColor White
             Write-Host "🔧 SOLUTION:" -ForegroundColor Yellow
             Write-Host "   Verify the secret name and ensure it exists in the Key Vault" -ForegroundColor Cyan
             Write-Host "" -ForegroundColor White
-            
+
         } else {
             Write-Host "🚨 EASYPIM EXECUTION ERROR" -ForegroundColor Red
             Write-Host "❌ Error: $errorMessage" -ForegroundColor Red
@@ -152,7 +153,7 @@ try {
                 Write-Host "❌ Inner Exception: $innerException" -ForegroundColor Red
             }
         }
-        
+
         # Re-throw the error to maintain proper exit codes
         throw
     }

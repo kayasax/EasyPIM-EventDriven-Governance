@@ -1,13 +1,16 @@
-# EasyPIM Telemetry Hotpatch Script
-# This script patches the current PowerShell session to support telemetry with KeyVault configurations
-# Run this before using Invoke-EasyPIMOrchestrator with KeyVault configurations
+# EasyPIM Ultimate Telemetry Hotpatch Script
+# This script provides an enhanced telemetry function and wrapper for guaranteed telemetry capture
+# Run this before using the EasyPIM orchestrator to ensure telemetry events are properly sent
 
 [CmdletBinding()]
 param()
 
-Write-Host "🔧 Applying EasyPIM Telemetry Hotpatch..." -ForegroundColor Cyan
+# 🎯 Ultimate EasyPIM Telemetry Hotpatch - Direct Orchestrator Interception
+# This script creates a wrapper around the orchestrator to ensure telemetry is called
 
-# Override the Send-TelemetryEventFromConfig function with fixed logic
+Write-Host "🚀 Applying Ultimate Telemetry Hotpatch..." -ForegroundColor Cyan
+
+# First, apply our Send-TelemetryEventFromConfig fix
 function global:Send-TelemetryEventFromConfig {
     [CmdletBinding()]
     param(
@@ -71,11 +74,11 @@ function global:Send-TelemetryEventFromConfig {
             if (Get-Command Get-TelemetryIdentifier -ErrorAction SilentlyContinue) {
                 $TenantIdentifier = Get-TelemetryIdentifier -TenantId $Context.TenantId
             } else {
-                # Create a simple hash-based identifier as fallback
+                # Create a fallback identifier if the function doesn't exist
+                Write-Host "🔧 [DEBUG] Creating fallback tenant identifier" -ForegroundColor Yellow
                 $hasher = [System.Security.Cryptography.SHA256]::Create()
                 $hash = $hasher.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Context.TenantId))
                 $TenantIdentifier = [System.BitConverter]::ToString($hash).Replace('-', '').Substring(0, 16).ToLower()
-                Write-Host "🔧 [DEBUG] Created fallback tenant identifier" -ForegroundColor Cyan
             }
         }
         catch {
@@ -92,7 +95,7 @@ function global:Send-TelemetryEventFromConfig {
 
         # Enhance properties
         $EnhancedProperties = $Properties.Clone()
-        $EnhancedProperties.module_version = "1.1.8-hotpatch"
+        $EnhancedProperties.module_version = "1.1.8-ultimate-hotpatch"
         $EnhancedProperties.powershell_version = $PSVersionTable.PSVersion.ToString()
         $EnhancedProperties.timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         $EnhancedProperties.tenant_id = $TenantIdentifier
@@ -111,7 +114,7 @@ function global:Send-TelemetryEventFromConfig {
             }
 
             $Body = $EventData | ConvertTo-Json -Depth 10 -Compress
-            $Response = Invoke-RestMethod -Uri $PostHogApiUrl -Method Post -Body $Body -ContentType "application/json" -TimeoutSec 5 -ErrorAction Stop
+            $null = Invoke-RestMethod -Uri $PostHogApiUrl -Method Post -Body $Body -ContentType "application/json" -TimeoutSec 5 -ErrorAction Stop
             
             Write-Host "✅ [DEBUG] Telemetry event sent successfully: $EventName" -ForegroundColor Green
         }
@@ -125,16 +128,148 @@ function global:Send-TelemetryEventFromConfig {
     }
 }
 
-# Verify orchestrator function is available
-$originalFunction = Get-Command Invoke-EasyPIMOrchestrator -ErrorAction SilentlyContinue
-if ($originalFunction) {
-    Write-Host "✅ Found Invoke-EasyPIMOrchestrator - telemetry will be properly routed" -ForegroundColor Green
-} else {
-    Write-Host "⚠️  Invoke-EasyPIMOrchestrator not found - please import EasyPIM.Orchestrator module" -ForegroundColor Yellow
+# Now create a wrapper orchestrator function that calls telemetry explicitly
+function global:Invoke-EasyPIMOrchestratorWithTelemetry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'KeyVault')]
+        [string]$KeyVaultName,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'KeyVault')]
+        [string]$SecretName,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'FilePath')]
+        [string]$ConfigFilePath,
+        
+        [Parameter(Mandatory = $false)]
+        [string]$TenantId,
+        
+        [Parameter(Mandatory = $false)]
+        [string]$SubscriptionId,
+        
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("initial", "delta")]
+        [string]$Mode = "delta",
+        
+        [switch]$WhatIf,
+        [switch]$SkipPolicies,
+        [switch]$SkipAssignments,
+        [switch]$SkipCleanup
+    )
+    
+    Write-Host "🎯 [WRAPPER] Starting Orchestrator with Telemetry Wrapper" -ForegroundColor Cyan
+    
+    try {
+        # Load configuration first to get telemetry settings
+        $loadedConfig = $null
+        if ($PSCmdlet.ParameterSetName -eq 'KeyVault') {
+            Write-Host "📥 [WRAPPER] Loading KeyVault configuration..." -ForegroundColor Yellow
+            
+            # Load config manually since Get-EasyPIMConfiguration might not be available
+            try {
+                $configJson = Get-AzKeyVaultSecret -VaultName $KeyVaultName -Name $SecretName -AsPlainText
+                $loadedConfig = $configJson | ConvertFrom-Json
+            }
+            catch {
+                Write-Host "⚠️ [WRAPPER] Failed to load KeyVault config, trying Get-EasyPIMConfiguration..." -ForegroundColor Yellow
+                $loadedConfig = Get-EasyPIMConfiguration -KeyVaultName $KeyVaultName -SecretName $SecretName
+            }
+        } else {
+            Write-Host "📥 [WRAPPER] Loading file configuration..." -ForegroundColor Yellow
+            $loadedConfig = Get-EasyPIMConfiguration -ConfigFilePath $ConfigFilePath
+        }
+        
+        if (-not $loadedConfig) {
+            throw "Failed to load configuration"
+        }
+        
+        Write-Host "✅ [WRAPPER] Configuration loaded successfully" -ForegroundColor Green
+        
+        # Send startup telemetry
+        $sessionId = [System.Guid]::NewGuid().ToString()
+        $startupProperties = @{
+            execution_mode = if ($WhatIf) { "WhatIf" } else { $Mode }
+            config_source = if ($PSCmdlet.ParameterSetName -eq 'KeyVault') { "KeyVault" } else { "File" }
+            skip_assignments = $SkipAssignments.IsPresent
+            skip_cleanup = $SkipCleanup.IsPresent
+            skip_policies = $SkipPolicies.IsPresent
+            session_id = $sessionId
+            wrapper_version = "ultimate-hotpatch"
+        }
+        
+        Write-Host "📊 [WRAPPER] Sending startup telemetry..." -ForegroundColor Cyan
+        Send-TelemetryEventFromConfig -EventName "orchestrator_startup" -Properties $startupProperties -Config $loadedConfig
+        
+        # Build parameters for the real orchestrator
+        $orchestratorParams = @{}
+        
+        if ($PSCmdlet.ParameterSetName -eq 'KeyVault') {
+            $orchestratorParams.KeyVaultName = $KeyVaultName
+            $orchestratorParams.SecretName = $SecretName
+        } else {
+            $orchestratorParams.ConfigFilePath = $ConfigFilePath
+        }
+        
+        if ($TenantId) { $orchestratorParams.TenantId = $TenantId }
+        if ($SubscriptionId) { $orchestratorParams.SubscriptionId = $SubscriptionId }
+        if ($Mode) { $orchestratorParams.Mode = $Mode }
+        if ($WhatIf) { $orchestratorParams.WhatIf = $true }
+        if ($SkipPolicies) { $orchestratorParams.SkipPolicies = $true }
+        if ($SkipAssignments) { $orchestratorParams.SkipAssignments = $true }
+        if ($SkipCleanup) { $orchestratorParams.SkipCleanup = $true }
+        
+        Write-Host "🚀 [WRAPPER] Calling original Invoke-EasyPIMOrchestrator..." -ForegroundColor Green
+        
+        # Call the original orchestrator
+        $startTime = Get-Date
+        $result = Invoke-EasyPIMOrchestrator @orchestratorParams
+        $endTime = Get-Date
+        
+        # Send completion telemetry
+        $completionProperties = @{
+            execution_mode = if ($WhatIf) { "WhatIf" } else { $Mode }
+            config_source = if ($PSCmdlet.ParameterSetName -eq 'KeyVault') { "KeyVault" } else { "File" }
+            success = $true
+            execution_duration_seconds = [math]::Round(($endTime - $startTime).TotalSeconds, 2)
+            session_id = $sessionId
+            wrapper_version = "ultimate-hotpatch"
+        }
+        
+        Write-Host "✅ [WRAPPER] Sending completion telemetry..." -ForegroundColor Green
+        Send-TelemetryEventFromConfig -EventName "orchestrator_completion" -Properties $completionProperties -Config $loadedConfig
+        
+        return $result
+        
+    } catch {
+        Write-Host "❌ [WRAPPER] Orchestrator failed: $($_.Exception.Message)" -ForegroundColor Red
+        
+        # Send error telemetry
+        if ($loadedConfig -and $sessionId) {
+            $errorProperties = @{
+                execution_mode = if ($WhatIf) { "WhatIf" } else { $Mode }
+                config_source = if ($PSCmdlet.ParameterSetName -eq 'KeyVault') { "KeyVault" } else { "File" }
+                success = $false
+                error_type = $_.Exception.GetType().Name
+                session_id = $sessionId
+                wrapper_version = "ultimate-hotpatch"
+            }
+            
+            Write-Host "❌ [WRAPPER] Sending error telemetry..." -ForegroundColor Red
+            try {
+                Send-TelemetryEventFromConfig -EventName "orchestrator_error" -Properties $errorProperties -Config $loadedConfig
+            } catch {
+                Write-Host "❌ [WRAPPER] Error telemetry also failed: $($_.Exception.Message)" -ForegroundColor Red
+            }
+        }
+        
+        throw
+    }
 }
 
-Write-Host "✅ Telemetry hotpatch applied successfully!" -ForegroundColor Green
-Write-Host "📊 Debug messages will show telemetry flow when you run the orchestrator" -ForegroundColor Green
+Write-Host "✅ Ultimate Telemetry Hotpatch applied successfully!" -ForegroundColor Green
+Write-Host "📋 New functions available:" -ForegroundColor Cyan
+Write-Host "   - Send-TelemetryEventFromConfig (patched)" -ForegroundColor White
+Write-Host "   - Invoke-EasyPIMOrchestratorWithTelemetry (wrapper)" -ForegroundColor White
 Write-Host ""
-Write-Host "🎯 Now run your orchestrator with KeyVault config:" -ForegroundColor Cyan
-Write-Host "   Invoke-EasyPIMOrchestrator -KeyVaultName 'YourVault' -SecretName 'easypim-config-json'" -ForegroundColor White
+Write-Host "🎯 Use the wrapper function to ensure telemetry:" -ForegroundColor Cyan
+Write-Host "   Invoke-EasyPIMOrchestratorWithTelemetry -KeyVaultName 'kv-easypim-8368' -SecretName 'easypim-config-json' -TenantId 'your-tenant' -WhatIf" -ForegroundColor White
