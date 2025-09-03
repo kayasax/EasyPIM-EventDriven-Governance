@@ -55,6 +55,7 @@ jobs:
           & "./scripts/workflows/Install-EasyPIMModules.ps1"
 
       - name: 'Configure Drift Detection Parameters'
+        id: config
         shell: pwsh
         run: |
           Write-Host "� Configuring drift detection parameters..." -ForegroundColor Cyan
@@ -102,15 +103,19 @@ jobs:
               Write-Host "   Verbose: enabled"
           }
 
-          # Store parameters as environment variable for next step
-          $env:DRIFT_PARAMS = ($driftParams | ConvertTo-Json -Depth 3 -Compress)
+          # Store parameters as step output instead of environment variable
+          $paramsJson = ($driftParams | ConvertTo-Json -Depth 3 -Compress)
+          "drift-params=$paramsJson" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "✅ Parameters configured successfully" -ForegroundColor Green
 
       - name: 'Execute Policy Drift Detection'
         shell: pwsh
         run: |
-          # Retrieve parameters from environment
-          $driftParams = $env:DRIFT_PARAMS | ConvertFrom-Json -AsHashtable
+          # Retrieve parameters from step output
+          $driftParamsJson = '${{ steps.config.outputs.drift-params }}'
+          Write-Host "📥 Retrieved parameters JSON: $($driftParamsJson.Substring(0, [Math]::Min(100, $driftParamsJson.Length)))..." -ForegroundColor Gray
+          
+          $driftParams = $driftParamsJson | ConvertFrom-Json -AsHashtable
           $graphContext = Get-MgContext
 
           # Execute using the dedicated script
