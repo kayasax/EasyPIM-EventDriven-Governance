@@ -88,7 +88,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "🔧 Configuring execution parameters..." -ForegroundColor Cyan
-          
+
           # Parse workflow inputs
           $whatIf = '${{ github.event.inputs.WhatIf }}' -eq 'true'
           $mode = if ('${{ github.event.inputs.Mode }}') { '${{ github.event.inputs.Mode }}' } else { 'delta' }
@@ -159,17 +159,24 @@ jobs:
               New-Item -ItemType Directory -Path "./audit-exports" -Force | Out-Null
           }
 
-          # Store parameters as environment variable for next step
-          $env:ORCHESTRATOR_PARAMS = ($orchestratorParams | ConvertTo-Json -Depth 3 -Compress)
+          # Store parameters as environment variable for next step (GitHub Actions format)
+          $paramsJson = $orchestratorParams | ConvertTo-Json -Depth 3 -Compress
+          echo "ORCHESTRATOR_PARAMS=$paramsJson" >> $env:GITHUB_ENV
           Write-Host "✅ Parameters configured successfully" -ForegroundColor Green
 
       - name: 'Execute EasyPIM Orchestrator'
         shell: pwsh
         run: |
           # Retrieve parameters from environment
+          if (-not $env:ORCHESTRATOR_PARAMS) {
+              Write-Error "❌ ORCHESTRATOR_PARAMS environment variable is null or missing"
+              exit 1
+          }
+
+          Write-Host "🔧 Retrieved parameters from environment" -ForegroundColor Blue
           $orchestratorParams = $env:ORCHESTRATOR_PARAMS | ConvertFrom-Json -AsHashtable
           $graphContext = Get-MgContext
-          
+
           # Execute using the dedicated script
           & "./scripts/workflows/Invoke-EasyPIMExecution.ps1" -OrchestratorParams $orchestratorParams -GraphContext $graphContext
 
