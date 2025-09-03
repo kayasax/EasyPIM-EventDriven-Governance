@@ -5,25 +5,43 @@ param(
     [Parameter(Mandatory = $true)]
     [hashtable]$OrchestratorParams,
 
-    [Parameter(Mandatory = $true)]
-    [object]$GraphContext
+    [Parameter(Mandatory = $false)]
+    [object]$GraphContext = $null
 )
 
 Write-Host "🎯 Executing: Invoke-EasyPIMOrchestrator" -ForegroundColor Cyan
 
 try {
-    # Final Graph authentication verification
-    Write-Host "🔄 Final Graph authentication verification for EasyPIM..." -ForegroundColor Blue
+    # Re-establish Graph authentication if needed (GitHub Actions doesn't preserve sessions between steps)
+    Write-Host "🔄 Verifying Graph authentication for EasyPIM..." -ForegroundColor Blue
 
-    # Verify the connection one more time
     $finalContext = Get-MgContext
     if (-not $finalContext) {
-        Write-Error "❌ Failed to establish Graph context for EasyPIM"
-        exit 1
+        Write-Host "⚠️  No existing Graph context found, re-establishing connection..." -ForegroundColor Yellow
+
+        # Get fresh Graph token from Azure CLI
+        $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+        if (-not $graphToken) {
+            Write-Error "❌ Failed to obtain Microsoft Graph access token from Azure CLI"
+            exit 1
+        }
+
+        # Connect to Microsoft Graph
+        $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+        Disconnect-MgGraph -ErrorAction SilentlyContinue
+        Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+        $finalContext = Get-MgContext
+        if (-not $finalContext) {
+            Write-Error "❌ Failed to establish Graph context for EasyPIM"
+            exit 1
+        }
     }
 
-    Write-Host "✅ Final Graph context verified for EasyPIM execution" -ForegroundColor Green
-    Write-Host "   Final Scopes: $($finalContext.Scopes -join ', ')"
+    Write-Host "✅ Graph context verified for EasyPIM execution" -ForegroundColor Green
+    Write-Host "   Client ID: $($finalContext.ClientId)"
+    Write-Host "   Tenant ID: $($finalContext.TenantId)"
+    Write-Host "   Scopes: $($finalContext.Scopes -join ', ')"
 
     # Display final parameters for debugging
     Write-Host "🔧 Final Parameters to Invoke-EasyPIMOrchestrator:" -ForegroundColor Blue

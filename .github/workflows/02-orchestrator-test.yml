@@ -175,10 +175,9 @@ jobs:
 
           Write-Host "🔧 Retrieved parameters from environment" -ForegroundColor Blue
           $orchestratorParams = $env:ORCHESTRATOR_PARAMS | ConvertFrom-Json -AsHashtable
-          $graphContext = Get-MgContext
 
-          # Execute using the dedicated script
-          & "./scripts/workflows/Invoke-EasyPIMExecution.ps1" -OrchestratorParams $orchestratorParams -GraphContext $graphContext
+          # Execute using the dedicated script (no GraphContext needed - script handles authentication)
+          & "./scripts/workflows/Invoke-EasyPIMExecution.ps1" -OrchestratorParams $orchestratorParams
 
       - name: 'Upload EasyPIM Logs and Artifacts'
         if: always()
