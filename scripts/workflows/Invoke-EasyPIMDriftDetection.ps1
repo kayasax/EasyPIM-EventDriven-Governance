@@ -67,7 +67,30 @@ try {
     # Execute Test-PIMPolicyDrift with proper error handling
     Write-Host "🚀 Executing Test-PIMPolicyDrift..." -ForegroundColor Green
 
-    Test-PIMPolicyDrift @DriftParams
+    # Check if we have ConfigPath (temp file approach) vs KeyVault parameters
+    if ($DriftParams.ContainsKey('ConfigPath') -and (Test-Path $DriftParams['ConfigPath'])) {
+        Write-Host "📁 Using ConfigPath approach: $($DriftParams['ConfigPath'])" -ForegroundColor Blue
+        
+        # Remove KeyVault parameters if present to avoid conflicts
+        $cleanParams = $DriftParams.Clone()
+        $cleanParams.Remove('KeyVaultName')
+        $cleanParams.Remove('SecretName')
+        
+        Test-PIMPolicyDrift @cleanParams
+    }
+    elseif ($DriftParams.ContainsKey('KeyVaultName') -and $DriftParams.ContainsKey('SecretName')) {
+        Write-Host "🔐 Using native KeyVault approach: $($DriftParams['KeyVaultName'])/$($DriftParams['SecretName'])" -ForegroundColor Blue
+        
+        # Remove ConfigPath if present to avoid conflicts
+        $cleanParams = $DriftParams.Clone()
+        $cleanParams.Remove('ConfigPath')
+        
+        Test-PIMPolicyDrift @cleanParams
+    }
+    else {
+        Write-Error "❌ No valid configuration source found - need either ConfigPath or KeyVaultName+SecretName"
+        exit 1
+    }
 
     Write-Host "✅ Test-PIMPolicyDrift completed successfully" -ForegroundColor Green
 
@@ -76,23 +99,23 @@ try {
     Write-Host "📋 Error Details:" -ForegroundColor Red
     Write-Host "   Exception Type: $($_.Exception.GetType().FullName)"
     Write-Host "   Stack Trace: $($_.ScriptStackTrace)"
-    
+
     # Additional error context for troubleshooting
     Write-Host "🔍 Current Authentication State:" -ForegroundColor Yellow
-    
+
     $mgContext = Get-MgContext
     if ($mgContext) {
         Write-Host "   Graph Context: ✅ Connected (ClientId: $($mgContext.ClientId))"
     } else {
         Write-Host "   Graph Context: ❌ Not connected"
     }
-    
+
     $azContext = Get-AzContext
     if ($azContext) {
         Write-Host "   Azure Context: ✅ Connected (Account: $($azContext.Account))"
     } else {
         Write-Host "   Azure Context: ❌ Not connected"
     }
-    
+
     throw
 }

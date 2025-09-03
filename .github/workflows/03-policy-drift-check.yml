@@ -72,12 +72,28 @@ jobs:
               'SubscriptionId' = $env:SUBSCRIPTION_ID
           }
 
-          # Configuration source - now using native KeyVault support
+          # Configuration source - check KeyVault native support first, fallback to temp file
           if ($env:KEYVAULT_NAME) {
               Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME" -ForegroundColor Green
-              # Use native KeyVault parameters - no need for temp files
+              
+              # Test native KeyVault support first - add both methods for compatibility
               $driftParams['KeyVaultName'] = $env:KEYVAULT_NAME
               $driftParams['SecretName'] = $env:SECRET_NAME
+              
+              # Also prepare temp file as fallback (will be removed once native support is confirmed)
+              Write-Host "🔄 Also preparing temp file for compatibility..." -ForegroundColor Yellow
+              $configJson = az keyvault secret show --vault-name $env:KEYVAULT_NAME --name $env:SECRET_NAME --query "value" -o tsv
+              
+              if ([string]::IsNullOrEmpty($configJson)) {
+                  Write-Error "❌ Failed to retrieve config from Key Vault - empty response"
+                  exit 1
+              }
+              
+              $tempConfigPath = "./temp-drift-config.json"
+              $configJson | Out-File -FilePath $tempConfigPath -Encoding UTF8
+              $driftParams['ConfigPath'] = $tempConfigPath
+              
+              Write-Host "✅ Retrieved config successfully (Length: $($configJson.Length) chars)" -ForegroundColor Green
           } else {
               Write-Host "📋 Using local configuration file" -ForegroundColor Green
               $driftParams['ConfigPath'] = "./configs/pim-config.json"
@@ -95,6 +111,7 @@ jobs:
           if ($env:KEYVAULT_NAME) {
               Write-Host "   KeyVaultName: $env:KEYVAULT_NAME"
               Write-Host "   SecretName: $env:SECRET_NAME"
+              Write-Host "   ConfigPath: $($driftParams['ConfigPath']) (fallback)"
           } else {
               Write-Host "   ConfigPath: $($driftParams['ConfigPath'])"
           }
@@ -119,6 +136,12 @@ jobs:
 
           # Execute using the dedicated script
           & "./scripts/workflows/Invoke-EasyPIMDriftDetection.ps1" -DriftParams $driftParams -GraphContext $graphContext
+
+          # Clean up temp file if it was created
+          if (Test-Path "./temp-drift-config.json") {
+              Remove-Item "./temp-drift-config.json" -ErrorAction SilentlyContinue
+              Write-Host "🧹 Cleaned up temporary config file" -ForegroundColor Gray
+          }
 
       - name: 'Upload Drift Detection Results'
         if: always()
