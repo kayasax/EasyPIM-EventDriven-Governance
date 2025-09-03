@@ -97,6 +97,28 @@ try {
         Write-Host "🔧 Loading EasyPIM Telemetry Hotpatch..." -ForegroundColor Cyan
         . "./scripts/workflows/Apply-EasyPIMTelemetryHotpatch.ps1"
 
+        # Test telemetry hotpatch with a manual call
+        if ($OrchestratorParams.ContainsKey('KeyVaultName')) {
+            Write-Host "🧪 Testing telemetry hotpatch with manual call..." -ForegroundColor Magenta
+            try {
+                # Get config from Key Vault to test telemetry
+                $configJson = Get-AzKeyVaultSecret -VaultName $OrchestratorParams.KeyVaultName -Name $OrchestratorParams.SecretName -AsPlainText
+                $config = $configJson | ConvertFrom-Json
+                
+                # Call our overridden telemetry function manually
+                Send-TelemetryEventFromConfig -EventName "test_telemetry_hotpatch" -Properties @{
+                    test_run = $true
+                    workflow_type = "orchestrator"
+                    mode = $OrchestratorParams.Mode
+                } -Config $config
+                
+                Write-Host "✅ Manual telemetry test completed" -ForegroundColor Green
+            }
+            catch {
+                Write-Host "⚠️ Manual telemetry test failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+
         # Execute EasyPIM Orchestrator
         Invoke-EasyPIMOrchestrator @OrchestratorParams
     } catch {
