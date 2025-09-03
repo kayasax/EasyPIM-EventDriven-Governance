@@ -54,10 +54,10 @@ jobs:
         run: |
           & "./scripts/workflows/Install-EasyPIMModules.ps1"
 
-      - name: 'Run Policy Drift Detection'
+      - name: 'Configure Drift Detection Parameters'
         shell: pwsh
         run: |
-          Write-Host "🔍 Running PIM policy drift detection..."
+          Write-Host "� Configuring drift detection parameters..." -ForegroundColor Cyan
 
           $verbose = '${{ github.event.inputs.Verbose }}' -eq 'true'
 
@@ -65,100 +65,61 @@ jobs:
               Write-Host "📝 Verbose output enabled"
           }
 
-          # Verify authentication is still working
-          $graphContext = Get-MgContext
-          if (-not $graphContext) {
-              Write-Error "❌ Microsoft Graph context lost - re-establishing connection"
-              # Re-establish Graph connection using existing pattern
-              $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
-              if ($graphToken) {
-                  $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
-                  Connect-MgGraph -AccessToken $secureToken -NoWelcome
-                  Write-Host "✅ Microsoft Graph context re-established"
-              } else {
-                  Write-Error "❌ Failed to re-establish Microsoft Graph connection"
-                  exit 1
-              }
-          } else {
-              Write-Host "✅ Microsoft Graph context verified and active"
+          # Build drift detection parameters
+          $driftParams = @{
+              'TenantId' = $env:TENANT_ID
+              'SubscriptionId' = $env:SUBSCRIPTION_ID
           }
 
-          # Use Key Vault configuration (current workaround approach)
-          # TODO: Future enhancement - when EasyPIM adds native AKV support for Test-PIMPolicyDrift,
-          # we can simplify this to: Test-PIMPolicyDrift -KeyVaultName $env:KEYVAULT_NAME -SecretName $env:SECRET_NAME
+          # Configuration source
           if ($env:KEYVAULT_NAME) {
-              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
-
-              try {
-                  # Get the configuration from Key Vault and save to temp file
-                  # NOTE: Current implementation downloads config to temp file since Test-PIMPolicyDrift
-                  # doesn't yet support KeyVault parameters directly. This will be simplified in future versions.
-                  $configJson = az keyvault secret show --vault-name $env:KEYVAULT_NAME --name $env:SECRET_NAME --query "value" -o tsv
-                  $tempConfigPath = "./temp-drift-config.json"
-                  $configJson | Out-File -FilePath $tempConfigPath -Encoding UTF8
-
-                  Write-Host "🎯 Executing Test-PIMPolicyDrift with parameters:"
-                  Write-Host "   TenantId: $env:TENANT_ID"
-                  Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
-                  Write-Host "   ConfigPath: $tempConfigPath"
-                  if ($verbose) {
-                      Write-Host "   Verbose: enabled"
-                  }
-
-                  # Build command parameters
-                  $driftParams = @{
-                      'TenantId' = $env:TENANT_ID
-                      'SubscriptionId' = $env:SUBSCRIPTION_ID
-                      'ConfigPath' = $tempConfigPath
-                  }
-
-                  if ($verbose) {
-                      $driftParams['Verbose'] = $true
-                  }
-
-                  # Run drift detection with file (Test-PIMPolicyDrift doesn't support KeyVault params directly)
-                  Test-PIMPolicyDrift @driftParams
-
-                  Write-Host "✅ Policy drift check completed successfully"
-
-                  # Clean up temp file
-                  Remove-Item $tempConfigPath -ErrorAction SilentlyContinue
-              }
-              catch {
-                  Write-Error "❌ Policy drift check failed: $_"
-                  Write-Host "🔧 Error details: $($_.Exception.Message)"
-                  throw
-              }
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME" -ForegroundColor Green
+              
+              # Get the configuration from Key Vault and save to temp file
+              # NOTE: Current implementation downloads config to temp file since Test-PIMPolicyDrift
+              # doesn't yet support KeyVault parameters directly. This will be simplified in future versions.
+              $configJson = az keyvault secret show --vault-name $env:KEYVAULT_NAME --name $env:SECRET_NAME --query "value" -o tsv
+              $tempConfigPath = "./temp-drift-config.json"
+              $configJson | Out-File -FilePath $tempConfigPath -Encoding UTF8
+              
+              $driftParams['ConfigPath'] = $tempConfigPath
           } else {
-              Write-Host "📋 Using local configuration file"
-              try {
-                  Write-Host "🎯 Executing Test-PIMPolicyDrift with parameters:"
-                  Write-Host "   TenantId: $env:TENANT_ID"
-                  Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
-                  Write-Host "   ConfigPath: ./configs/pim-config.json"
-                  if ($verbose) {
-                      Write-Host "   Verbose: enabled"
-                  }
+              Write-Host "📋 Using local configuration file" -ForegroundColor Green
+              $driftParams['ConfigPath'] = "./configs/pim-config.json"
+          }
 
-                  # Build command parameters
-                  $driftParams = @{
-                      'TenantId' = $env:TENANT_ID
-                      'SubscriptionId' = $env:SUBSCRIPTION_ID
-                      'ConfigPath' = "./configs/pim-config.json"
-                  }
+          # Add conditional parameters
+          if ($verbose) {
+              $driftParams['Verbose'] = $true
+              Write-Host "📝 Verbose output enabled" -ForegroundColor Blue
+          }
 
-                  if ($verbose) {
-                      $driftParams['Verbose'] = $true
-                  }
+          Write-Host "🎯 Drift Detection Parameters:" -ForegroundColor Blue
+          Write-Host "   TenantId: $env:TENANT_ID"
+          Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
+          Write-Host "   ConfigPath: $($driftParams['ConfigPath'])"
+          if ($verbose) {
+              Write-Host "   Verbose: enabled"
+          }
 
-                  Test-PIMPolicyDrift @driftParams
-                  Write-Host "✅ Policy drift check completed successfully"
-              }
-              catch {
-                  Write-Error "❌ Policy drift check failed: $_"
-                  Write-Host "🔧 Error details: $($_.Exception.Message)"
-                  throw
-              }
+          # Store parameters as environment variable for next step
+          $env:DRIFT_PARAMS = ($driftParams | ConvertTo-Json -Depth 3 -Compress)
+          Write-Host "✅ Parameters configured successfully" -ForegroundColor Green
+
+      - name: 'Execute Policy Drift Detection'
+        shell: pwsh
+        run: |
+          # Retrieve parameters from environment
+          $driftParams = $env:DRIFT_PARAMS | ConvertFrom-Json -AsHashtable
+          $graphContext = Get-MgContext
+
+          # Execute using the dedicated script
+          & "./scripts/workflows/Invoke-EasyPIMDriftDetection.ps1" -DriftParams $driftParams -GraphContext $graphContext
+
+          # Clean up temp file if it was created
+          if (Test-Path "./temp-drift-config.json") {
+              Remove-Item "./temp-drift-config.json" -ErrorAction SilentlyContinue
+              Write-Host "🧹 Cleaned up temporary config file" -ForegroundColor Gray
           }
 
       - name: 'Upload Drift Detection Results'
