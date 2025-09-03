@@ -94,7 +94,8 @@ try {
     # Enhanced error handling with specific Key Vault diagnostics
     try {
         # Apply EasyPIM Telemetry Hotpatch for KeyVault configurations
-        & "./scripts/workflows/Apply-EasyPIMTelemetryHotpatch.ps1"
+        Write-Host "🔧 Loading EasyPIM Telemetry Hotpatch..." -ForegroundColor Cyan
+        . "./scripts/workflows/Apply-EasyPIMTelemetryHotpatch.ps1"
 
         # Execute EasyPIM Orchestrator
         Invoke-EasyPIMOrchestrator @OrchestratorParams
