@@ -159,6 +159,29 @@ function global:Invoke-EasyPIMOrchestratorWithTelemetry {
     
     Write-Host "🎯 [WRAPPER] Starting Orchestrator with Telemetry Wrapper" -ForegroundColor Cyan
     
+    # SEND IMMEDIATE TEST TELEMETRY - This proves the wrapper function works!
+    Write-Host "📊 [WRAPPER] Sending immediate test telemetry event..." -ForegroundColor Cyan
+    $sessionId = [System.Guid]::NewGuid().ToString()
+    
+    # Create a minimal test configuration for immediate telemetry
+    $testConfig = @{
+        TelemetrySettings = @{
+            ALLOW_TELEMETRY = $true
+        }
+    }
+    
+    $testProperties = @{
+        event_type = "wrapper_test"
+        session_id = $sessionId
+        wrapper_version = "ultimate-hotpatch"
+        test_message = "IMMEDIATE telemetry test - wrapper function called successfully"
+        execution_mode = if ($WhatIf) { "WhatIf" } else { $Mode }
+        config_source = if ($PSCmdlet.ParameterSetName -eq 'KeyVault') { "KeyVault" } else { "File" }
+    }
+    
+    # Send immediate test telemetry
+    Send-TelemetryEventFromConfig -EventName "wrapper_function_called" -Properties $testProperties -Config $testConfig
+    
     try {
         # Load configuration first to get telemetry settings
         $loadedConfig = $null
@@ -243,23 +266,23 @@ function global:Invoke-EasyPIMOrchestratorWithTelemetry {
     } catch {
         Write-Host "❌ [WRAPPER] Orchestrator failed: $($_.Exception.Message)" -ForegroundColor Red
         
-        # Send error telemetry
-        if ($loadedConfig -and $sessionId) {
-            $errorProperties = @{
-                execution_mode = if ($WhatIf) { "WhatIf" } else { $Mode }
-                config_source = if ($PSCmdlet.ParameterSetName -eq 'KeyVault') { "KeyVault" } else { "File" }
-                success = $false
-                error_type = $_.Exception.GetType().Name
-                session_id = $sessionId
-                wrapper_version = "ultimate-hotpatch"
-            }
-            
-            Write-Host "❌ [WRAPPER] Sending error telemetry..." -ForegroundColor Red
-            try {
-                Send-TelemetryEventFromConfig -EventName "orchestrator_error" -Properties $errorProperties -Config $loadedConfig
-            } catch {
-                Write-Host "❌ [WRAPPER] Error telemetry also failed: $($_.Exception.Message)" -ForegroundColor Red
-            }
+        # Send error telemetry with test config (works even if real config failed to load)
+        $errorProperties = @{
+            event_type = "wrapper_error"
+            session_id = $sessionId
+            wrapper_version = "ultimate-hotpatch"
+            error_message = $_.Exception.Message
+            error_type = $_.Exception.GetType().Name
+            execution_mode = if ($WhatIf) { "WhatIf" } else { $Mode }
+            config_source = if ($PSCmdlet.ParameterSetName -eq 'KeyVault') { "KeyVault" } else { "File" }
+            failed_at = "configuration_loading_or_orchestrator_execution"
+        }
+        
+        Write-Host "❌ [WRAPPER] Sending error telemetry with test config..." -ForegroundColor Red
+        try {
+            Send-TelemetryEventFromConfig -EventName "wrapper_error_occurred" -Properties $errorProperties -Config $testConfig
+        } catch {
+            Write-Host "❌ [WRAPPER] Error telemetry also failed: $($_.Exception.Message)" -ForegroundColor Red
         }
         
         throw
