@@ -38,59 +38,21 @@ jobs:
           tenant-id: ${{ env.TENANT_ID }}
           subscription-id: ${{ env.SUBSCRIPTION_ID }}
           client-id: ${{ env.AZURE_CLIENT_ID }}
+          enable-AzPSSession: true
+
+      - name: 'Setup Authentication'
+        shell: pwsh
+        run: |
+          $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
+          if (-not $authResult) {
+            Write-Error "❌ Authentication setup failed"
+            exit 1
+          }
 
       - name: 'Install EasyPIM Modules'
         shell: pwsh
         run: |
-          Write-Host " Setting up Microsoft Graph authentication using Azure CLI token..."
-
-          # Get Microsoft Graph access token from Azure CLI (already authenticated via OIDC)
-          $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
-
-          if (-not $graphToken) {
-              Write-Error "❌ Failed to obtain Microsoft Graph access token from Azure CLI"
-              exit 1
-          }
-
-          Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..."
-
-          # Convert token to SecureString and connect to Microsoft Graph FIRST
-          $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
-          Connect-MgGraph -AccessToken $secureToken -NoWelcome
-
-          Write-Host "✅ Connected to Microsoft Graph successfully"
-
-          # Verify the connection
-          $context = Get-MgContext
-          if ($context) {
-              Write-Host "🔍 Microsoft Graph Context:"
-              Write-Host "   ClientId: $($context.ClientId)"
-              Write-Host "   TenantId: $($context.TenantId)"
-              Write-Host "   Scopes: $($context.Scopes -join ', ')"
-          } else {
-              Write-Error "❌ Microsoft Graph context not found after connection"
-              exit 1
-          }
-
-          Write-Host "🔍 Installing EasyPIM modules for drift detection..."
-
-          # Install required modules from PowerShell Gallery AFTER Graph connection
-          Install-Module -Name EasyPIM -Force -Scope CurrentUser -Verbose
-          Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Verbose
-
-          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
-          Import-Module EasyPIM.Orchestrator -Force -Verbose
-
-          # Test a simple Graph API call to ensure authentication works
-          try {
-              Write-Host "🧪 Testing Microsoft Graph API access..."
-              $tenant = Get-MgOrganization -ErrorAction Stop | Select-Object -First 1
-              Write-Host "✅ Microsoft Graph API test successful - Connected to tenant: $($tenant.DisplayName)"
-          } catch {
-              Write-Error "❌ Microsoft Graph API test failed: $($_.Exception.Message)"
-              Write-Host "🔧 This indicates the authentication bridge is not working properly"
-              exit 1
-          }
+          & "./scripts/workflows/Install-EasyPIMModules.ps1"
 
       - name: 'Run Policy Drift Detection'
         shell: pwsh
@@ -101,6 +63,24 @@ jobs:
 
           if ($verbose) {
               Write-Host "📝 Verbose output enabled"
+          }
+
+          # Verify authentication is still working
+          $graphContext = Get-MgContext
+          if (-not $graphContext) {
+              Write-Error "❌ Microsoft Graph context lost - re-establishing connection"
+              # Re-establish Graph connection using existing pattern
+              $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+              if ($graphToken) {
+                  $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+                  Connect-MgGraph -AccessToken $secureToken -NoWelcome
+                  Write-Host "✅ Microsoft Graph context re-established"
+              } else {
+                  Write-Error "❌ Failed to re-establish Microsoft Graph connection"
+                  exit 1
+              }
+          } else {
+              Write-Host "✅ Microsoft Graph context verified and active"
           }
 
           # Use Key Vault configuration (current workaround approach)
