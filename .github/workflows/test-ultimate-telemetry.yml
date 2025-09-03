@@ -1,0 +1,68 @@
+name: "Test Ultimate Telemetry Wrapper"
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_name:
+        description: 'Test scenario name'
+        required: false
+        default: 'ultimate-wrapper-test'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test-ultimate-telemetry:
+    runs-on: ubuntu-latest
+    environment: test-environment
+
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Azure OIDC Login'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: 'Setup Authentication'
+        shell: pwsh
+        run: |
+          & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1"
+
+      - name: 'Install EasyPIM Modules'
+        shell: pwsh
+        run: |
+          & "./scripts/workflows/Install-EasyPIMModules.ps1"
+
+      - name: 'Test Ultimate Telemetry Wrapper'
+        shell: pwsh
+        run: |
+          Write-Host "🎯 Testing Ultimate Telemetry Wrapper - GUARANTEED telemetry events!" -ForegroundColor Magenta
+          
+          # Load the ultimate telemetry hotpatch
+          . "./scripts/workflows/Apply-EasyPIMTelemetryHotpatch.ps1"
+          
+          # Use the wrapper function directly - this WILL send telemetry
+          Write-Host "🚀 Calling wrapper function directly..." -ForegroundColor Green
+          Invoke-EasyPIMOrchestratorWithTelemetry `
+            -KeyVaultName "kv-easypim-8368" `
+            -SecretName "easypim-config-json" `
+            -TenantId "9b08d26c-2c4e-45c8-9313-b700c2ee6e3d" `
+            -WhatIf
+          
+          Write-Host "✅ Ultimate telemetry wrapper test completed!" -ForegroundColor Green
+
+      - name: 'Upload Test Results'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultimate-telemetry-test-logs
+          path: |
+            *.log
+            *.json
+          retention-days: 30
