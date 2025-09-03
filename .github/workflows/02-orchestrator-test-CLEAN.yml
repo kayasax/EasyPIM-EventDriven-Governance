@@ -88,7 +88,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "🔧 Configuring execution parameters..." -ForegroundColor Cyan
-          
+
           # Parse workflow inputs
           $whatIf = '${{ github.event.inputs.WhatIf }}' -eq 'true'
           $mode = if ('${{ github.event.inputs.Mode }}') { '${{ github.event.inputs.Mode }}' } else { 'delta' }
@@ -169,7 +169,7 @@ jobs:
           # Retrieve parameters from environment
           $orchestratorParams = $env:ORCHESTRATOR_PARAMS | ConvertFrom-Json -AsHashtable
           $graphContext = Get-MgContext
-          
+
           # Execute using the dedicated script
           & "./scripts/workflows/Invoke-EasyPIMExecution.ps1" -OrchestratorParams $orchestratorParams -GraphContext $graphContext
 

@@ -1,0 +1,562 @@
+name: 'Phase 2: EasyPIM Orchestrator Test - BACKUP WITH HOTFIX'
+
+on:
+  workflow_dispatch:
+    inputs:
+      WhatIf:
+        description: "Preview mode - show what would be done without making changes"
+        required: false
+        default: true
+        type: boolean
+      Mode:
+        description: "Orchestrator execution mode (delta=incremental, initial=destructive cleanup)"
+        required: false
+        default: "delta"
+        type: choice
+        options:
+          - delta
+          - initial
+      SkipPolicies:
+        description: "Skip policy operations (assignments only)"
+        required: false
+        default: false
+        type: boolean
+      SkipAssignments:
+        description: "Skip assignment operations (policies only)"
+        required: false
+        default: false
+        type: boolean
+      Force:
+        description: "Force execution (bypass confirmations)"
+        required: false
+        default: false
+        type: boolean
+      Verbose:
+        description: "Enable verbose output"
+        required: false
+        default: false
+        type: boolean
+      ExportWouldRemove:
+        description: "Export list of items that would be removed (audit purposes)"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  KEYVAULT_NAME: ${{ vars.AZURE_KEYVAULT_NAME }}
+  SECRET_NAME: ${{ vars.AZURE_KEYVAULT_SECRET_NAME }}
+  TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+
+permissions:
+  id-token: write   # for OIDC
+  contents: read
+
+jobs:
+  easypim-orchestrator:
+    name: 'EasyPIM Orchestrator Execution'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Azure OIDC Login'
+        uses: azure/login@v2
+        with:
+          tenant-id: ${{ env.TENANT_ID }}
+          subscription-id: ${{ env.SUBSCRIPTION_ID }}
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          enable-AzPSSession: true
+
+      - name: 'Install and Run EasyPIM Orchestrator'
+        shell: pwsh
+        run: |
+          Write-Host "🔗 Setting up Microsoft Graph authentication using Azure CLI token..."
+
+          # Get Microsoft Graph access token from Azure CLI (already authenticated via OIDC)
+          $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+
+          if (-not $graphToken) {
+              Write-Error "❌ Failed to obtain Microsoft Graph access token from Azure CLI"
+              exit 1
+          }
+
+          Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..."
+
+          # Convert token to SecureString and connect to Microsoft Graph with force refresh
+          $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+
+          # Ensure clean Graph session for EasyPIM compatibility
+          Write-Host "🔗 Connecting to Microsoft Graph with clean session..."
+          Disconnect-MgGraph -ErrorAction SilentlyContinue
+          Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+          Write-Host "✅ Connected to Microsoft Graph successfully"
+
+          # Verify the connection
+          $context = Get-MgContext
+          if ($context) {
+              Write-Host "🔍 Microsoft Graph Context:"
+              Write-Host "   ClientId: $($context.ClientId)"
+              Write-Host "   TenantId: $($context.TenantId)"
+              Write-Host "   Scopes: $($context.Scopes -join ', ')"
+          } else {
+              Write-Error "❌ Microsoft Graph context not found after connection"
+              exit 1
+          }
+
+          # Connect to Azure PowerShell using OIDC as well (EasyPIM requires both!)
+          Write-Host "🔗 Setting up Azure PowerShell authentication for EasyPIM compatibility..."
+          try {
+              # Install required Azure PowerShell modules if not available (install together to share dependencies)
+              $missingModules = @()
+              if (-not (Get-Module -ListAvailable Az.Accounts)) {
+                  $missingModules += "Az.Accounts"
+              }
+              if (-not (Get-Module -ListAvailable Az.KeyVault)) {
+                  $missingModules += "Az.KeyVault"
+              }
+
+              if ($missingModules.Count -gt 0) {
+                  Write-Host "📦 Installing Azure modules: $($missingModules -join ', ')..."
+                  Install-Module -Name $missingModules -Force -Scope CurrentUser -AllowClobber
+              }
+
+              # Import required modules
+              Import-Module Az.Accounts -Force
+              Import-Module Az.KeyVault -Force
+
+              # Check if Azure PowerShell session is already established by azure/login@v2
+              Write-Host "🔗 Verifying Azure PowerShell session established by azure/login@v2..."
+              $azContext = Get-AzContext -ErrorAction SilentlyContinue
+              if (-not $azContext) {
+                  Write-Host "🔗 No existing session found, connecting to Azure PowerShell with OIDC..."
+                  # Since azure/login@v2 with enable-AzPSSession should handle this, try without -Identity
+                  Connect-AzAccount -TenantId $env:TENANT_ID -Subscription $env:SUBSCRIPTION_ID -ErrorAction Stop
+              } else {
+                  Write-Host "✅ Azure PowerShell session already established by azure/login@v2"
+              }
+
+              # Verify Azure PowerShell connection and set subscription context
+              $azContext = Get-AzContext
+              if ($azContext) {
+                  # Ensure we're using the correct subscription
+                  Set-AzContext -SubscriptionId $env:SUBSCRIPTION_ID -ErrorAction SilentlyContinue
+                  $azContext = Get-AzContext
+
+                  Write-Host "✅ Azure PowerShell authentication successful"
+                  Write-Host "   Account: $($azContext.Account)"
+                  Write-Host "   Tenant: $($azContext.Tenant)"
+                  Write-Host "   Subscription: $($azContext.Subscription)"
+              } else {
+                  Write-Warning "⚠️  Azure PowerShell context not found - this may cause EasyPIM to fail"
+              }
+          } catch {
+              Write-Warning "⚠️  Primary Azure PowerShell authentication failed: $($_.Exception.Message)"
+              Write-Host "🔄 Attempting fallback token-based authentication..."
+
+              try {
+                  # Fallback: Get Azure management token from Azure CLI for Azure PowerShell
+                  $azToken = az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv
+
+                  if (-not $azToken) {
+                      Write-Error "❌ Failed to obtain Azure management access token from Azure CLI"
+                      exit 1
+                  }
+
+                  Write-Host "✅ Successfully obtained Azure management token"
+
+                  # Also get a Key Vault specific token for PoP authentication
+                  $kvToken = az account get-access-token --resource https://vault.azure.net --query accessToken --output tsv
+
+                  if (-not $kvToken) {
+                      Write-Warning "⚠️  Failed to obtain Key Vault access token - Key Vault operations may fail"
+                  } else {
+                      Write-Host "✅ Successfully obtained Key Vault access token"
+                  }
+
+                  # Connect with both management and Key Vault tokens
+                  Connect-AzAccount -AccessToken $azToken -KeyVaultAccessToken $kvToken -TenantId $env:TENANT_ID -AccountId $env:AZURE_CLIENT_ID
+
+                  # Verify Azure PowerShell connection and set subscription context
+                  $azContext = Get-AzContext
+                  if ($azContext) {
+                      # Ensure we're using the correct subscription
+                      Set-AzContext -SubscriptionId $env:SUBSCRIPTION_ID -ErrorAction SilentlyContinue
+                      $azContext = Get-AzContext
+
+                      Write-Host "✅ Fallback Azure PowerShell authentication successful"
+                      Write-Host "   Account: $($azContext.Account)"
+                      Write-Host "   Tenant: $($azContext.Tenant)"
+                      Write-Host "   Subscription: $($azContext.Subscription)"
+
+                      # Set ARM token environment variable for EasyPIM direct ARM API access
+                      $env:AZURE_ACCESS_TOKEN = $azToken
+                      $env:ARM_ACCESS_TOKEN = $azToken
+                      Write-Host "✅ ARM access tokens set for EasyPIM compatibility"
+                  } else {
+                      Write-Warning "⚠️  Azure PowerShell context still not found - EasyPIM may fail"
+                  }
+              } catch {
+                  Write-Warning "⚠️  All Azure PowerShell authentication methods failed - EasyPIM may not work properly"
+                  Write-Host "🔧 Proceeding anyway - some EasyPIM operations might still work with Graph-only authentication"
+              }
+          }
+
+          Write-Host "🚀 Installing EasyPIM modules from PowerShell Gallery..."
+
+          # Install modules efficiently - install both together to share dependencies
+          Write-Host "📦 Installing EasyPIM and EasyPIM.Orchestrator (with shared dependencies)..."
+          Install-Module -Name EasyPIM, EasyPIM.Orchestrator -Force -Scope CurrentUser -AllowClobber
+
+          Write-Host "📦 Importing EasyPIM.Orchestrator module..."
+          Import-Module EasyPIM.Orchestrator -Force
+
+          # === CRITICAL ARM AUTHENTICATION FIX ===
+          Write-Host "🚨 CRITICAL: Applying ARM authentication fix..." -ForegroundColor Red
+
+          # Get ARM token that actually works in GitHub Actions
+          $armToken = az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv
+          if (-not $armToken) {
+              Write-Error "❌ Failed to get ARM token"
+              exit 1
+          }
+
+          # Store for global access
+          $env:AZURE_ACCESS_TOKEN = $armToken
+
+          # CRITICAL: Override Invoke-ARM globally so module calls use it
+          function Global:Invoke-ARM {
+              [CmdletBinding()]
+              param([Parameter(Mandatory = $true)][string]$restURI, [string]$method = "GET", [string]$body = "", [string]$SubscriptionId)
+
+              $headers = @{ 'Authorization' = "Bearer $env:AZURE_ACCESS_TOKEN"; 'Content-Type' = 'application/json' }
+              $params = @{ Uri = $restURI; Method = $method; Headers = $headers; ErrorAction = 'Stop' }
+              if ($method -in @("POST", "PUT", "PATCH") -and $body) { $params.Body = $body }
+
+              return Invoke-RestMethod @params
+          }
+
+          # Force module to see our function
+          Set-Alias -Name Invoke-ARM -Value Global:Invoke-ARM -Scope Global -Force
+
+          Write-Host "✅ CRITICAL FIX APPLIED" -ForegroundColor Green
+          # === END CRITICAL FIX ===
+
+          # Test Graph API access to ensure authentication works for EasyPIM
+          try {
+              Write-Host "🧪 Testing Microsoft Graph API access for EasyPIM compatibility..."
+              $tenant = Get-MgOrganization -ErrorAction Stop | Select-Object -First 1
+              Write-Host "✅ Microsoft Graph API test successful - Connected to tenant: $($tenant.DisplayName)"
+          } catch {
+              Write-Error "❌ Microsoft Graph API test failed: $($_.Exception.Message)"
+              Write-Host "🔧 This indicates the authentication bridge is not working properly"
+              exit 1
+          }
+
+          # Force refresh the Graph authentication session to ensure EasyPIM recognizes it
+          Write-Host "🔄 Refreshing Microsoft Graph session for EasyPIM compatibility..."
+          try {
+              # Disconnect and reconnect to ensure clean session state
+              Disconnect-MgGraph -ErrorAction SilentlyContinue
+
+              # Reconnect with the same token but ensure fresh session
+              Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+              # Verify the fresh connection
+              $newContext = Get-MgContext
+              if ($newContext) {
+                  Write-Host "✅ Microsoft Graph session refreshed successfully"
+                  Write-Host "   Session ID: $($newContext.ClientId)"
+                  Write-Host "   Authentication Type: $($newContext.AuthType)"
+              } else {
+                  Write-Error "❌ Failed to refresh Microsoft Graph session"
+                  exit 1
+              }
+          } catch {
+              Write-Error "❌ Failed to refresh Graph session: $($_.Exception.Message)"
+              exit 1
+          }
+
+          # Verify EasyPIM can detect the authentication by testing a basic command
+          Write-Host "🧪 Testing EasyPIM authentication detection..."
+          try {
+              # Test if EasyPIM recognizes the Graph session using cmdlets it typically checks
+              $authTest = Get-MgContext
+              $roleTest = Get-MgDirectoryRole -ErrorAction Stop | Select-Object -First 1
+
+              if ($authTest -and $roleTest) {
+                  Write-Host "✅ EasyPIM authentication prerequisites verified"
+                  Write-Host "   Graph Context: Active"
+                  Write-Host "   Directory Role Access: Working"
+                  Write-Host "   Required scope check: $($authTest.Scopes -contains 'RoleManagement.ReadWrite.Directory')"
+              } else {
+                  Write-Warning "⚠️  EasyPIM authentication detection uncertain"
+              }
+          } catch {
+              Write-Error "❌ EasyPIM authentication test failed: $($_.Exception.Message)"
+              Write-Host "🔧 This may cause EasyPIM to fail authentication check"
+              exit 1
+          }
+
+          # Set PowerShell execution context variables that EasyPIM might check
+          Write-Host "🔧 Setting authentication context for EasyPIM compatibility..."
+          $env:AZURE_CLIENT_ID = $context.ClientId
+          $env:AZURE_TENANT_ID = $context.TenantId
+
+          # Also try setting these global variables that some modules check
+          $global:AZURE_CLIENT_ID = $context.ClientId
+          $global:AZURE_TENANT_ID = $context.TenantId
+
+          # Try setting Microsoft Graph specific environment variables
+          $env:MG_CONTEXT_TENANT_ID = $context.TenantId
+          $env:MG_CONTEXT_CLIENT_ID = $context.ClientId
+
+          # Verify EasyPIM can detect the authentication by testing a basic command
+          Write-Host "🧪 Testing EasyPIM authentication detection..."
+          try {
+              # Test if EasyPIM recognizes the Graph session
+              $authTest = Get-MgContext
+              if ($authTest -and $authTest.Scopes -contains 'RoleManagement.ReadWrite.Directory') {
+                  Write-Host "✅ EasyPIM authentication prerequisites verified"
+                  Write-Host "   Required scope 'RoleManagement.ReadWrite.Directory' found"
+              } else {
+                  Write-Warning "⚠️  EasyPIM authentication detection uncertain - proceeding anyway"
+              }
+          } catch {
+              Write-Warning "⚠️  EasyPIM authentication test failed: $($_.Exception.Message) - proceeding anyway"
+          }
+
+          # Determine execution parameters
+          $whatIf = '${{ github.event.inputs.WhatIf }}' -eq 'true'
+          $mode = if ('${{ github.event.inputs.Mode }}') { '${{ github.event.inputs.Mode }}' } else { 'delta' }
+          $skipPolicies = '${{ github.event.inputs.SkipPolicies }}' -eq 'true'
+          $skipAssignments = '${{ github.event.inputs.SkipAssignments }}' -eq 'true'
+          $force = '${{ github.event.inputs.Force }}' -eq 'true'
+          $verbose = '${{ github.event.inputs.Verbose }}' -eq 'true'
+          $exportWouldRemove = '${{ github.event.inputs.ExportWouldRemove }}' -eq 'true'
+
+          Write-Host "🔧 Execution Parameters:"
+          Write-Host "   WhatIf: $whatIf"
+          Write-Host "   Mode: $mode"
+          Write-Host "   Skip Policies: $skipPolicies"
+          Write-Host "   Skip Assignments: $skipAssignments"
+          Write-Host "   Force: $force"
+          Write-Host "   Verbose: $verbose"
+          Write-Host "   Export WouldRemove: $exportWouldRemove"
+          Write-Host "   Tenant ID: $env:TENANT_ID"
+          Write-Host "   Subscription ID: $env:SUBSCRIPTION_ID"
+          Write-Host "   Key Vault: $env:KEYVAULT_NAME"
+          Write-Host "   Secret Name: $env:SECRET_NAME"
+
+          # Build command parameters
+          $orchestratorParams = @{
+              'TenantId' = $env:TENANT_ID
+              'SubscriptionId' = $env:SUBSCRIPTION_ID
+              'Mode' = $mode
+          }
+
+          # Use Key Vault or local file
+          if ($env:KEYVAULT_NAME) {
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME"
+              $orchestratorParams['KeyVaultName'] = $env:KEYVAULT_NAME
+              $orchestratorParams['SecretName'] = $env:SECRET_NAME
+          } else {
+              Write-Host "📋 Using local configuration file"
+              $orchestratorParams['ConfigFilePath'] = "./configs/pim-config.json"
+          }
+
+          # Add conditional parameters
+          if ($whatIf) {
+              $orchestratorParams['WhatIf'] = $true
+              Write-Host "⚠️  Running in PREVIEW mode (-WhatIf)"
+          } else {
+              Write-Host "🚨 Running in APPLY mode (changes will be made)"
+          }
+
+          if ($skipPolicies) {
+              $orchestratorParams['SkipPolicies'] = $true
+              Write-Host "⏭️  Skipping policy operations"
+          }
+
+          if ($skipAssignments) {
+              $orchestratorParams['SkipAssignments'] = $true
+              Write-Host "⏭️  Skipping assignment operations"
+          }
+
+          if ($force) {
+              $orchestratorParams['Force'] = $true
+              Write-Host "💪 Force mode enabled (bypassing confirmations)"
+          }
+
+          if ($verbose) {
+              $orchestratorParams['Verbose'] = $true
+              Write-Host "📝 Verbose output enabled"
+          }
+
+          if ($exportWouldRemove) {
+              $orchestratorParams['WouldRemoveExportPath'] = "./audit-exports"
+              Write-Host "📤 WouldRemove export enabled (audit purposes)"
+              # Ensure export directory exists
+              New-Item -ItemType Directory -Path "./audit-exports" -Force | Out-Null
+          }
+
+          # Execute EasyPIM Orchestrator with explicit Graph reconnection
+          Write-Host "🎯 Executing: Invoke-EasyPIMOrchestrator"
+          try {
+              # One more attempt to ensure Graph connection is recognized by EasyPIM
+              Write-Host "🔄 Final Graph authentication verification for EasyPIM..."
+
+              # Disconnect and reconnect with the exact pattern EasyPIM expects
+              Disconnect-MgGraph -ErrorAction SilentlyContinue
+
+              # Connect with access token (can't use -Scopes with -AccessToken)
+              Write-Host "🔗 Connecting with EasyPIM-compatible authentication..."
+              Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+              # Verify the connection one more time
+              $finalContext = Get-MgContext
+              if (-not $finalContext) {
+                  Write-Error "❌ Failed to establish Graph context for EasyPIM"
+                  exit 1
+              }
+
+              Write-Host "✅ Final Graph context verified for EasyPIM execution"
+              Write-Host "   Final Scopes: $($finalContext.Scopes -join ', ')"
+
+              # Display final parameters for debugging
+              Write-Host "🔧 Final Parameters to Invoke-EasyPIMOrchestrator:"
+              $orchestratorParams.GetEnumerator() | ForEach-Object { Write-Host "   $($_.Key): $($_.Value)" }
+
+              # Enable PowerShell transcript for complete logging
+              $transcriptPath = "./easypim-transcript-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+              Start-Transcript -Path $transcriptPath -Force
+
+              Write-Host "📝 PowerShell transcript started: $transcriptPath"
+
+              # Capture EasyPIM execution with detailed output
+              $executionStartTime = Get-Date
+              Write-Host "🚀 Starting EasyPIM Orchestrator execution at: $executionStartTime"
+
+              Invoke-EasyPIMOrchestrator @orchestratorParams
+
+              $executionEndTime = Get-Date
+              $executionDuration = $executionEndTime - $executionStartTime
+              Write-Host "✅ EasyPIM Orchestrator completed successfully at: $executionEndTime"
+              Write-Host "⏱️ Total execution time: $($executionDuration.TotalMinutes.ToString('F2')) minutes"
+
+              # Stop transcript
+              Stop-Transcript
+
+              # Create a summary log file
+              $summaryPath = "./easypim-summary-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+              "EasyPIM Orchestrator Execution Summary" | Out-File -FilePath $summaryPath -Encoding UTF8
+              "=====================================" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Start Time: $executionStartTime" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "End Time: $executionEndTime" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Duration: $($executionDuration.TotalMinutes.ToString('F2')) minutes" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Success: True" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Parameters Used:" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              ($orchestratorParams | ConvertTo-Json -Depth 3) | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Graph Context:" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "ClientId: $($finalContext.ClientId)" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "TenantId: $($finalContext.TenantId)" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "Scopes: $($finalContext.Scopes -join ', ')" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+              "AuthType: $($finalContext.AuthType)" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
+
+              Write-Host "📋 Execution summary saved to: $summaryPath"
+          }
+          catch {
+              $errorTime = Get-Date
+              Write-Error "❌ EasyPIM Orchestrator failed at: $errorTime"
+              Write-Error "❌ Error: $_"
+
+              # Stop transcript if it was started
+              try { Stop-Transcript -ErrorAction SilentlyContinue } catch { }
+
+              # Create error log
+              $errorPath = "./easypim-error-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+              "EasyPIM Orchestrator Execution Error" | Out-File -FilePath $errorPath -Encoding UTF8
+              "===================================" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "Error Time: $errorTime" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "Error Message: $_" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "Error Details: $($_.Exception | ConvertTo-Json -Depth 3)" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              "Parameters Attempted:" | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+              ($orchestratorParams | ConvertTo-Json -Depth 3) | Out-File -FilePath $errorPath -Encoding UTF8 -Append
+
+              Write-Host "📋 Error details saved to: $errorPath"
+              throw
+          }
+
+      - name: 'Upload EasyPIM Logs and Artifacts'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: easypim-logs-${{ github.run_number }}
+          path: |
+            **/*.log
+            LOGS/**/*
+            audit-exports/**/*
+            easypim-*.log
+            *transcript*.log
+            *summary*.log
+            *error*.log
+          retention-days: 30
+
+  generate-summary:
+    name: 'Generate Summary'
+    runs-on: ubuntu-latest
+    needs: easypim-orchestrator
+    if: always()
+
+    steps:
+      - name: 'Generate Workflow Summary'
+        run: |
+          echo "# 🧪 EasyPIM CI/CD Test Results - Phase 2" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Run:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Orchestrator results
+          ORCHESTRATOR_STATUS="${{ needs.easypim-orchestrator.result }}"
+          if [ "$ORCHESTRATOR_STATUS" = "success" ]; then
+            echo "## ✅ EasyPIM Orchestrator: SUCCESS" >> $GITHUB_STEP_SUMMARY
+            echo "- Configuration processed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- No errors encountered" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ EasyPIM Orchestrator: FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "- Orchestrator execution failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Check logs for detailed error information" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **WhatIf Mode**: ${{ github.event.inputs.WhatIf || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ github.event.inputs.Mode || 'delta' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Policies**: ${{ github.event.inputs.SkipPolicies || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Assignments**: ${{ github.event.inputs.SkipAssignments || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Force**: ${{ github.event.inputs.Force || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Verbose**: ${{ github.event.inputs.Verbose || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Export WouldRemove**: ${{ github.event.inputs.ExportWouldRemove || 'false' }}" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the uploaded logs for detailed execution information" >> $GITHUB_STEP_SUMMARY
+          echo "2. Run Phase 3 workflow to check for policy drift" >> $GITHUB_STEP_SUMMARY
+          echo "3. If running in preview mode, consider applying changes by setting WhatIf=false" >> $GITHUB_STEP_SUMMARY
+          echo "4. Review EasyPIM documentation for configuration guidance" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "**📝 Note**: This is Phase 2 testing with actual EasyPIM operations." >> $GITHUB_STEP_SUMMARY
+          echo "For authentication-only testing, use the Phase 1 workflow." >> $GITHUB_STEP_SUMMARY
+          echo "For policy drift detection, use the Phase 3 workflow." >> $GITHUB_STEP_SUMMARY
