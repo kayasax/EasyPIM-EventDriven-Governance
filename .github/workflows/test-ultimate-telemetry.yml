@@ -16,7 +16,6 @@ permissions:
 jobs:
   test-ultimate-telemetry:
     runs-on: ubuntu-latest
-    environment: test-environment
 
     steps:
       - name: 'Checkout Repository'
