@@ -196,7 +196,7 @@ try {
     # Stop transcript
     Stop-Transcript
 
-    # Create a summary log file
+    # Create a summary log file (plain text)
     $summaryPath = "./easypim-summary-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
     "EasyPIM Orchestrator Execution Summary" | Out-File -FilePath $summaryPath -Encoding UTF8
     "=====================================" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
@@ -214,7 +214,40 @@ try {
     "Scopes: $($finalContext.Scopes -join ', ')" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
     "AuthType: $($finalContext.AuthType)" | Out-File -FilePath $summaryPath -Encoding UTF8 -Append
 
-    Write-Host "📋 Execution summary saved to: $summaryPath" -ForegroundColor Green
+    # --- Emit structured orchestrator summary for workflow consumption ---
+    $orchestratorSummary = [ordered]@{
+        generated    = (Get-Date).ToString('o')
+        startTime    = $executionStartTime
+        endTime      = $executionEndTime
+        durationMin  = $executionDuration.TotalMinutes
+        parameters   = $OrchestratorParams
+        clientId     = $finalContext.ClientId
+        tenantId     = $finalContext.TenantId
+        scopes       = $finalContext.Scopes
+        authType     = $finalContext.AuthType
+        success      = $true
+        driftDetected= $false
+        driftCount   = 0
+        drift        = @()
+        issues       = @()
+    }
+
+    # Try to detect drift/issues in orchestrator output (if available)
+    if ($result -and $result | Get-Member -Name Status -MemberType NoteProperty) {
+        $driftItems = $result | Where-Object { $_.Status -eq 'Drift' }
+        $orchestratorSummary.drift = $driftItems | Select-Object Type, Name, Target, Status, Differences
+        $orchestratorSummary.driftCount = $orchestratorSummary.drift.Count
+        $orchestratorSummary.driftDetected = $orchestratorSummary.driftCount -gt 0
+    }
+    # Optionally, collect other issues (e.g., failed, warning, etc.)
+    if ($result -and $result | Get-Member -Name Status -MemberType NoteProperty) {
+        $issueItems = $result | Where-Object { $_.Status -ne 'Success' -and $_.Status -ne 'Drift' }
+        $orchestratorSummary.issues = $issueItems | Select-Object Type, Name, Target, Status, Differences
+    }
+
+    $orchestratorSummaryPath = './orchestrator-summary.json'
+    $orchestratorSummary | ConvertTo-Json -Depth 8 | Out-File -FilePath $orchestratorSummaryPath -Encoding UTF8
+    Write-Host "📝 Orchestrator summary written to $orchestratorSummaryPath" -ForegroundColor Cyan
 }
 catch {
     $errorTime = Get-Date

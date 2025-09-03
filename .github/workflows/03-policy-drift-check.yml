@@ -27,7 +27,6 @@ jobs:
   policy-drift-check:
     name: 'Policy Drift Detection'
     runs-on: ubuntu-latest
-
     steps:
       - name: 'Checkout Repository'
         uses: actions/checkout@v4
@@ -125,6 +124,7 @@ jobs:
           Write-Host "✅ Parameters configured successfully" -ForegroundColor Green
 
       - name: 'Execute Policy Drift Detection'
+        id: drift_exec
         shell: pwsh
         run: |
           # Retrieve parameters from step output
@@ -143,6 +143,24 @@ jobs:
               Write-Host "🧹 Cleaned up temporary config file" -ForegroundColor Gray
           }
 
+          # Surface drift summary to GitHub step outputs if present
+          if (Test-Path './drift-summary.json') {
+              $json = Get-Content './drift-summary.json' -Raw
+              Write-Host "📄 Drift summary JSON length: $($json.Length)"
+              $parsed = $json | ConvertFrom-Json
+              $driftCount = $parsed.driftCount
+              $driftDetected = $parsed.driftDetected
+              "drift-detected=$driftDetected" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              "drift-count=$driftCount" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              if ($parsed.drift -and $parsed.drift.Count -gt 0) {
+                $first = ($parsed.drift | Select-Object -First 5 | ConvertTo-Json -Compress)
+                "drift-sample=$first" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              }
+          } else {
+              "drift-detected=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              "drift-count=0" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
       - name: 'Upload Drift Detection Results'
         if: always()
         uses: actions/upload-artifact@v4
@@ -154,14 +172,8 @@ jobs:
             drift-report.*
           retention-days: 30
 
-  generate-summary:
-    name: 'Generate Drift Summary'
-    runs-on: ubuntu-latest
-    needs: policy-drift-check
-    if: always()
-
-    steps:
       - name: 'Generate Workflow Summary'
+        if: always()
         run: |
           echo "# 🔍 PIM Policy Drift Detection Results - Phase 3" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -170,16 +182,27 @@ jobs:
           echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Drift check results
-          DRIFT_STATUS="${{ needs.policy-drift-check.result }}"
-          if [ "$DRIFT_STATUS" = "success" ]; then
-            echo "## ✅ Policy Drift Detection: SUCCESS" >> $GITHUB_STEP_SUMMARY
-            echo "- No policy drift detected" >> $GITHUB_STEP_SUMMARY
-            echo "- All PIM policies match the desired configuration" >> $GITHUB_STEP_SUMMARY
+          DRIFT_STATUS="${{ job.status }}"
+          DRIFT_DETECTED="${{ steps.drift_exec.outputs.drift-detected }}"
+          DRIFT_COUNT="${{ steps.drift_exec.outputs.drift-count }}"
+
+          if [ "$DRIFT_STATUS" != "success" ]; then
+            echo "## ❌ Policy Drift Detection Job Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Execution error prevented drift evaluation" >> $GITHUB_STEP_SUMMARY
           else
-            echo "## ⚠️ Policy Drift Detection: ISSUES FOUND" >> $GITHUB_STEP_SUMMARY
-            echo "- Policy drift detected or errors occurred" >> $GITHUB_STEP_SUMMARY
-            echo "- Review the detailed logs for specific issues" >> $GITHUB_STEP_SUMMARY
+            if [ "$DRIFT_DETECTED" = "true" ] && [ "$DRIFT_COUNT" != "0" ]; then
+              echo "## ⚠️ Drift Detected ($DRIFT_COUNT item(s))" >> $GITHUB_STEP_SUMMARY
+              echo "- Policy drift identified in one or more items" >> $GITHUB_STEP_SUMMARY
+              echo "- Review artifact: drift-summary.json" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Sample (first 5)" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              echo "${{ steps.drift_exec.outputs.drift-sample }}" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "## ✅ No Drift Detected" >> $GITHUB_STEP_SUMMARY
+              echo "- All evaluated items match desired configuration" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -189,14 +212,18 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔗 Next Steps" >> $GITHUB_STEP_SUMMARY
-          if [ "$DRIFT_STATUS" = "success" ]; then
-            echo "1. ✅ No action required - policies are in compliance" >> $GITHUB_STEP_SUMMARY
-            echo "2. 📅 Consider scheduling regular drift detection runs" >> $GITHUB_STEP_SUMMARY
+          if [ "$DRIFT_STATUS" != "success" ]; then
+            echo "1. 📋 Review logs for execution error root cause" >> $GITHUB_STEP_SUMMARY
+            echo "2. � Re-run once issue addressed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "1. 📋 Review the uploaded drift detection results" >> $GITHUB_STEP_SUMMARY
-            echo "2. 🔧 Investigate any policy configuration discrepancies" >> $GITHUB_STEP_SUMMARY
-            echo "3. ⚡ Run Phase 2 orchestrator to remediate drift if needed" >> $GITHUB_STEP_SUMMARY
-            echo "4. 📚 Check EasyPIM documentation for policy guidance" >> $GITHUB_STEP_SUMMARY
+            if [ "$DRIFT_DETECTED" = "true" ] && [ "$DRIFT_COUNT" != "0" ]; then
+              echo "1. ⚡ Run Phase 2 orchestrator to remediate drift" >> $GITHUB_STEP_SUMMARY
+              echo "2. � Validate remediation by re-running Phase 3" >> $GITHUB_STEP_SUMMARY
+              echo "3. 🗂️ Archive drift-summary.json for audit" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "1. ✅ No action required - policies compliant" >> $GITHUB_STEP_SUMMARY
+              echo "2. � Maintain scheduled drift checks" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY

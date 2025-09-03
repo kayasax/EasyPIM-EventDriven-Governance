@@ -64,35 +64,76 @@ try {
         Write-Host "⚠️  Azure PowerShell verification warning: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 
-    # Execute Test-PIMPolicyDrift with proper error handling
-    Write-Host "🚀 Executing Test-PIMPolicyDrift..." -ForegroundColor Green
+    # Execute Test-PIMPolicyDrift with proper error handling and capture structured results
+    Write-Host "🚀 Executing Test-PIMPolicyDrift (capturing results)..." -ForegroundColor Green
 
-    # Check if we have ConfigPath (temp file approach) vs KeyVault parameters
+    $results = $null
+    $executionSucceeded = $false
+
+    # Decide parameter approach (ConfigPath vs KeyVault)
     if ($DriftParams.ContainsKey('ConfigPath') -and (Test-Path $DriftParams['ConfigPath'])) {
         Write-Host "📁 Using ConfigPath approach: $($DriftParams['ConfigPath'])" -ForegroundColor Blue
-        
-        # Remove KeyVault parameters if present to avoid conflicts
         $cleanParams = $DriftParams.Clone()
         $cleanParams.Remove('KeyVaultName')
         $cleanParams.Remove('SecretName')
-        
-        Test-PIMPolicyDrift @cleanParams
+        $results = Test-PIMPolicyDrift @cleanParams
+        $executionSucceeded = $true
     }
     elseif ($DriftParams.ContainsKey('KeyVaultName') -and $DriftParams.ContainsKey('SecretName')) {
         Write-Host "🔐 Using native KeyVault approach: $($DriftParams['KeyVaultName'])/$($DriftParams['SecretName'])" -ForegroundColor Blue
-        
-        # Remove ConfigPath if present to avoid conflicts
         $cleanParams = $DriftParams.Clone()
         $cleanParams.Remove('ConfigPath')
-        
-        Test-PIMPolicyDrift @cleanParams
+        $results = Test-PIMPolicyDrift @cleanParams
+        $executionSucceeded = $true
     }
     else {
         Write-Error "❌ No valid configuration source found - need either ConfigPath or KeyVaultName+SecretName"
         exit 1
     }
 
-    Write-Host "✅ Test-PIMPolicyDrift completed successfully" -ForegroundColor Green
+    if ($executionSucceeded -and $null -ne $results) {
+        Write-Host "✅ Test-PIMPolicyDrift completed (objects captured: $($results.Count))" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️ Test-PIMPolicyDrift returned no objects" -ForegroundColor Yellow
+    }
+
+    # Persist raw object output for auditing
+    try { $results | Format-List * | Out-File -FilePath "./drift-raw-output.log" -Encoding UTF8 } catch { }
+
+    # Analyze drift
+    $driftItems = @()
+    if ($results) { $driftItems = $results | Where-Object { $_.Status -eq 'Drift' } }
+    $driftCount = $driftItems.Count
+    $totalCount = if ($results) { $results.Count } else { 0 }
+    $hasDrift = $driftCount -gt 0
+
+    if ($hasDrift) {
+        Write-Host "⚠️ DRIFT DETECTED: $driftCount item(s) out of $totalCount" -ForegroundColor Yellow
+        $driftItems | ForEach-Object {
+            Write-Host (" - [{0}] {1} :: {2}" -f $_.Type, $_.Name, ($_.Differences -replace "\r?\n"," ")) -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "✅ No drift detected ($totalCount items evaluated)" -ForegroundColor Green
+    }
+
+    # Build JSON summary
+    $summary = [pscustomobject]@{
+        generated    = (Get-Date).ToString('o')
+        total        = $totalCount
+        driftCount   = $driftCount
+        driftDetected= $hasDrift
+        drift        = $driftItems | Select-Object Type, Name, Target, Status, Differences
+    }
+    $summaryPath = "./drift-summary.json"
+    $summary | ConvertTo-Json -Depth 8 | Out-File -FilePath $summaryPath -Encoding UTF8
+    Write-Host "📝 Drift summary written to $summaryPath" -ForegroundColor Cyan
+
+    # Provide lightweight text summary for downstream parsing
+    $lightSummary = if ($hasDrift) { "DRIFT_FOUND=$driftCount" } else { "DRIFT_FOUND=0" }
+    $lightSummary | Out-File -FilePath "./drift-summary.out" -Encoding UTF8
+
+    # Return results to pipeline
+    $results
 
 } catch {
     Write-Error "❌ Test-PIMPolicyDrift execution failed: $($_.Exception.Message)"
