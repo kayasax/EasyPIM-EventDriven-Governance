@@ -72,18 +72,12 @@ jobs:
               'SubscriptionId' = $env:SUBSCRIPTION_ID
           }
 
-          # Configuration source
+          # Configuration source - now using native KeyVault support
           if ($env:KEYVAULT_NAME) {
               Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME" -ForegroundColor Green
-              
-              # Get the configuration from Key Vault and save to temp file
-              # NOTE: Current implementation downloads config to temp file since Test-PIMPolicyDrift
-              # doesn't yet support KeyVault parameters directly. This will be simplified in future versions.
-              $configJson = az keyvault secret show --vault-name $env:KEYVAULT_NAME --name $env:SECRET_NAME --query "value" -o tsv
-              $tempConfigPath = "./temp-drift-config.json"
-              $configJson | Out-File -FilePath $tempConfigPath -Encoding UTF8
-              
-              $driftParams['ConfigPath'] = $tempConfigPath
+              # Use native KeyVault parameters - no need for temp files
+              $driftParams['KeyVaultName'] = $env:KEYVAULT_NAME
+              $driftParams['SecretName'] = $env:SECRET_NAME
           } else {
               Write-Host "📋 Using local configuration file" -ForegroundColor Green
               $driftParams['ConfigPath'] = "./configs/pim-config.json"
@@ -98,7 +92,12 @@ jobs:
           Write-Host "🎯 Drift Detection Parameters:" -ForegroundColor Blue
           Write-Host "   TenantId: $env:TENANT_ID"
           Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
-          Write-Host "   ConfigPath: $($driftParams['ConfigPath'])"
+          if ($env:KEYVAULT_NAME) {
+              Write-Host "   KeyVaultName: $env:KEYVAULT_NAME"
+              Write-Host "   SecretName: $env:SECRET_NAME"
+          } else {
+              Write-Host "   ConfigPath: $($driftParams['ConfigPath'])"
+          }
           if ($verbose) {
               Write-Host "   Verbose: enabled"
           }
@@ -114,18 +113,12 @@ jobs:
           # Retrieve parameters from step output
           $driftParamsJson = '${{ steps.config.outputs.drift-params }}'
           Write-Host "📥 Retrieved parameters JSON: $($driftParamsJson.Substring(0, [Math]::Min(100, $driftParamsJson.Length)))..." -ForegroundColor Gray
-          
+
           $driftParams = $driftParamsJson | ConvertFrom-Json -AsHashtable
           $graphContext = Get-MgContext
 
           # Execute using the dedicated script
           & "./scripts/workflows/Invoke-EasyPIMDriftDetection.ps1" -DriftParams $driftParams -GraphContext $graphContext
-
-          # Clean up temp file if it was created
-          if (Test-Path "./temp-drift-config.json") {
-              Remove-Item "./temp-drift-config.json" -ErrorAction SilentlyContinue
-              Write-Host "🧹 Cleaned up temporary config file" -ForegroundColor Gray
-          }
 
       - name: 'Upload Drift Detection Results'
         if: always()
