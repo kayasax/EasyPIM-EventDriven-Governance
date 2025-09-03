@@ -47,6 +47,18 @@ jobs:
         run: |
           Write-Host "🎯 Testing Ultimate Telemetry Wrapper - GUARANTEED telemetry events!" -ForegroundColor Magenta
           
+          # Re-establish Graph context for telemetry (GitHub Actions doesn't preserve sessions)
+          Write-Host "🔄 Re-establishing Graph context for telemetry..." -ForegroundColor Blue
+          $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+          if ($graphToken) {
+            $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+            Disconnect-MgGraph -ErrorAction SilentlyContinue
+            Connect-MgGraph -AccessToken $secureToken -NoWelcome
+            Write-Host "✅ Graph context re-established for telemetry" -ForegroundColor Green
+          } else {
+            Write-Host "⚠️  Failed to get Graph token - telemetry may not work" -ForegroundColor Yellow
+          }
+          
           # Load the ultimate telemetry hotpatch
           . "./scripts/workflows/Apply-EasyPIMTelemetryHotpatch.ps1"
           
