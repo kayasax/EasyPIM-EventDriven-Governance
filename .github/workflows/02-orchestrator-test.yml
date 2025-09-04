@@ -78,6 +78,7 @@ jobs:
         client-id: ${{ env.AZURE_CLIENT_ID }}
         tenant-id: ${{ env.TENANT_ID }}
         subscription-id: ${{ env.SUBSCRIPTION_ID }}
+        enable-AzPSSession: true
 
     - name: 'Install EasyPIM Modules'
       shell: pwsh
@@ -87,10 +88,13 @@ jobs:
     - name: 'Setup EasyPIM Authentication'
       shell: pwsh
       run: |
-        . ./scripts/workflows/Setup-EasyPIMAuthentication.ps1 `
-          -TenantId '${{ env.TENANT_ID }}' `
-          -SubscriptionId '${{ env.SUBSCRIPTION_ID }}' `
-          -ClientId '${{ env.AZURE_CLIENT_ID }}'
+        Write-Host "🔑 Setting up authentication..." -ForegroundColor Cyan
+        $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
+        if (-not $authResult) {
+          Write-Error "❌ Authentication setup failed"
+          exit 1
+        }
+        Write-Host "✅ Authentication setup completed successfully" -ForegroundColor Green
 
     - name: 'EasyPIM Orchestrator Execution'
       shell: pwsh
