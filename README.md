@@ -246,7 +246,7 @@ $subscriptionId = az account show --query id -o tsv
 
 Write-Host "🎯 Save these values for GitHub Secrets:" -ForegroundColor Cyan
 Write-Host "AZURE_CLIENT_ID: $appId" -ForegroundColor Green
-Write-Host "AZURE_TENANT_ID: $tenantId" -ForegroundColor Green  
+Write-Host "AZURE_TENANT_ID: $tenantId" -ForegroundColor Green
 Write-Host "AZURE_SUBSCRIPTION_ID: $subscriptionId" -ForegroundColor Green
 ```
 
@@ -280,7 +280,7 @@ Write-Host "✅ Federated credentials configured for: repo:$GitHubOrg/$GitHubRep
 # Microsoft Graph API permissions for PIM operations
 $graphPermissions = @(
     "RoleManagement.ReadWrite.Directory",
-    "PrivilegedAccess.ReadWrite.AzureAD", 
+    "PrivilegedAccess.ReadWrite.AzureAD",
     "Directory.Read.All",
     "Application.Read.All"
 )
@@ -383,7 +383,7 @@ cd EasyPIM-CICD-test
 
 ---
 
-## �📦 What's Inside
+##�📦 What's Inside
 
 ```
 📂 EasyPIM-CICD-test/
@@ -640,7 +640,7 @@ AZURE_REGION: "East US 2"
 
 **Environment-Specific Parameter Files:**
 - `deploy-azure-resources.dev.parameters.json` - Development environment
-- `deploy-azure-resources.staging.parameters.json` - Staging environment  
+- `deploy-azure-resources.staging.parameters.json` - Staging environment
 - `deploy-azure-resources.prod.parameters.json` - Production environment
 
 **Usage in Deployment:**
@@ -692,47 +692,165 @@ az deployment group create \
 ## 💡 Advanced Use Cases
 
 <details>
-<summary><b>🔄 Continuous Compliance</b></summary>
+<summary><b>🔄 Continuous Compliance Monitoring</b></summary>
 
-Set up automated drift detection to run daily:
+**Scenario:** Automatically detect when PIM configurations drift from your desired state.
 
+**Implementation:**
+- Phase 3 workflow runs daily at 6 AM UTC (configured in `03-policy-drift-check.yml`)
+- Compares current PIM state vs your Key Vault configuration
+- Generates reports and alerts when differences are found
+
+**How it works:**
 ```yaml
-# Automatically scheduled in 03-policy-drift-check.yml
+# In 03-policy-drift-check.yml - already configured
 schedule:
   - cron: '0 6 * * *'  # Daily at 6 AM UTC
+
+# Manual trigger anytime
+workflow_dispatch:
+  inputs:
+    Verbose:
+      description: 'Enable detailed analysis'
+      type: boolean
+      default: false
 ```
 
-Get alerts when configuration drifts from desired state.
+**What you get:**
+- 📊 Daily compliance reports
+- 🚨 Immediate alerts on unauthorized changes
+- 📋 Audit trail for all drift events
+- 🔄 Automated remediation suggestions
 
 </details>
 
 <details>
 <summary><b>🚀 Multi-Environment Deployments</b></summary>
 
-Use different configurations for dev/staging/prod:
+**Scenario:** Manage separate PIM configurations for development, staging, and production environments.
 
-```bash
-# Different Key Vault secrets per environment
-DEV_KEYVAULT_NAME: "kv-easypim-dev"
-STAGING_KEYVAULT_NAME: "kv-easypim-staging"
-PROD_KEYVAULT_NAME: "kv-easypim-prod"
+**Setup Different Environments:**
+```powershell
+# Deploy separate Key Vaults for each environment
+.\scripts\deploy-azure-resources.ps1 -Environment "dev" -KeyVaultName "kv-easypim-dev-001"
+.\scripts\deploy-azure-resources.ps1 -Environment "staging" -KeyVaultName "kv-easypim-staging-001"
+.\scripts\deploy-azure-resources.ps1 -Environment "prod" -KeyVaultName "kv-easypim-prod-001"
 ```
+
+**Configure GitHub Environment Variables:**
+
+You need to create separate **GitHub Environments** for each deployment target. Each environment has its own set of variables:
+
+**In GitHub Repository Settings → Environments:**
+
+1. **Create "development" environment:**
+   ```yaml
+   # Variables for development environment
+   AZURE_KEYVAULT_NAME: "kv-easypim-dev-001"
+   AZURE_RESOURCE_GROUP: "rg-easypim-dev"
+   ```
+
+2. **Create "staging" environment:**
+   ```yaml
+   # Variables for staging environment  
+   AZURE_KEYVAULT_NAME: "kv-easypim-staging-001"
+   AZURE_RESOURCE_GROUP: "rg-easypim-staging"
+   ```
+
+3. **Create "production" environment:**
+   ```yaml
+   # Variables for production environment
+   AZURE_KEYVAULT_NAME: "kv-easypim-prod-001" 
+   AZURE_RESOURCE_GROUP: "rg-easypim-prod"
+   ```
+
+**Workflow Environment Selection:**
+```yaml
+# In your workflow file
+jobs:
+  deploy-to-dev:
+    runs-on: ubuntu-latest
+    environment: development      # Uses development variables
+    steps:
+      - name: Deploy to Dev
+        run: echo "Using ${{ vars.AZURE_KEYVAULT_NAME }}"
+
+  deploy-to-prod:
+    runs-on: ubuntu-latest  
+    environment: production       # Uses production variables
+    steps:
+      - name: Deploy to Prod
+        run: echo "Using ${{ vars.AZURE_KEYVAULT_NAME }}"
+```
+
+**Branch-Based Deployment:**
+- `main` branch → Production environment
+- `staging` branch → Staging environment
+- `develop` branch → Development environment
+
+**Different PIM Policies Per Environment:**
+- **Dev:** Relaxed policies, longer activation times
+- **Staging:** Production-like policies for testing
+- **Prod:** Strict policies, approvals required
 
 </details>
 
 <details>
 <summary><b>🎯 Emergency Access Management</b></summary>
 
-Quickly activate break-glass accounts:
+**Scenario:** Quickly activate break-glass accounts during security incidents or outages.
 
+**Emergency Workflow Trigger:**
 ```yaml
-# Emergency workflow with AllowProtectedRoles=true
-- name: "Emergency Access Activation"
-  with:
-    AllowProtectedRoles: true
-    Mode: "initial"
-    run_description: "Emergency access for incident response"
+# Create emergency access workflow in your repository
+name: "🚨 Emergency Access Activation"
+
+on:
+  workflow_dispatch:
+    inputs:
+      incident_id:
+        description: 'Incident ticket number'
+        required: true
+        type: string
+      justification:
+        description: 'Emergency justification'
+        required: true
+        type: string
+
+jobs:
+  emergency_access:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Activate Emergency Access"
+        uses: ./.github/workflows/02-orchestrator-test.yml
+        with:
+          WhatIf: false                    # 🚨 Actually apply changes
+          AllowProtectedRoles: true        # 🚨 Allow Global Admin access
+          Mode: "initial"                  # 🚨 Force full configuration
+          run_description: "EMERGENCY: ${{ inputs.incident_id }} - ${{ inputs.justification }}"
 ```
+
+**Emergency Configuration Example:**
+```json
+{
+  "EmergencyAccess": {
+    "BreakGlassAccounts": [
+      "emergency-admin-01@company.com",
+      "emergency-admin-02@company.com"
+    ],
+    "ActivationDuration": "PT1H",        // 1 hour only
+    "RequireApproval": false,            // No approval needed
+    "RequireMFA": true,                  // Still require MFA
+    "AutoExpire": true                   // Auto-deactivate after duration
+  }
+}
+```
+
+**Safety Features:**
+- ⏰ Limited time activation (1 hour max)
+- 📋 Full audit logging of emergency access
+- 🔄 Automatic deactivation after incident
+- 📧 Immediate notifications to security team
 
 </details>
 
