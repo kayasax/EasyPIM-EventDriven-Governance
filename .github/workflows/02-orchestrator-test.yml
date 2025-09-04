@@ -72,37 +72,21 @@ jobs:
     - name: 'Install EasyPIM Modules'
       shell: pwsh
       run: |
-        Write-Host "🚀 Installing EasyPIM modules from PowerShell Gallery..." -ForegroundColor Cyan
-        Install-Module -Name EasyPIM -Force -Scope CurrentUser -Repository PSGallery
-        Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Repository PSGallery
-        Import-Module EasyPIM.Orchestrator -Force
-        Write-Host "✅ EasyPIM modules installed and imported successfully" -ForegroundColor Green
+        & ./scripts/workflows/Install-EasyPIMModules.ps1
 
-    - name: 'Setup Microsoft Graph Authentication Bridge'
+    - name: 'Setup EasyPIM Authentication'
       shell: pwsh
       run: |
-        Write-Host "🔐 Setting up Microsoft Graph authentication bridge..." -ForegroundColor Cyan
-
-        # Get access token from Azure CLI (authenticated via OIDC)
-        $token = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
-        if (-not $token) {
-          throw "Failed to get access token from Azure CLI"
-        }
-
-        # Connect to Microsoft Graph using the token
-        $secureToken = ConvertTo-SecureString $token -AsPlainText -Force
-        Connect-MgGraph -AccessToken $secureToken
-
-        # Verify connection
-        $context = Get-MgContext
-        Write-Host "✅ Microsoft Graph PowerShell SDK connected successfully" -ForegroundColor Green
-        Write-Host "   Client ID: $($context.ClientId)" -ForegroundColor Cyan
-        Write-Host "   Tenant ID: $($context.TenantId)" -ForegroundColor Cyan
+        . ./scripts/workflows/Setup-EasyPIMAuthentication.ps1 `
+          -TenantId '${{ env.TENANT_ID }}' `
+          -SubscriptionId '${{ env.SUBSCRIPTION_ID }}' `
+          -ClientId '${{ env.AZURE_CLIENT_ID }}'
 
     - name: 'EasyPIM Orchestrator Execution'
       shell: pwsh
       run: |
         Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
+
         Write-Host "Parameters:" -ForegroundColor Yellow
         Write-Host "  WhatIf: ${{ github.event.inputs.WhatIf }}" -ForegroundColor White
         Write-Host "  Mode: ${{ github.event.inputs.Mode }}" -ForegroundColor White
@@ -119,9 +103,7 @@ jobs:
           TenantId = '${{ env.TENANT_ID }}'
           SubscriptionId = '${{ env.SUBSCRIPTION_ID }}'
           Mode = '${{ github.event.inputs.Mode }}'
-        }
-
-        # Add conditional parameters
+        }        # Add conditional parameters
         if ('${{ github.event.inputs.WhatIf }}' -eq 'true') {
           $params.WhatIf = $true
           Write-Host "🔍 Running in WhatIf mode (preview only)" -ForegroundColor Yellow
