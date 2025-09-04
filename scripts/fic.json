@@ -1,9 +1,0 @@
-{
-  "name": "github-main",
-  "issuer": "https://token.actions.githubusercontent.com",
-  "audiences": [
-    "api://AzureADTokenExchange"
-  ],
-  "subject": "repo:kayasax/EasyPIM-CICD-test:ref:refs/heads/main",
-  "description": "GitHub Actions OIDC for main branch"
-}

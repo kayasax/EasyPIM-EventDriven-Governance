@@ -94,8 +94,8 @@ jobs:
 
               Write-Host "✅ Retrieved config successfully (Length: $($configJson.Length) chars)" -ForegroundColor Green
           } else {
-              Write-Host "📋 Using local configuration file" -ForegroundColor Green
-              $driftParams['ConfigPath'] = "./configs/pim-config.json"
+              Write-Error "❌ No Key Vault configuration found. AZURE_KEYVAULT_NAME variable is required."
+              exit 1
           }
 
           # Add conditional parameters
@@ -112,7 +112,7 @@ jobs:
               Write-Host "   SecretName: $env:SECRET_NAME"
               Write-Host "   ConfigPath: $($driftParams['ConfigPath']) (fallback)"
           } else {
-              Write-Host "   ConfigPath: $($driftParams['ConfigPath'])"
+              Write-Host "   ❌ Key Vault configuration required but not provided"
           }
           if ($verbose) {
               Write-Host "   Verbose: enabled"
