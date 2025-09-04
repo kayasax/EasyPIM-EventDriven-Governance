@@ -216,7 +216,7 @@ az deployment group create \
 
 ---
 
-## � Detailed Setup Guide
+## Detailed Setup Guide
 
 ### 🎯 Prerequisites
 
@@ -332,21 +332,32 @@ Write-Host "AZURE_RESOURCE_GROUP: $resourceGroup" -ForegroundColor Yellow
 <details>
 <summary><b>Step 5: 👤 Assign PIM Administrative Roles</b></summary>
 
+**⚠️ Critical:** For PIM to manage Azure resources, the service principal needs **Owner** or **User Access Administrator** permissions at the subscription level.
+
 ```powershell
-# Assign Privileged Role Administrator to the service principal
+# Get service principal object ID
 $spObjectId = az ad sp show --id $appId --query id -o tsv
 
-# Assign at subscription level for Azure PIM
+# REQUIRED: Assign Owner role at subscription level for Azure PIM management
+# This is required per Microsoft docs for PIM Resource Administrator permissions
 az role assignment create \
   --assignee $spObjectId \
-  --role "User Access Administrator" \
+  --role "Owner" \
   --scope "/subscriptions/$subscriptionId"
 
-# Assign Entra ID roles (requires PowerShell and Microsoft.Graph modules)
+Write-Host "✅ Owner role assigned at subscription level for Azure PIM" -ForegroundColor Green
+
+# Alternative: Use User Access Administrator if you prefer more limited permissions
+# az role assignment create \
+#   --assignee $spObjectId \
+#   --role "User Access Administrator" \
+#   --scope "/subscriptions/$subscriptionId"
+
+# Assign Entra ID roles for Entra PIM management (requires PowerShell and Microsoft.Graph modules)
 Install-Module Microsoft.Graph -Force -Scope CurrentUser
 Connect-MgGraph -Scopes "RoleManagement.ReadWrite.Directory"
 
-# Get Privileged Role Administrator role
+# Get Privileged Role Administrator role for Entra ID PIM
 $roleId = (Get-MgDirectoryRole -Filter "displayName eq 'Privileged Role Administrator'").Id
 if (-not $roleId) {
     # Enable the role if not already enabled
@@ -355,13 +366,20 @@ if (-not $roleId) {
     $roleId = (Get-MgDirectoryRole -Filter "displayName eq 'Privileged Role Administrator'").Id
 }
 
-# Assign the role to service principal
+# Assign Privileged Role Administrator for Entra ID PIM
 New-MgDirectoryRoleMemberByRef -DirectoryRoleId $roleId -BodyParameter @{
     "@odata.id" = "https://graph.microsoft.com/v1.0/directoryObjects/$spObjectId"
 }
 
-Write-Host "✅ PIM administrative permissions assigned" -ForegroundColor Green
+Write-Host "✅ PIM administrative permissions assigned:" -ForegroundColor Green
+Write-Host "  • Owner (Azure PIM management)" -ForegroundColor Yellow
+Write-Host "  • Privileged Role Administrator (Entra ID PIM management)" -ForegroundColor Yellow
 ```
+
+**📋 Permissions Summary:**
+- **Owner** (Subscription) - Required to manage Azure resource PIM assignments
+- **Privileged Role Administrator** (Entra ID) - Required to manage Entra ID role PIM assignments
+- **Microsoft Graph API permissions** - Required for programmatic PIM operations
 
 </details>
 
@@ -752,7 +770,7 @@ You need to create separate **GitHub Environments** for each deployment target. 
 
 2. **Create "staging" environment:**
    ```yaml
-   # Variables for staging environment  
+   # Variables for staging environment
    AZURE_KEYVAULT_NAME: "kv-easypim-staging-001"
    AZURE_RESOURCE_GROUP: "rg-easypim-staging"
    ```
@@ -760,7 +778,7 @@ You need to create separate **GitHub Environments** for each deployment target. 
 3. **Create "production" environment:**
    ```yaml
    # Variables for production environment
-   AZURE_KEYVAULT_NAME: "kv-easypim-prod-001" 
+   AZURE_KEYVAULT_NAME: "kv-easypim-prod-001"
    AZURE_RESOURCE_GROUP: "rg-easypim-prod"
    ```
 
@@ -776,7 +794,7 @@ jobs:
         run: echo "Using ${{ vars.AZURE_KEYVAULT_NAME }}"
 
   deploy-to-prod:
-    runs-on: ubuntu-latest  
+    runs-on: ubuntu-latest
     environment: production       # Uses production variables
     steps:
       - name: Deploy to Prod
