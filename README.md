@@ -409,7 +409,7 @@ cd EasyPIM-CICD-test
 
 ---
 
-##�📦 What's Inside
+## 📦 What's Inside
 
 ```
 📂 EasyPIM-CICD-test/
@@ -518,18 +518,18 @@ AZURE_REGION: "East US 2"
 ### 📊 PIM Configuration Guide
 
 > 📖 **Complete Configuration Documentation**
-> 
+>
 > For detailed PIM configuration examples, templates, and step-by-step instructions, please refer to the official EasyPIM configuration guide:
-> 
+>
 > 🔗 **[EasyPIM Configuration Step-by-Step Guide](https://github.com/kayasax/EasyPIM/wiki/Invoke%E2%80%90EasyPIMOrchestrator-step%E2%80%90by%E2%80%90step-guide)**
-> 
+>
 > This comprehensive guide covers:
 > - ✅ Policy configuration templates
-> - ✅ Role assignment structures  
+> - ✅ Role assignment structures
 > - ✅ Production-ready examples
 > - ✅ Best practices and recommendations
 > - ✅ Real-world use cases and scenarios
-> 
+>
 > The configuration will be stored securely in Azure Key Vault as configured during the setup process.
 
 ### 🛠️ Parameter File Usage
@@ -743,7 +743,7 @@ jobs:
 {
   "ProtectedUsers": [
     "emergency-access-01@company.com",
-    "emergency-access-02@company.com", 
+    "emergency-access-02@company.com",
     "break-glass-admin@company.com"
   ]
 }
@@ -751,7 +751,7 @@ jobs:
 
 **Safety Benefits:**
 - ✅ **Break-glass accounts remain untouched** - No risk of accidentally removing emergency access
-- ✅ **Service accounts protected** - Critical automation accounts stay operational  
+- ✅ **Service accounts protected** - Critical automation accounts stay operational
 - ✅ **Compliance maintained** - Regulatory requirements for permanent emergency access
 - ✅ **Zero-risk automation** - PIM changes never affect designated emergency accounts
 
@@ -809,7 +809,7 @@ jobs:
 
 **Pro Tips**:
 - 🔍 Always test with `WhatIf=true` first
-- 📋 Monitor workflow logs for detailed error information  
+- 📋 Monitor workflow logs for detailed error information
 - 🔄 Use `delta` mode for incremental changes
 - 🛡️ Keep break-glass accounts in `ProtectedUsers`
 
