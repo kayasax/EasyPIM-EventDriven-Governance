@@ -85,27 +85,16 @@ jobs:
       run: |
         & ./scripts/workflows/Install-EasyPIMModules.ps1
 
-    - name: 'Setup EasyPIM Authentication'
-      shell: pwsh
-      run: |
-        Write-Host "🔑 Setting up authentication..." -ForegroundColor Cyan
-        $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
-        if (-not $authResult) {
-          Write-Error "❌ Authentication setup failed"
-          exit 1
-        }
-        Write-Host "✅ Authentication setup completed successfully" -ForegroundColor Green
-
     - name: 'EasyPIM Orchestrator Execution'
       shell: pwsh
       run: |
         Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
 
-        # Verify authentication context first
+        # Ensure authentication is established in this step
         Write-Host "🔍 Verifying authentication context..." -ForegroundColor Cyan
         $graphContext = Get-MgContext
         if (-not $graphContext) {
-          Write-Error "❌ Microsoft Graph context not found. Re-establishing authentication..."
+          Write-Host "❌ Microsoft Graph context not found. Establishing authentication..." -ForegroundColor Yellow
           # Re-run authentication in this step
           $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
           if (-not $authResult) {
@@ -114,7 +103,16 @@ jobs:
           }
           $graphContext = Get-MgContext
         }
-        Write-Host "✅ Graph context verified: $($graphContext.TenantId)" -ForegroundColor Green
+
+        if (-not $graphContext) {
+          Write-Error "❌ Failed to establish Graph context"
+          exit 1
+        }
+
+        Write-Host "✅ Graph context verified:" -ForegroundColor Green
+        Write-Host "   Client ID: $($graphContext.ClientId)" -ForegroundColor White
+        Write-Host "   Tenant ID: $($graphContext.TenantId)" -ForegroundColor White
+        Write-Host "   Scopes: $($graphContext.Scopes -join ', ')" -ForegroundColor White
 
         Write-Host "Parameters:" -ForegroundColor Yellow
         Write-Host "  WhatIf: ${{ github.event.inputs.WhatIf }}" -ForegroundColor White
