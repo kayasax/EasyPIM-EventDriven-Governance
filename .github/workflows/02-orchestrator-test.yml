@@ -101,6 +101,21 @@ jobs:
       run: |
         Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
 
+        # Verify authentication context first
+        Write-Host "🔍 Verifying authentication context..." -ForegroundColor Cyan
+        $graphContext = Get-MgContext
+        if (-not $graphContext) {
+          Write-Error "❌ Microsoft Graph context not found. Re-establishing authentication..."
+          # Re-run authentication in this step
+          $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
+          if (-not $authResult) {
+            Write-Error "❌ Authentication setup failed"
+            exit 1
+          }
+          $graphContext = Get-MgContext
+        }
+        Write-Host "✅ Graph context verified: $($graphContext.TenantId)" -ForegroundColor Green
+
         Write-Host "Parameters:" -ForegroundColor Yellow
         Write-Host "  WhatIf: ${{ github.event.inputs.WhatIf }}" -ForegroundColor White
         Write-Host "  Mode: ${{ github.event.inputs.Mode }}" -ForegroundColor White
