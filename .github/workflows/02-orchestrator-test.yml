@@ -54,5 +54,171 @@ permissions:
   contents: read
 
 jobs:
+  orchestrator-test:
+    runs-on: ubuntu-latest
+    name: 'EasyPIM Orchestrator Execution'
 
-  # Only main orchestrator flow remains. All test flows removed.
+    steps:
+    - name: 'Checkout Repository'
+      uses: actions/checkout@v4
+
+    - name: 'Azure OIDC Login'
+      uses: azure/login@v2
+      with:
+        client-id: ${{ env.AZURE_CLIENT_ID }}
+        tenant-id: ${{ env.TENANT_ID }}
+        subscription-id: ${{ env.SUBSCRIPTION_ID }}
+
+    - name: 'Install EasyPIM Modules'
+      shell: pwsh
+      run: |
+        Write-Host "🚀 Installing EasyPIM modules from PowerShell Gallery..." -ForegroundColor Cyan
+        Install-Module -Name EasyPIM -Force -Scope CurrentUser -Repository PSGallery
+        Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -Repository PSGallery
+        Import-Module EasyPIM.Orchestrator -Force
+        Write-Host "✅ EasyPIM modules installed and imported successfully" -ForegroundColor Green
+
+    - name: 'Setup Microsoft Graph Authentication Bridge'
+      shell: pwsh
+      run: |
+        Write-Host "🔐 Setting up Microsoft Graph authentication bridge..." -ForegroundColor Cyan
+
+        # Get access token from Azure CLI (authenticated via OIDC)
+        $token = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+        if (-not $token) {
+          throw "Failed to get access token from Azure CLI"
+        }
+
+        # Connect to Microsoft Graph using the token
+        $secureToken = ConvertTo-SecureString $token -AsPlainText -Force
+        Connect-MgGraph -AccessToken $secureToken
+
+        # Verify connection
+        $context = Get-MgContext
+        Write-Host "✅ Microsoft Graph PowerShell SDK connected successfully" -ForegroundColor Green
+        Write-Host "   Client ID: $($context.ClientId)" -ForegroundColor Cyan
+        Write-Host "   Tenant ID: $($context.TenantId)" -ForegroundColor Cyan
+
+    - name: 'EasyPIM Orchestrator Execution'
+      shell: pwsh
+      run: |
+        Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
+        Write-Host "Parameters:" -ForegroundColor Yellow
+        Write-Host "  WhatIf: ${{ github.event.inputs.WhatIf }}" -ForegroundColor White
+        Write-Host "  Mode: ${{ github.event.inputs.Mode }}" -ForegroundColor White
+        Write-Host "  SkipPolicies: ${{ github.event.inputs.SkipPolicies }}" -ForegroundColor White
+        Write-Host "  SkipAssignments: ${{ github.event.inputs.SkipAssignments }}" -ForegroundColor White
+        Write-Host "  Force: ${{ github.event.inputs.Force }}" -ForegroundColor White
+        Write-Host "  Verbose: ${{ github.event.inputs.Verbose }}" -ForegroundColor White
+        Write-Host "  ExportWouldRemove: ${{ github.event.inputs.ExportWouldRemove }}" -ForegroundColor White
+
+        # Build parameters for Invoke-EasyPIMOrchestrator
+        $params = @{
+          KeyVaultName = '${{ env.KEYVAULT_NAME }}'
+          SecretName = '${{ env.SECRET_NAME }}'
+          TenantId = '${{ env.TENANT_ID }}'
+          SubscriptionId = '${{ env.SUBSCRIPTION_ID }}'
+          Mode = '${{ github.event.inputs.Mode }}'
+        }
+
+        # Add conditional parameters
+        if ('${{ github.event.inputs.WhatIf }}' -eq 'true') {
+          $params.WhatIf = $true
+          Write-Host "🔍 Running in WhatIf mode (preview only)" -ForegroundColor Yellow
+        }
+
+        if ('${{ github.event.inputs.SkipPolicies }}' -eq 'true') {
+          $params.SkipPolicies = $true
+          Write-Host "⏭️ Skipping policy operations" -ForegroundColor Yellow
+        }
+
+        if ('${{ github.event.inputs.SkipAssignments }}' -eq 'true') {
+          $params.SkipAssignments = $true
+          Write-Host "⏭️ Skipping assignment operations" -ForegroundColor Yellow
+        }
+
+        if ('${{ github.event.inputs.Force }}' -eq 'true') {
+          $params.Force = $true
+          Write-Host "💪 Force mode enabled" -ForegroundColor Yellow
+        }
+
+        if ('${{ github.event.inputs.Verbose }}' -eq 'true') {
+          $params.Verbose = $true
+          Write-Host "📝 Verbose output enabled" -ForegroundColor Yellow
+        }
+
+        if ('${{ github.event.inputs.ExportWouldRemove }}' -eq 'true') {
+          $params.ExportWouldRemove = $true
+          Write-Host "📤 Export would-remove list enabled" -ForegroundColor Yellow
+        }
+
+        try {
+          # Execute EasyPIM Orchestrator
+          Write-Host "`n🔄 Executing EasyPIM Orchestrator..." -ForegroundColor Cyan
+          Invoke-EasyPIMOrchestrator @params
+          Write-Host "✅ EasyPIM Orchestrator completed successfully" -ForegroundColor Green
+        }
+        catch {
+          Write-Host "❌ EasyPIM Orchestrator failed: $($_.Exception.Message)" -ForegroundColor Red
+          Write-Host "Full error details:" -ForegroundColor Red
+          $_ | Format-List * -Force
+          throw
+        }
+
+    - name: 'Generate Workflow Summary'
+      if: always()
+      shell: pwsh
+      run: |
+        Write-Host "📊 Generating workflow summary..." -ForegroundColor Cyan
+
+        $summary = @"
+        ## 🧪 EasyPIM CI/CD Test Results - Phase 2
+
+        ### ⚙️ Orchestrator Execution
+        **Status:** ${{ job.status == 'success' && '✅ SUCCESS' || '❌ FAILED' }}
+
+        ### 📋 Configuration
+        - **WhatIf Mode:** ${{ github.event.inputs.WhatIf }}
+        - **Execution Mode:** ${{ github.event.inputs.Mode }}
+        - **Skip Policies:** ${{ github.event.inputs.SkipPolicies }}
+        - **Skip Assignments:** ${{ github.event.inputs.SkipAssignments }}
+        - **Force Mode:** ${{ github.event.inputs.Force }}
+        - **Verbose Output:** ${{ github.event.inputs.Verbose }}
+        - **Export Would Remove:** ${{ github.event.inputs.ExportWouldRemove }}
+
+        ### 🎯 Environment
+        - **Key Vault:** ${{ env.KEYVAULT_NAME }}
+        - **Configuration Secret:** ${{ env.SECRET_NAME }}
+        - **Tenant ID:** ${{ env.TENANT_ID }}
+        - **Subscription ID:** ${{ env.SUBSCRIPTION_ID }}
+
+        ### 🔗 Next Steps
+        1. Review the execution logs above for detailed results
+        2. Check for any policy or assignment changes applied
+        3. Consider running Phase 3 (Drift Detection) to verify compliance
+        4. If this was WhatIf mode, re-run with WhatIf=false to apply changes
+
+        ### 📚 Additional Information
+        - **Workflow:** Phase 2 - EasyPIM Orchestrator Test
+        - **Run ID:** ${{ github.run_id }}
+        - **Run Number:** ${{ github.run_number }}
+        - **Triggered by:** ${{ github.actor }}
+        - **Repository:** ${{ github.repository }}
+        - **Branch:** ${{ github.ref_name }}
+        "@
+
+        # Output to step summary
+        $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+        Write-Host "✅ Workflow summary generated" -ForegroundColor Green
+
+    - name: 'Upload Execution Logs'
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: easypim-orchestrator-logs-${{ github.run_number }}
+        path: |
+          ./LOGS/
+          ./*.log
+          ./*.json
+        retention-days: 30
+        if-no-files-found: warn

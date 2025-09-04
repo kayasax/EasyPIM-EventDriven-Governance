@@ -50,7 +50,7 @@ try {
     Write-Host "🔧 Final Parameters to Invoke-EasyPIMOrchestrator:" -ForegroundColor Blue
     $OrchestratorParams.GetEnumerator() | ForEach-Object { Write-Host "   $($_.Key): $($_.Value)" }
 
-    
+
     # Pre-flight check for Key Vault connectivity (if using Key Vault)
     if ($OrchestratorParams.ContainsKey('KeyVaultName')) {
         Write-Host "🔍 Testing Key Vault connectivity..." -ForegroundColor Blue
@@ -104,14 +104,14 @@ try {
         # Execute EasyPIM Orchestrator with wrapper if requested
         if ($UseUltimateWrapper) {
             Write-Host "🎯 Using Ultimate Telemetry Wrapper - GUARANTEES telemetry events!" -ForegroundColor Magenta
-            
+
             # Convert hashtable params to wrapper function call
             if ($OrchestratorParams.ContainsKey('KeyVaultName') -and $OrchestratorParams.ContainsKey('SecretName')) {
                 $wrapperParams = @{
                     KeyVaultName = $OrchestratorParams.KeyVaultName
                     SecretName = $OrchestratorParams.SecretName
                 }
-                
+
                 # Add optional parameters
                 if ($OrchestratorParams.ContainsKey('TenantId')) { $wrapperParams.TenantId = $OrchestratorParams.TenantId }
                 if ($OrchestratorParams.ContainsKey('SubscriptionId')) { $wrapperParams.SubscriptionId = $OrchestratorParams.SubscriptionId }
@@ -120,7 +120,7 @@ try {
                 if ($OrchestratorParams.ContainsKey('SkipPolicies') -and $OrchestratorParams.SkipPolicies) { $wrapperParams.SkipPolicies = $true }
                 if ($OrchestratorParams.ContainsKey('SkipAssignments') -and $OrchestratorParams.SkipAssignments) { $wrapperParams.SkipAssignments = $true }
                 if ($OrchestratorParams.ContainsKey('SkipCleanup') -and $OrchestratorParams.SkipCleanup) { $wrapperParams.SkipCleanup = $true }
-                
+
                 Invoke-EasyPIMOrchestratorWithTelemetry @wrapperParams
             } else {
                 Write-Host "⚠️  Ultimate wrapper requires KeyVault parameters - falling back to standard orchestrator" -ForegroundColor Yellow

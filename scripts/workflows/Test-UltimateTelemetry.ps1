@@ -13,7 +13,7 @@ try {
 
     # Use the wrapper function - this WILL send telemetry
     Write-Host "🚀 Starting EasyPIM Orchestrator with Telemetry Wrapper..." -ForegroundColor Green
-    
+
     $result = Invoke-EasyPIMOrchestratorWithTelemetry `
         -KeyVaultName "kv-easypim-8368" `
         -SecretName "easypim-config-json" `
