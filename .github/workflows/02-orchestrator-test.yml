@@ -1,8 +1,18 @@
 name: 'Phase 2: EasyPIM Orchestrator Test'
 
+run-name: >-
+  EasyPIM ${{ github.event.inputs.WhatIf == 'true' && '🔍 Preview' || '⚡ Apply' }}
+  (${{ github.event.inputs.Mode }})
+  ${{ github.event.inputs.run_description && format('- {0}', github.event.inputs.run_description) || '' }}
+
 on:
   workflow_dispatch:
     inputs:
+      run_description:
+        description: "Custom description for this run (optional)"
+        required: false
+        type: string
+        default: ""
       WhatIf:
         description: "Preview mode - show what would be done without making changes"
         required: false
@@ -156,19 +166,20 @@ jobs:
         $summary = @"
         ## 🧪 EasyPIM CI/CD Test Results - Phase 2
 
+        ${{ github.event.inputs.run_description && format('### 📝 Run Description: {0}', github.event.inputs.run_description) || '' }}
+
         ### ⚙️ Orchestrator Execution
         **Status:** ${{ job.status == 'success' && '✅ SUCCESS' || '❌ FAILED' }}
 
         ### 📋 Configuration
+        - **Custom Description:** ${{ github.event.inputs.run_description || 'None provided' }}
         - **WhatIf Mode:** ${{ github.event.inputs.WhatIf }}
         - **Execution Mode:** ${{ github.event.inputs.Mode }}
         - **Skip Policies:** ${{ github.event.inputs.SkipPolicies }}
         - **Skip Assignments:** ${{ github.event.inputs.SkipAssignments }}
         - **Force Mode:** ${{ github.event.inputs.Force }}
         - **Verbose Output:** ${{ github.event.inputs.Verbose }}
-        - **Export Would Remove:** ${{ github.event.inputs.ExportWouldRemove }}
-
-        ### 🎯 Environment
+        - **Export Would Remove:** ${{ github.event.inputs.ExportWouldRemove }}        ### 🎯 Environment
         - **Key Vault:** ${{ env.KEYVAULT_NAME }}
         - **Configuration Secret:** ${{ env.SECRET_NAME }}
         - **Tenant ID:** ${{ env.TENANT_ID }}
