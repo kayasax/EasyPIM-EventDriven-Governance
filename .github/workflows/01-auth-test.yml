@@ -184,9 +184,104 @@ jobs:
               throw
           }
 
-          # Test 5: EasyPIM Module Functions Available
+          # Test 5: Azure Resource Manager (ARM) Authentication
           Write-Host ""
-          Write-Host "🔧 Test 5: Verifying EasyPIM functions are available..."
+          Write-Host "☁️ Test 5: Testing Azure Resource Manager authentication..."
+          try {
+              # Test Azure CLI is authenticated
+              Write-Host "🔐 Testing Azure CLI authentication status..."
+              $accountInfo = az account show --query "{name:name,id:id,tenantId:tenantId,user:user}" 2>$null
+              if ($accountInfo) {
+                  $account = $accountInfo | ConvertFrom-Json
+                  Write-Host "✅ Azure CLI authentication verified"
+                  Write-Host "   Subscription: $($account.name) ($($account.id))"
+                  Write-Host "   Tenant: $($account.tenantId)"
+                  Write-Host "   User: $($account.user.name)"
+              } else {
+                  throw "Azure CLI not authenticated or subscription not accessible"
+              }
+
+              # Test Azure PowerShell authentication if available
+              Write-Host ""
+              Write-Host "🔧 Testing Azure PowerShell authentication..."
+              try {
+                  # Install Az.Accounts if not present
+                  if (-not (Get-Module -ListAvailable -Name Az.Accounts)) {
+                      Install-Module Az.Accounts -Force -Scope CurrentUser
+                  }
+                  Import-Module Az.Accounts -Force
+
+                  # Test if already connected via enable-AzPSSession
+                  $azContext = Get-AzContext -ErrorAction SilentlyContinue
+                  if ($azContext) {
+                      Write-Host "✅ Azure PowerShell context already established"
+                      Write-Host "   Account: $($azContext.Account.Id)"
+                      Write-Host "   Subscription: $($azContext.Subscription.Name)"
+                      Write-Host "   Tenant: $($azContext.Tenant.Id)"
+                  } else {
+                      Write-Host "⚠️  No Azure PowerShell context found"
+                      Write-Host "   Note: This may be expected if enable-AzPSSession is not used"
+                  }
+
+                  # Test ARM REST API access
+                  Write-Host ""
+                  Write-Host "🌐 Testing ARM REST API access..."
+                  $subscriptionId = $env:SUBSCRIPTION_ID
+                  $armToken = az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv
+
+                  if ($armToken) {
+                      Write-Host "✅ ARM access token obtained successfully"
+
+                      # Test a basic ARM operation - list resource groups
+                      $resourceGroups = az group list --query "[].{name:name,location:location}" --output json 2>$null
+                      if ($resourceGroups) {
+                          $rgList = $resourceGroups | ConvertFrom-Json
+                          Write-Host "✅ ARM API operations working correctly"
+                          Write-Host "   Resource Groups accessible: $($rgList.Count)"
+                          if ($rgList.Count -gt 0) {
+                              Write-Host "   Sample RG: $($rgList[0].name) ($($rgList[0].location))"
+                          }
+                      } else {
+                          Write-Warning "⚠️  Could not list resource groups via ARM API"
+                      }
+                  } else {
+                      throw "Failed to obtain ARM access token"
+                  }
+
+                  # Test Key Vault access via ARM (if Key Vault configured)
+                  if ($env:KEYVAULT_NAME) {
+                      Write-Host ""
+                      Write-Host "🔑 Testing Key Vault ARM access..."
+                      $kvInfo = az keyvault show --name $env:KEYVAULT_NAME --query "{name:name,location:location,resourceGroup:resourceGroup}" 2>$null
+                      if ($kvInfo) {
+                          $kv = $kvInfo | ConvertFrom-Json
+                          Write-Host "✅ Key Vault ARM access verified"
+                          Write-Host "   Key Vault: $($kv.name)"
+                          Write-Host "   Location: $($kv.location)"
+                          Write-Host "   Resource Group: $($kv.resourceGroup)"
+                      } else {
+                          Write-Warning "⚠️  Could not access Key Vault via ARM API"
+                      }
+                  }
+
+              }
+              catch {
+                  Write-Warning "⚠️  Azure PowerShell context test failed: $_"
+                  Write-Host "   This may be expected if Azure PowerShell is not required for your setup"
+              }
+          }
+          catch {
+              Write-Error "❌ Azure Resource Manager authentication test failed: $_"
+              Write-Host "💡 Possible issues:"
+              Write-Host "   - OIDC authentication not properly configured"
+              Write-Host "   - Service principal lacks subscription access"
+              Write-Host "   - Azure CLI not authenticated to correct subscription"
+              throw
+          }
+
+          # Test 6: EasyPIM Module Functions Available
+          Write-Host ""
+          Write-Host "🔧 Test 6: Verifying EasyPIM functions are available..."
           try {
               $commands = Get-Command -Module EasyPIM.Orchestrator
               Write-Host "✅ EasyPIM.Orchestrator commands available: $($commands.Count)"
@@ -237,6 +332,7 @@ jobs:
             echo "- EasyPIM modules installed successfully" >> $GITHUB_STEP_SUMMARY
             echo "- Key Vault access confirmed" >> $GITHUB_STEP_SUMMARY
             echo "- Microsoft Graph connectivity verified" >> $GITHUB_STEP_SUMMARY
+            echo "- Azure Resource Manager authentication verified" >> $GITHUB_STEP_SUMMARY
             echo "- EasyPIM functions available" >> $GITHUB_STEP_SUMMARY
           else
             echo "## ❌ Authentication Test: FAILED" >> $GITHUB_STEP_SUMMARY
@@ -251,6 +347,7 @@ jobs:
           echo "- ✅ Azure OIDC authentication" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Key Vault access and configuration retrieval" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Microsoft Graph connectivity" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Azure Resource Manager (ARM) authentication" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ EasyPIM function availability" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY

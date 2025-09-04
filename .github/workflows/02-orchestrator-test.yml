@@ -36,8 +36,8 @@ on:
         required: false
         default: false
         type: boolean
-      Force:
-        description: "Force execution (bypass confirmations)"
+      AllowProtectedRoles:
+        description: "Allow operations on protected roles (Global Admin, Security Admin, etc.)"
         required: false
         default: false
         type: boolean
@@ -119,7 +119,7 @@ jobs:
         Write-Host "  Mode: ${{ github.event.inputs.Mode }}" -ForegroundColor White
         Write-Host "  SkipPolicies: ${{ github.event.inputs.SkipPolicies }}" -ForegroundColor White
         Write-Host "  SkipAssignments: ${{ github.event.inputs.SkipAssignments }}" -ForegroundColor White
-        Write-Host "  Force: ${{ github.event.inputs.Force }}" -ForegroundColor White
+        Write-Host "  AllowProtectedRoles: ${{ github.event.inputs.AllowProtectedRoles }}" -ForegroundColor White
         Write-Host "  Verbose: ${{ github.event.inputs.Verbose }}" -ForegroundColor White
         Write-Host "  ExportWouldRemove: ${{ github.event.inputs.ExportWouldRemove }}" -ForegroundColor White
 
@@ -146,9 +146,9 @@ jobs:
           Write-Host "⏭️ Skipping assignment operations" -ForegroundColor Yellow
         }
 
-        if ('${{ github.event.inputs.Force }}' -eq 'true') {
-          $params.Force = $true
-          Write-Host "💪 Force mode enabled" -ForegroundColor Yellow
+        if ('${{ github.event.inputs.AllowProtectedRoles }}' -eq 'true') {
+          $params.AllowProtectedRoles = $true
+          Write-Host "⚠️ Protected roles operations enabled" -ForegroundColor Yellow
         }
 
         if ('${{ github.event.inputs.Verbose }}' -eq 'true') {
@@ -157,8 +157,8 @@ jobs:
         }
 
         if ('${{ github.event.inputs.ExportWouldRemove }}' -eq 'true') {
-          $params.ExportWouldRemove = $true
-          Write-Host "📤 Export would-remove list enabled" -ForegroundColor Yellow
+          $params.WouldRemoveExportPath = "./would-remove-export.json"
+          Write-Host "📤 Export would-remove list enabled (path: ./would-remove-export.json)" -ForegroundColor Yellow
         }
 
         try {
@@ -194,7 +194,7 @@ jobs:
         - **Execution Mode:** ${{ github.event.inputs.Mode }}
         - **Skip Policies:** ${{ github.event.inputs.SkipPolicies }}
         - **Skip Assignments:** ${{ github.event.inputs.SkipAssignments }}
-        - **Force Mode:** ${{ github.event.inputs.Force }}
+        - **Allow Protected Roles:** ${{ github.event.inputs.AllowProtectedRoles }}
         - **Verbose Output:** ${{ github.event.inputs.Verbose }}
         - **Export Would Remove:** ${{ github.event.inputs.ExportWouldRemove }}        ### 🎯 Environment
         - **Key Vault:** ${{ env.KEYVAULT_NAME }}
