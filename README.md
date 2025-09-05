@@ -773,31 +773,7 @@ jobs:
 
 ---
 
-## 🎯 Success Stories & Use Cases
-
-<details>
-<summary><b>💼 Enterprise Implementation Example</b></summary>
-
-**Company**: Mid-size Financial Services (500+ employees)
-
-**Challenge**: Manual PIM management for 50+ privileged roles across Azure and Entra ID
-
-**Solution**: Implemented EasyPIM CI/CD Framework with:
-- 3-phase testing pipeline preventing production incidents
-- Key Vault-based configuration management
-- Automated drift detection catching 15+ policy violations monthly
-- 90% reduction in manual PIM tasks
-
-**Results**:
-- ⏱️ **5 hours/week** saved on PIM administration
-- 🛡️ **Zero incidents** since implementation (6 months)
-- 📊 **100% compliance** with corporate security policies
-- ✅ **Seamless audits** with comprehensive logging
-
-</details>
-
-<details>
-<summary><b>🚨 Common Gotchas & Solutions</b></summary>
+## 🚨 Common Gotchas & Solutions
 
 | Problem | Symptoms | Solution |
 |---------|----------|----------|
@@ -909,5 +885,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 *Built with ❤️ for the Azure DevOps community*
-
+*Loïc*
 </div>
