@@ -2,3 +2,7 @@
 .github/copilot-instructions.md
 .github/prompts/session-startup.prompt.md
 DEPLOYMENT-STATUS.md
+modules/
+.funcignore
+.gitignore
+.vscode

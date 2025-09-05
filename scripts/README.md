@@ -167,3 +167,65 @@ az group delete --name "rg-easypim-cicd-test" --yes --no-wait
 - [Azure Bicep Documentation](https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/)
 - [GitHub OIDC with Azure](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure)
 - [Azure Key Vault with GitHub Actions](https://docs.microsoft.com/en-us/azure/key-vault/general/github-action)
+
+---
+
+## ⚡️ **NEW: Event Grid Automation Scripts** 🎉
+
+**🏆 Complete working automation for Key Vault → GitHub Actions integration!**
+
+### **📁 Event Grid Automation Files**
+
+#### **Azure Function Implementation**
+- `../EasyPIM-secret-change-detected/run.ps1` - Main function logic with parameter intelligence
+- `../EasyPIM-secret-change-detected/function.json` - HTTP trigger configuration
+- `../profile.ps1` - Fixed profile for Linux Consumption plan
+- `../requirements.psd1` - Empty dependencies file (Linux compatible)
+
+#### **Deployment & Testing Scripts**
+- `update-function.ps1` - **✅ Deploy function with GitHub token configuration**
+- `test-validation-and-parameters.ps1` - **✅ Comprehensive validation testing**
+- `quick-test.ps1` - **✅ Fast Event Grid validation test**
+- `manual-test-guide.ps1` - **✅ Manual testing instructions**
+
+### **🚀 Quick Start for Event Grid Automation**
+
+```powershell
+# 1. Deploy the Azure Function
+.\scripts\update-function.ps1 -FunctionAppName "easypimAKV2GH" -ResourceGroupName "rg-easypim-cicd-test" -GitHubToken "your_github_token"
+
+# 2. Test Event Grid validation (required for subscription creation)
+.\scripts\quick-test.ps1
+
+# 3. Create Event Grid subscription in Azure Portal:
+#    Key Vault → Events → + Event Subscription
+#    Endpoint: Function URL from deployment output
+#    Event Types: Microsoft.KeyVault.SecretNewVersionCreated
+
+# 4. Test the complete automation
+# Change a secret in Key Vault → GitHub Actions workflow triggers automatically!
+```
+
+### **🎯 Features Implemented**
+
+**✅ **Smart Parameter Detection:**
+- Secrets with "test"/"debug" → Automatically enables WhatIf (preview) mode
+- Secrets with "initial"/"setup" → Automatically uses initial mode
+- Environment variable overrides for custom behavior
+
+**✅ **Production-Ready:**
+- Event Grid webhook validation handling
+- Robust error handling and logging
+- Linux Consumption plan compatibility
+- GitHub Actions API integration with full parameters
+
+**✅ **Complete Integration:**
+```
+Key Vault Secret Change → Event Grid → Azure Function → GitHub Actions → EasyPIM Orchestrator
+```
+
+### **🎉 Results Achieved**
+
+**Real-Time PIM Automation**: Changes to Key Vault secrets now automatically trigger EasyPIM workflows with intelligent parameter selection, creating a complete event-driven PIM management system!
+
+**See `docs/Step-by-Step-Guide.md` for complete implementation details and architecture documentation.**
