@@ -9,3 +9,4 @@ modules/
 host.json
 local.settings.json
 requirements.psd1
+profile.ps1
