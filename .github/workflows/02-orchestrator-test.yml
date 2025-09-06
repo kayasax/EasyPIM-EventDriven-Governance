@@ -90,302 +90,70 @@ jobs:
     - name: 'Install EasyPIM Modules'
       shell: pwsh
       run: |
-        & ./scripts/workflows/Install-EasyPIMModules.ps1
+        $success = . ./scripts/workflows/Install-EasyPIMModules.ps1
+        if (-not $success) {
+          Write-Error "❌ Failed to install EasyPIM modules"
+          exit 1
+        }
 
     - name: 'EasyPIM Orchestrator Execution'
       shell: pwsh
       run: |
-        Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
+        $success = . ./scripts/workflows/Invoke-EasyPIMOrchestratorExecution.ps1 `
+          -KeyVaultName '${{ env.KEYVAULT_NAME }}' `
+          -SecretName '${{ env.SECRET_NAME }}' `
+          -TenantId '${{ env.TENANT_ID }}' `
+          -SubscriptionId '${{ env.SUBSCRIPTION_ID }}' `
+          -ClientId '${{ env.AZURE_CLIENT_ID }}' `
+          -Mode '${{ github.event.inputs.Mode }}' `
+          -WhatIf:('${{ github.event.inputs.WhatIf }}' -eq 'true') `
+          -SkipPolicies:('${{ github.event.inputs.SkipPolicies }}' -eq 'true') `
+          -SkipAssignments:('${{ github.event.inputs.SkipAssignments }}' -eq 'true') `
+          -AllowProtectedRoles:('${{ github.event.inputs.AllowProtectedRoles }}' -eq 'true') `
+          -Verbose:('${{ github.event.inputs.Verbose }}' -eq 'true') `
+          -ExportWouldRemove:('${{ github.event.inputs.ExportWouldRemove }}' -eq 'true') `
+          -ConfigSecretName '${{ github.event.inputs.configSecretName }}' `
+          -RunDescription '${{ github.event.inputs.run_description }}'
 
-        # Ensure authentication is established in this step
-        Write-Host "🔍 Verifying authentication context..." -ForegroundColor Cyan
-        $graphContext = Get-MgContext
-        if (-not $graphContext) {
-          Write-Host "❌ Microsoft Graph context not found. Establishing authentication..." -ForegroundColor Yellow
-          # Re-run authentication in this step
-          $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
-          if (-not $authResult) {
-            Write-Error "❌ Authentication setup failed"
-            exit 1
-          }
-          $graphContext = Get-MgContext
-        }
-
-        if (-not $graphContext) {
-          Write-Error "❌ Failed to establish Graph context"
+        if (-not $success) {
+          Write-Error "❌ EasyPIM Orchestrator execution failed"
           exit 1
-        }
-
-        Write-Host "✅ Graph context verified:" -ForegroundColor Green
-        Write-Host "   Client ID: $($graphContext.ClientId)" -ForegroundColor White
-        Write-Host "   Tenant ID: $($graphContext.TenantId)" -ForegroundColor White
-        Write-Host "   Scopes: $($graphContext.Scopes -join ', ')" -ForegroundColor White
-
-        Write-Host "Configuration:" -ForegroundColor Cyan
-        Write-Host "  Key Vault: ${{ env.KEYVAULT_NAME }}" -ForegroundColor White
-        Write-Host "  Secret Name: ${{ env.SECRET_NAME }}" -ForegroundColor White
-        if ('${{ github.event.inputs.configSecretName }}' -ne '') {
-          Write-Host "  ⚡ Dynamic config from Event Grid trigger" -ForegroundColor Green
-        } else {
-          Write-Host "  📋 Default config from manual trigger" -ForegroundColor Yellow
-        }
-
-        Write-Host "Parameters:" -ForegroundColor Yellow
-        Write-Host "  WhatIf: ${{ github.event.inputs.WhatIf }}" -ForegroundColor White
-        Write-Host "  Mode: ${{ github.event.inputs.Mode }}" -ForegroundColor White
-        Write-Host "  SkipPolicies: ${{ github.event.inputs.SkipPolicies }}" -ForegroundColor White
-        Write-Host "  SkipAssignments: ${{ github.event.inputs.SkipAssignments }}" -ForegroundColor White
-        Write-Host "  AllowProtectedRoles: ${{ github.event.inputs.AllowProtectedRoles }}" -ForegroundColor White
-        Write-Host "  Verbose: ${{ github.event.inputs.Verbose }}" -ForegroundColor White
-        Write-Host "  ExportWouldRemove: ${{ github.event.inputs.ExportWouldRemove }}" -ForegroundColor White
-
-        # Build parameters for Invoke-EasyPIMOrchestrator
-        $params = @{
-          KeyVaultName = '${{ env.KEYVAULT_NAME }}'
-          SecretName = '${{ env.SECRET_NAME }}'
-          TenantId = '${{ env.TENANT_ID }}'
-          SubscriptionId = '${{ env.SUBSCRIPTION_ID }}'
-          Mode = '${{ github.event.inputs.Mode }}'
-        }        # Add conditional parameters
-        if ('${{ github.event.inputs.WhatIf }}' -eq 'true') {
-          $params.WhatIf = $true
-          Write-Host "🔍 Running in WhatIf mode (preview only)" -ForegroundColor Yellow
-        }
-
-        if ('${{ github.event.inputs.SkipPolicies }}' -eq 'true') {
-          $params.SkipPolicies = $true
-          Write-Host "⏭️ Skipping policy operations" -ForegroundColor Yellow
-        }
-
-        if ('${{ github.event.inputs.SkipAssignments }}' -eq 'true') {
-          $params.SkipAssignments = $true
-          Write-Host "⏭️ Skipping assignment operations" -ForegroundColor Yellow
-        }
-
-        if ('${{ github.event.inputs.AllowProtectedRoles }}' -eq 'true') {
-          $params.AllowProtectedRoles = $true
-          Write-Host "⚠️ Protected roles operations enabled" -ForegroundColor Yellow
-        }
-
-        if ('${{ github.event.inputs.Verbose }}' -eq 'true') {
-          $params.Verbose = $true
-          Write-Host "📝 Verbose output enabled" -ForegroundColor Yellow
-        }
-
-        if ('${{ github.event.inputs.ExportWouldRemove }}' -eq 'true') {
-          $params.WouldRemoveExportPath = "./would-remove-export.json"
-          Write-Host "📤 Export would-remove list enabled (path: ./would-remove-export.json)" -ForegroundColor Yellow
-        }
-
-        try {
-          # Execute EasyPIM Orchestrator
-          Write-Host "`n🔄 Executing EasyPIM Orchestrator..." -ForegroundColor Cyan
-
-          # Capture start time
-          $startTime = Get-Date
-
-          Invoke-EasyPIMOrchestrator @params
-
-          # Capture end time and create summary
-          $endTime = Get-Date
-          $executionTime = ($endTime - $startTime).ToString("mm\:ss")
-
-          Write-Host "✅ EasyPIM Orchestrator completed successfully" -ForegroundColor Green
-          Write-Host "⏱️ Execution time: $executionTime" -ForegroundColor Cyan
-
-          # Try to create a summary JSON for the dashboard (this will depend on EasyPIM's output capabilities)
-          try {
-            $summaryData = @{
-              "Status" = "Success"
-              "ExecutionTime" = $executionTime
-              "StartTime" = $startTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
-              "EndTime" = $endTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
-              "Parameters" = $params
-              "Mode" = if ($params.WhatIf) { "Preview" } else { "Applied" }
-            }
-
-            $summaryData | ConvertTo-Json -Depth 3 | Out-File -FilePath "./easypim-summary.json" -Encoding utf8
-            Write-Host "📊 Summary data saved for dashboard" -ForegroundColor Green
-          } catch {
-            Write-Host "⚠️ Could not create summary data: $($_.Exception.Message)" -ForegroundColor Yellow
-          }
-        }
-        catch {
-          Write-Host "❌ EasyPIM Orchestrator failed: $($_.Exception.Message)" -ForegroundColor Red
-          Write-Host "Full error details:" -ForegroundColor Red
-          $_ | Format-List * -Force
-          throw
         }
 
     - name: 'Generate Modern Dashboard Summary'
       if: always()
       shell: pwsh
       run: |
-        Write-Host "📊 Generating modern dashboard summary..." -ForegroundColor Cyan
+        . ./scripts/workflows/Generate-OrchestratorDashboard.ps1 `
+          -JobStatus '${{ job.status }}' `
+          -WhatIfMode '${{ github.event.inputs.WhatIf }}' `
+          -ConfigSecretName '${{ github.event.inputs.configSecretName }}' `
+          -RunDescription '${{ github.event.inputs.run_description }}' `
+          -Mode '${{ github.event.inputs.Mode }}' `
+          -KeyVaultName '${{ env.KEYVAULT_NAME }}' `
+          -SecretName '${{ env.SECRET_NAME }}' `
+          -TenantId '${{ env.TENANT_ID }}' `
+          -SubscriptionId '${{ env.SUBSCRIPTION_ID }}' `
+          -SkipPolicies '${{ github.event.inputs.SkipPolicies }}' `
+          -SkipAssignments '${{ github.event.inputs.SkipAssignments }}' `
+          -AllowProtectedRoles '${{ github.event.inputs.AllowProtectedRoles }}' `
+          -GitHubRepository '${{ github.repository }}' `
+          -GitHubRunId '${{ github.run_id }}' `
+          -GitHubRunNumber '${{ github.run_number }}'
 
-        # Determine execution status
-        $status = '${{ job.status }}'
-        $statusIcon = if ($status -eq 'success') { '✅' } else { '❌' }
-        $statusColor = if ($status -eq 'success') { '🟢' } else { '🔴' }
-
-        # Determine execution mode badge
-        $whatIfMode = '${{ github.event.inputs.WhatIf }}' -eq 'true'
-        $modeBadge = if ($whatIfMode) { '� **PREVIEW MODE**' } else { '⚡ **LIVE EXECUTION**' }
-
-        # Configuration source detection
-        $configSource = if ('${{ github.event.inputs.configSecretName }}') {
-          '🚀 **Event-Driven** (Auto-triggered)'
-        } else {
-          '👤 **Manual Trigger**'
-        }
-
-        # Try to capture EasyPIM results if available
-        $easypimResults = ""
-        if (Test-Path "./easypim-summary.json") {
-          try {
-            $results = Get-Content "./easypim-summary.json" | ConvertFrom-Json
-            $easypimResults = @"
-
-        ### 📈 **EasyPIM Execution Results**
-
-        | Component | Processed | Created | Updated | Removed | Errors |
-        |-----------|-----------|---------|---------|---------|---------|
-        | 🔐 **Policies** | $($results.Policies.Processed) | $($results.Policies.Created) | $($results.Policies.Updated) | $($results.Policies.Removed) | $($results.Policies.Errors) |
-        | � **Assignments** | $($results.Assignments.Processed) | $($results.Assignments.Created) | $($results.Assignments.Updated) | $($results.Assignments.Removed) | $($results.Assignments.Errors) |
-        | 🏷️ **Groups** | $($results.Groups.Processed) | $($results.Groups.Created) | $($results.Groups.Updated) | $($results.Groups.Removed) | $($results.Groups.Errors) |
-
-        **⏱️ Total Execution Time:** $($results.ExecutionTime) | **🔄 Objects Processed:** $($results.TotalProcessed)
-        "@
-          } catch {
-            $easypimResults = "`n### 📊 **EasyPIM Results**`n*Detailed results will be available when EasyPIM generates summary output*"
-          }
-        } else {
-          $easypimResults = "`n### 📊 **EasyPIM Results**`n*Check execution logs above for detailed operation results*"
-        }
-
-        $summary = @"
-        # $statusIcon **EasyPIM Event-Driven Governance Dashboard**
-
-        ## 🎯 **Execution Overview**
-
-        | 🚦 **Status** | 🎮 **Mode** | 📡 **Trigger** | ⏰ **Timestamp** |
-        |---------------|-------------|-----------------|------------------|
-        | $statusColor **$($status.ToUpper())** | $modeBadge | $configSource | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC') |
-
-        $easypimResults
-
-        ## ⚙️ **Configuration Matrix**
-
-        <table>
-        <tr>
-        <td>
-
-        **🎛️ Execution Parameters**
-        - $modeBadge
-        - **Mode:** ``${{ github.event.inputs.Mode }}``
-        - **Skip Policies:** ``${{ github.event.inputs.SkipPolicies }}``
-        - **Skip Assignments:** ``${{ github.event.inputs.SkipAssignments }}``
-        - **Protected Roles:** ``${{ github.event.inputs.AllowProtectedRoles }}``
-
-        </td>
-        <td>
-
-        **� Environment Context**
-        - **Vault:** ``${{ env.KEYVAULT_NAME }}``
-        - **Config:** ``${{ env.SECRET_NAME }}``
-        - **Tenant:** ``${{ env.TENANT_ID }}``
-        - **Subscription:** ``${{ env.SUBSCRIPTION_ID }}``
-
-        </td>
-        </tr>
-        </table>
-
-        ## � **Event-Driven Intelligence**
-
-        ${{ github.event.inputs.configSecretName && '> **🎯 Smart Detection:** Configuration automatically selected based on event trigger' || '> **📋 Manual Configuration:** Using repository default configuration settings' }}
-
-        ${{ github.event.inputs.run_description && '> **📝 Event Context:** See workflow artifacts for full event details' || '' }}
-
-        ## 🚀 **Quick Actions**
-
-        | Action | Description | Link |
-        |--------|-------------|------|
-        | 🔍 **View Logs** | Detailed execution logs | [📋 Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
-        | 🔄 **Re-run** | Execute workflow again | [⚡ Actions](https://github.com/${{ github.repository }}/actions/workflows/02-orchestrator-test.yml) |
-        | � **Drift Check** | Verify compliance | [🎯 Phase 3](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) |
-        | 📖 **Documentation** | Setup guide | [📚 Docs](https://github.com/${{ github.repository }}/blob/main/docs/Step-by-Step-Guide.md) |
-
-        ---
-
-        <details>
-        <summary>🔧 <strong>Technical Details</strong></summary>
-
-        - **Run ID:** ``${{ github.run_id }}``
-        - **Run Number:** ``#${{ github.run_number }}``
-        - **Triggered by:** ``${{ github.actor }}``
-        - **Repository:** ``${{ github.repository }}``
-        - **Branch:** ``${{ github.ref_name }}``
-        - **Workflow:** ``Phase 2 - EasyPIM Orchestrator``
-        - **Version:** ``v1.1 (Event-Driven Multi-Environment)``
-
-        </details>
-
-        > 💡 **Next Steps:** ${{ github.event.inputs.WhatIf == 'true' && 'This was a preview run. Re-run with WhatIf=false to apply changes.' || 'Changes have been applied. Consider running drift detection to verify compliance.' }}
-        "@
-
-        # Output to step summary
-        $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
-        Write-Host "✅ Modern dashboard summary generated" -ForegroundColor Green
-
-    - name: 'Upload Execution Artifacts'
+    - name: 'Prepare Execution Artifacts'
       if: always()
       shell: pwsh
       run: |
-        Write-Host "📦 Preparing execution artifacts..." -ForegroundColor Cyan
-
-        # Create artifacts directory
-        $artifactsDir = "./workflow-artifacts"
-        New-Item -ItemType Directory -Path $artifactsDir -Force | Out-Null
-
-        # Collect available log files and outputs
-        $artifactFiles = @()
-
-        # Check for common log locations
-        $logPaths = @("./LOGS/", "./*.log", "./*.json", "./would-remove-export.json", "./easypim-summary.json")
-        foreach ($path in $logPaths) {
-          $files = Get-ChildItem -Path $path -ErrorAction SilentlyContinue
-          if ($files) {
-            $files | Copy-Item -Destination $artifactsDir -Force -ErrorAction SilentlyContinue
-            $artifactFiles += $files.Name
-          }
-        }
-
-        # Create a manifest file
-        $manifest = @{
-          "RunId" = "${{ github.run_id }}"
-          "RunNumber" = "${{ github.run_number }}"
-          "Status" = "${{ job.status }}"
-          "Timestamp" = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
-          "Configuration" = @{
-            "WhatIf" = "${{ github.event.inputs.WhatIf }}"
-            "Mode" = "${{ github.event.inputs.Mode }}"
-            "ConfigSecret" = "${{ env.SECRET_NAME }}"
-            "Vault" = "${{ env.KEYVAULT_NAME }}"
-          }
-          "Files" = $artifactFiles
-        } | ConvertTo-Json -Depth 3
-
-        $manifest | Out-File -FilePath "$artifactsDir/execution-manifest.json" -Encoding utf8
-
-        # Create summary for artifacts
-        if ($artifactFiles.Count -gt 0) {
-          Write-Host "✅ Collected $($artifactFiles.Count) artifact files" -ForegroundColor Green
-          $artifactFiles | ForEach-Object { Write-Host "   📄 $_" -ForegroundColor White }
-        } else {
-          Write-Host "ℹ️ No log files found to archive" -ForegroundColor Yellow
-          # Create a placeholder file so the artifact upload doesn't fail
-          "No execution logs were generated during this run." | Out-File -FilePath "$artifactsDir/no-logs.txt" -Encoding utf8
-        }
+        . ./scripts/workflows/Collect-OrchestratorArtifacts.ps1 `
+          -RunId '${{ github.run_id }}' `
+          -RunNumber '${{ github.run_number }}' `
+          -JobStatus '${{ job.status }}' `
+          -WhatIf '${{ github.event.inputs.WhatIf }}' `
+          -Mode '${{ github.event.inputs.Mode }}' `
+          -SecretName '${{ env.SECRET_NAME }}' `
+          -KeyVaultName '${{ env.KEYVAULT_NAME }}' `
+          -ConfigSecretName '${{ github.event.inputs.configSecretName }}'
 
     - name: 'Upload Execution Artifacts'
       if: always()
