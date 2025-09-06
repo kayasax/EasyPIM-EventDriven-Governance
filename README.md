@@ -70,11 +70,11 @@ flowchart LR
     AF --> GH
     GH --> EP
 
-    style KV fill:#e1f5fe
-    style EG fill:#f3e5f5
-    style AF fill:#e8f5e8
-    style GH fill:#fff3e0
-    style EP fill:#fce4ec
+    style KV fill:#0078d4,stroke:#005a9f,stroke-width:2px,color:#ffffff
+    style EG fill:#7b68ee,stroke:#5a4fcf,stroke-width:2px,color:#ffffff
+    style AF fill:#00bcf2,stroke:#0099cc,stroke-width:2px,color:#ffffff
+    style GH fill:#ff6b35,stroke:#cc4a1c,stroke-width:2px,color:#ffffff
+    style EP fill:#e81123,stroke:#b8000d,stroke-width:2px,color:#ffffff
 ```
 
 **🎭 Intelligence Built-In:**
