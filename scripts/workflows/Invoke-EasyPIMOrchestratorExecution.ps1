@@ -174,10 +174,39 @@ try {
 
     Write-Host "✅ Module verification passed, proceeding with orchestrator..." -ForegroundColor Green
 
+    # Debug: Show module paths before calling orchestrator
+    Write-Host "🔍 DEBUG: Current module information:" -ForegroundColor Magenta
+    $currentEasyPIM = Get-Module -Name EasyPIM
+    $currentOrchestrator = Get-Module -Name EasyPIM.Orchestrator
+    Write-Host "   EasyPIM Path: $($currentEasyPIM.ModuleBase)" -ForegroundColor White
+    Write-Host "   Orchestrator Path: $($currentOrchestrator.ModuleBase)" -ForegroundColor White
+    Write-Host "   PowerShell Edition: $($PSVersionTable.PSEdition)" -ForegroundColor White
+    Write-Host "   PowerShell Version: $($PSVersionTable.PSVersion)" -ForegroundColor White
+
     # Capture start time
     $startTime = Get-Date
 
-    Invoke-EasyPIMOrchestrator @params
+    # Try calling with explicit error handling and verbose output
+    Write-Host "🚀 Calling Invoke-EasyPIMOrchestrator with enhanced debugging..." -ForegroundColor Cyan
+    try {
+        Invoke-EasyPIMOrchestrator @params -Verbose
+    }
+    catch {
+        Write-Host "❌ DETAILED ERROR from Invoke-EasyPIMOrchestrator:" -ForegroundColor Red
+        Write-Host "   Exception Type: $($_.Exception.GetType().FullName)" -ForegroundColor Red
+        Write-Host "   Exception Message: $($_.Exception.Message)" -ForegroundColor Red
+        if ($_.Exception.InnerException) {
+            Write-Host "   Inner Exception: $($_.Exception.InnerException.Message)" -ForegroundColor Red
+        }
+        Write-Host "   Stack Trace:" -ForegroundColor Red
+        Write-Host "$($_.ScriptStackTrace)" -ForegroundColor Red
+
+        # Try to get more module info at time of failure
+        Write-Host "🔍 Module state at time of failure:" -ForegroundColor Yellow
+        Get-Module -Name EasyPIM* | Select-Object Name, Version, ModuleBase | Format-Table -AutoSize
+
+        throw $_
+    }
 
     # Capture end time and create summary
     $endTime = Get-Date
