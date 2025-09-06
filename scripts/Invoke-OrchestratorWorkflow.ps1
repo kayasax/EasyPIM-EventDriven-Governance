@@ -29,7 +29,7 @@
     Export list of items that would be removed (audit purposes)
 
 .PARAMETER Repository
-    GitHub repository in format 'owner/repo' (default: 'kayasax/EasyPIM-CICD-test')
+    GitHub repository in format 'owner/repo' (default: 'kayasax/EasyPIM-EventDriven-Governance')
 
 .PARAMETER ConfigSecretName
     Name of the Key Vault secret containing the configuration (optional - uses repository default if not provided)
@@ -71,7 +71,7 @@ param(
 
     [bool]$ExportWouldRemove = $false,
 
-    [string]$Repository = "kayasax/EasyPIM-CICD-test",
+    [string]$Repository = "kayasax/EasyPIM-EventDriven-Governance",
 
     [string]$ConfigSecretName = ""
 )

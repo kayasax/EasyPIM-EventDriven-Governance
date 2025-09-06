@@ -14,7 +14,7 @@
     Name of the Key Vault secret containing the configuration (optional - uses repository default if not provided)
 
 .PARAMETER Repository
-    GitHub repository in format 'owner/repo' (default: 'kayasax/EasyPIM-CICD-test')
+    GitHub repository in format 'owner/repo' (default: 'kayasax/EasyPIM-EventDriven-Governance')
 
 .EXAMPLE
     # Basic drift detection run
@@ -42,7 +42,7 @@ param(
 
     [string]$ConfigSecretName = "",
 
-    [string]$Repository = "kayasax/EasyPIM-CICD-test"
+    [string]$Repository = "kayasax/EasyPIM-EventDriven-Governance"
 )
 
 # Check if GitHub CLI is installed

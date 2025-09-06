@@ -132,7 +132,7 @@ if ($TestDriftDetection) {
         
         try {
             Write-Host "   🚀 Triggering drift detection workflow..." -ForegroundColor Blue
-            & "$PSScriptRoot\Invoke-DriftDetection.ps1" -ConfigSecretName $testCase.SecretName -Verbose $true -Repository "kayasax/EasyPIM-CICD-test"
+            & "$PSScriptRoot\Invoke-DriftDetection.ps1" -ConfigSecretName $testCase.SecretName -Verbose $true -Repository "kayasax/EasyPIM-EventDriven-Governance"
             Write-Host "   ✅ Drift detection triggered successfully" -ForegroundColor Green
         } catch {
             Write-Warning "   ⚠️ Drift detection trigger failed: $($_.Exception.Message)"

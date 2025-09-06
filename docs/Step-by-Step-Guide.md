@@ -168,7 +168,7 @@ This file controls your entire deployment. Let's break it down:
       "value": "test"
     },
     "githubRepository": {
-      "value": "kayasax/EasyPIM-CICD-test"
+      "value": "kayasax/EasyPIM-EventDriven-Governance"
     },
     "location": {
       "value": "francecentral"
@@ -222,8 +222,8 @@ Before deployment, **MUST CHANGE**:
 **Step 1: Fork and Clone This Repository**
 ```bash
 # Fork the repository on GitHub first, then:
-git clone https://github.com/YOUR-USERNAME/EasyPIM-CICD-test.git
-cd EasyPIM-CICD-test
+git clone https://github.com/YOUR-USERNAME/EasyPIM-EventDriven-Governance.git
+cd EasyPIM-EventDriven-Governance
 ```
 
 **Step 2: Customize Your Parameters**
@@ -252,7 +252,7 @@ az account show
 **Step 4: Run the Deployment Script**
 ```powershell
 # Navigate to repository root
-cd EasyPIM-CICD-test
+cd EasyPIM-EventDriven-Governance
 
 # Run deployment with your parameters
 ./scripts/deploy-azure-resources.ps1 `
@@ -749,7 +749,7 @@ if ($eventData.data) {
     if ($eventData.data.VaultName) { $vaultName = $eventData.data.VaultName }
 }
 
-$repo = "kayasax/EasyPIM-CICD-test"
+$repo = "kayasax/EasyPIM-EventDriven-Governance"
 $workflow = "02-orchestrator-test.yml"
 
 # Build intelligent workflow inputs
@@ -1001,7 +1001,7 @@ This enables centralized monitoring, alerting, and integration with SIEM or auto
 ```powershell
 # PowerShell Example: Our working implementation
 $token = $env:GITHUB_TOKEN  # Retrieved from Function App environment variables
-$repo = "kayasax/EasyPIM-CICD-test"
+$repo = "kayasax/EasyPIM-EventDriven-Governance"
 $workflow = "02-orchestrator-test.yml"
 
 # Smart parameter detection based on secret name

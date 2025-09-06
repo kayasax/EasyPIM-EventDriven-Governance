@@ -38,7 +38,7 @@ The Bicep template creates the following Azure resources:
 ### Prerequisites
 - Azure CLI or PowerShell Az modules installed
 - Appropriate Azure permissions (Contributor + User Access Administrator)
-- GitHub repository created: `kayasax/EasyPIM-CICD-test`
+- GitHub repository created: `kayasax/EasyPIM-EventDriven-Governance`
 
 ### Option 1: PowerShell Script (Recommended)
 ```powershell
@@ -46,7 +46,7 @@ The Bicep template creates the following Azure resources:
 Connect-AzAccount
 
 # Run deployment script
-.\deploy-azure-resources.ps1 -ResourceGroupName "rg-easypim-cicd-test" -GitHubRepository "kayasax/EasyPIM-CICD-test"
+.\deploy-azure-resources.ps1 -ResourceGroupName "rg-easypim-cicd-test" -GitHubRepository "kayasax/EasyPIM-EventDriven-Governance"
 ```
 
 ### Option 2: Azure CLI with Bicep
@@ -59,7 +59,7 @@ az deployment group create \
   --resource-group "rg-easypim-cicd-test" \
   --template-file deploy-azure-resources.bicep \
   --parameters @deploy-azure-resources.parameters.json \
-  --parameters githubRepository="kayasax/EasyPIM-CICD-test"
+  --parameters githubRepository="kayasax/EasyPIM-EventDriven-Governance"
 ```
 
 ### Option 3: Azure Portal

@@ -64,7 +64,7 @@ if ($eventData.data) {
     if ($eventData.subject) { $eventSource = "keyvault" }
 }
 
-$repo = "kayasax/EasyPIM-CICD-test"
+$repo = "kayasax/EasyPIM-EventDriven-Governance"
 $workflow = "02-orchestrator-test.yml"
 
 # Build workflow inputs - customize these based on your needs
