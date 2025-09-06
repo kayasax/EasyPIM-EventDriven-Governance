@@ -278,25 +278,28 @@ function Invoke-DeploymentPhase {
     Write-Host "`n🚀 Phase 1: Azure Resources Deployment" -ForegroundColor Magenta
     Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Magenta
 
-    $deployCmd = @(
-        ".\scripts\deploy-azure-resources-enhanced.ps1",
-        "-TargetPlatform", $Platform,
-        "-ResourceGroupName", $AzureConfig.ResourceGroup,
-        "-Location", $AzureConfig.Location
-    )
+    # Build parameters hashtable for splatting
+    $deployParams = @{
+        TargetPlatform = $Platform
+        ResourceGroupName = $AzureConfig.ResourceGroup
+        Location = $AzureConfig.Location
+    }
 
     if ($WhatIfMode) {
-        $deployCmd += "-WhatIf"
+        $deployParams.WhatIf = $true
     }
 
     if ($Force) {
-        $deployCmd += "-Force"
+        $deployParams.Force = $true
     }
 
-    Write-Host "Executing: $($deployCmd -join ' ')" -ForegroundColor Gray
+    Write-Host "Executing: .\scripts\deploy-azure-resources-enhanced.ps1 with parameters:" -ForegroundColor Gray
+    foreach ($param in $deployParams.GetEnumerator()) {
+        Write-Host "   -$($param.Key): $($param.Value)" -ForegroundColor Gray
+    }
     
     try {
-        & $deployCmd[0] $deployCmd[1..($deployCmd.Length-1)]
+        & ".\scripts\deploy-azure-resources-enhanced.ps1" @deployParams
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Phase 1 completed successfully!" -ForegroundColor Green
             return $true
@@ -332,28 +335,32 @@ function Invoke-ConfigurationPhase {
     Write-Host "`n🔧 Phase 2: CI/CD Configuration" -ForegroundColor Magenta
     Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Magenta
 
-    $configCmd = @(
-        ".\scripts\configure-cicd.ps1",
-        "-Platform", $Platform,
-        "-ResourceGroupName", $AzureConfig.ResourceGroup
-    )
+    # Build parameters hashtable for splatting
+    $configParams = @{
+        Platform = $Platform
+        ResourceGroupName = $AzureConfig.ResourceGroup
+    }
 
     if ($GitHubRepo) {
-        $configCmd += @("-GitHubRepository", $GitHubRepo)
+        $configParams.GitHubRepository = $GitHubRepo
     }
 
     if ($AdoInfo) {
-        $configCmd += @("-AzureDevOpsOrganization", $AdoInfo.Organization, "-AzureDevOpsProject", $AdoInfo.Project)
+        $configParams.AzureDevOpsOrganization = $AdoInfo.Organization
+        $configParams.AzureDevOpsProject = $AdoInfo.Project
     }
 
     if ($Force) {
-        $configCmd += "-Force"
+        $configParams.Force = $true
     }
 
-    Write-Host "Executing: $($configCmd -join ' ')" -ForegroundColor Gray
+    Write-Host "Executing: .\scripts\configure-cicd.ps1 with parameters:" -ForegroundColor Gray
+    foreach ($param in $configParams.GetEnumerator()) {
+        Write-Host "   -$($param.Key): $($param.Value)" -ForegroundColor Gray
+    }
     
     try {
-        & $configCmd[0] $configCmd[1..($configCmd.Length-1)]
+        & ".\scripts\configure-cicd.ps1" @configParams
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Phase 2 completed successfully!" -ForegroundColor Green
             return $true
