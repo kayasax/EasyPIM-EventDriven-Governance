@@ -25,7 +25,13 @@ The Bicep template creates the following Azure resources:
 
 ### 📋 Configuration
 - **Sample EasyPIM Configuration** - Pre-configured JSON with policies and templates
+- **Multi-Environment Support** - Dynamic configuration paths based on secret names (v1.1+)
 - **Required Graph API Permissions** - Documented permissions for admin consent
+
+### ⚡ Event Grid Integration
+- **System Topic** - Automatically created for Key Vault events
+- **Event Subscription** - Triggers Azure Function on secret changes
+- **Smart Detection** - Environment-aware processing based on secret naming patterns
 
 ## 🚀 Quick Deployment
 
@@ -109,9 +115,19 @@ AZURE_RESOURCE_GROUP: <resource-group-name>
 Replace the sample configuration in Key Vault with your actual settings:
 
 1. Go to your Key Vault in Azure Portal
-2. Update the `easypim-config-json` secret
+2. Update the configuration secrets (e.g., `pim-config-prod`, `pim-config-test`)
 3. Replace placeholder protected user IDs with actual user GUIDs
 4. Customize policies and assignments as needed
+
+### 5. Test Multi-Environment Capability (v1.1+)
+Test the new dynamic configuration detection:
+
+```powershell
+# Test different environment configurations
+.\test-multi-environment.ps1 -FunctionAppName "your-function-app" -ResourceGroupName "your-rg" -VaultName "your-vault"
+```
+
+This will test how the system automatically detects environments based on secret names and adjusts execution parameters accordingly.
 
 ## 🔍 Troubleshooting
 
@@ -143,7 +159,15 @@ Get-AzKeyVaultSecret -VaultName "<key-vault-name>" -Name "AZURE-TENANT-ID"
 
 # Check federated credential
 Get-AzADAppFederatedCredential -ApplicationId "<application-id>"
+
+# Test multi-environment capability (v1.1+)
+.\test-multi-environment.ps1 -FunctionAppName "<function-app-name>" -ResourceGroupName "<resource-group>" -VaultName "<vault-name>"
 ```
+
+## 🧪 Testing Scripts
+
+- **`test-multi-environment.ps1`** - Tests dynamic configuration detection with different secret names
+- **`Invoke-OrchestratorWorkflow.ps1`** - Manual workflow testing with custom parameters
 
 ## 🧹 Cleanup
 

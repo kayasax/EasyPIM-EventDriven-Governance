@@ -8,13 +8,17 @@ on:
         required: false
         default: false
         type: boolean
+      configSecretName:
+        description: "Name of the Key Vault secret containing the configuration (optional - uses default if not provided)"
+        required: false
+        type: string
   schedule:
     # Run daily at 6 AM UTC (optional automated drift detection)
     - cron: '0 6 * * *'
 
 env:
   KEYVAULT_NAME: ${{ vars.AZURE_KEYVAULT_NAME }}
-  SECRET_NAME: ${{ vars.AZURE_KEYVAULT_SECRET_NAME }}
+  SECRET_NAME: ${{ github.event.inputs.configSecretName || vars.AZURE_KEYVAULT_SECRET_NAME }}
   TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -52,6 +56,21 @@ jobs:
         shell: pwsh
         run: |
           & "./scripts/workflows/Install-EasyPIMModules.ps1"
+
+      - name: 'Display Configuration Source'
+        shell: pwsh
+        run: |
+          Write-Host "🎯 Drift Detection Configuration Source:" -ForegroundColor Cyan
+          Write-Host "   Key Vault: $env:KEYVAULT_NAME" -ForegroundColor White
+          Write-Host "   Secret Name: $env:SECRET_NAME" -ForegroundColor White
+          
+          if ('${{ github.event.inputs.configSecretName }}') {
+            Write-Host "   Source: Event Grid trigger (configSecretName parameter)" -ForegroundColor Green
+            Write-Host "   Environment: Detected from secret name" -ForegroundColor Yellow
+          } else {
+            Write-Host "   Source: Manual trigger or scheduled run (repository variables)" -ForegroundColor Blue
+            Write-Host "   Environment: Default configuration" -ForegroundColor Yellow
+          }
 
       - name: 'Configure Drift Detection Parameters'
         id: config

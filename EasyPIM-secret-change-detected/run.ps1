@@ -70,6 +70,7 @@ $workflow = "02-orchestrator-test.yml"
 # Build workflow inputs - customize these based on your needs
 $workflowInputs = @{
     run_description = "Triggered by Key Vault secret change: $secretName in $vaultName"
+    configSecretName = $secretName  # Pass the secret name for dynamic config path selection
     WhatIf = $false  # Set to true for preview mode, false for actual execution
     Mode = "delta"   # Use delta mode for incremental changes
     SkipPolicies = $false
@@ -83,12 +84,16 @@ $workflowInputs = @{
 if ($secretName -match "test|debug") {
     $workflowInputs.WhatIf = $true  # Use preview mode for test secrets
     $workflowInputs.run_description += " (Test Mode - Preview Only)"
+    Write-Host "Test secret detected ($secretName) - enabling WhatIf mode"
 }
 
 if ($secretName -match "initial|setup|bootstrap") {
     $workflowInputs.Mode = "initial"  # Use initial mode for setup secrets
     $workflowInputs.run_description += " (Initial Setup Mode)"
+    Write-Host "Initial setup secret detected ($secretName) - using initial mode"
 }
+
+Write-Host "Configuration will be read from secret: $secretName"
 
 # Add environment variables for additional configuration
 $customWhatIf = $env:EASYPIM_WHATIF

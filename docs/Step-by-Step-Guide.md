@@ -1099,6 +1099,7 @@ This documentation captures a **fully implemented, production-ready automation**
 
 **🧠 **Intelligent Parameter Handling:**
 - Smart detection: "test" secrets → Preview mode, "initial" secrets → Setup mode
+- Dynamic configuration paths: Secret name automatically passed to workflows
 - Environment variable overrides for flexible control
 - Dynamic descriptions with vault and secret context
 
@@ -1145,6 +1146,79 @@ This documentation captures a **fully implemented, production-ready automation**
 - Complete setup guide with working code examples
 - Troubleshooting guide with common issues and solutions
 - Testing procedures for validation and monitoring
+
+---
+
+## 🚀 **Advanced: Multi-Environment Configuration Management**
+
+### **🎯 Dynamic Configuration Paths (v1.1 Enhancement)**
+
+Our system now supports **automatic environment detection** based on the Key Vault secret name that triggers the Event Grid event:
+
+**📋 How It Works:**
+
+1. **Secret Names Drive Configuration:**
+   ```
+   pim-config-test    → Uses test configuration, enables WhatIf mode
+   pim-config-prod    → Uses production configuration, full execution
+   pim-config-dev     → Uses development configuration, WhatIf mode
+   pim-initial-setup  → Uses setup configuration, initial mode
+   ```
+
+2. **Azure Function Intelligence:**
+   ```powershell
+   # Automatically detects environment from secret name
+   configSecretName = $secretName  # Passed to GitHub Actions
+   
+   # Smart parameter setting
+   if ($secretName -match "test|debug") {
+       $workflowInputs.WhatIf = $true
+   }
+   ```
+
+3. **GitHub Workflow Adaptation:**
+   ```yaml
+   env:
+     SECRET_NAME: ${{ github.event.inputs.configSecretName || vars.AZURE_KEYVAULT_SECRET_NAME }}
+   ```
+
+**🎭 Benefits:**
+
+- ✅ **Zero Configuration Required:** Environment automatically detected
+- ✅ **Safety Built-In:** Test environments use preview mode by default
+- ✅ **Flexible Naming:** Any secret name pattern works
+- ✅ **Manual Override:** Can still specify configuration manually
+- ✅ **Complete Traceability:** Logs show which configuration is used
+
+**📝 Example Scenarios:**
+
+| Secret Name | Detected Mode | Configuration Used | Result |
+|-------------|---------------|-------------------|---------|
+| `pim-config-test` | WhatIf=true | `pim-config-test` | Preview changes only |
+| `pim-config-prod` | WhatIf=false | `pim-config-prod` | Apply changes |
+| `pim-initial-setup` | Mode=initial | `pim-initial-setup` | Bootstrap environment |
+| `custom-pim-dev` | WhatIf=true | `custom-pim-dev` | Preview with custom config |
+
+**🔍 Multi-Environment Drift Detection:**
+
+The policy drift detection workflow also supports dynamic configuration paths:
+
+```powershell
+# Manual triggers with specific environments
+.\Invoke-DriftDetection.ps1 -ConfigSecretName "pim-config-test"
+.\Invoke-DriftDetection.ps1 -ConfigSecretName "pim-config-prod" -Verbose $true
+
+# Test multiple environments
+.\test-multi-environment.ps1 -TestDriftDetection
+```
+
+Both **orchestrator** and **drift detection** workflows automatically:
+- ✅ Use the appropriate configuration based on secret name
+- ✅ Log which configuration source is active
+- ✅ Support manual override with `configSecretName` parameter
+- ✅ Maintain backward compatibility with repository defaults
+
+This enhancement enables **true multi-environment automation** where each environment can have its own configuration and safety settings! 🎉
 
 **This represents a significant achievement in modern DevOps automation - congratulations! 🎊**
 

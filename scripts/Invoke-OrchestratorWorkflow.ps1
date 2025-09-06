@@ -31,13 +31,20 @@
 .PARAMETER Repository
     GitHub repository in format 'owner/repo' (default: 'kayasax/EasyPIM-CICD-test')
 
+.PARAMETER ConfigSecretName
+    Name of the Key Vault secret containing the configuration (optional - uses repository default if not provided)
+
 .EXAMPLE
     # Test run (WhatIf mode)
     .\Invoke-OrchestratorWorkflow.ps1 -WhatIf $true -Verbose $true
 
 .EXAMPLE
-    # Production run
-    .\Invoke-OrchestratorWorkflow.ps1 -WhatIf $false -Mode delta -Force $true
+    # Production run with specific configuration
+    .\Invoke-OrchestratorWorkflow.ps1 -WhatIf $false -Mode delta -ConfigSecretName "pim-config-prod" -Force $true
+
+.EXAMPLE
+    # Test environment configuration
+    .\Invoke-OrchestratorWorkflow.ps1 -ConfigSecretName "pim-config-test" -Verbose $true
 
 .EXAMPLE
     # Policies only
@@ -64,7 +71,9 @@ param(
 
     [bool]$ExportWouldRemove = $false,
 
-    [string]$Repository = "kayasax/EasyPIM-CICD-test"
+    [string]$Repository = "kayasax/EasyPIM-CICD-test",
+
+    [string]$ConfigSecretName = ""
 )
 
 # Check if GitHub CLI is installed
@@ -101,6 +110,12 @@ Write-Host "  SkipAssignments: $SkipAssignments" -ForegroundColor White
 Write-Host "  Force: $Force" -ForegroundColor White
 Write-Host "  Verbose: $Verbose" -ForegroundColor White
 Write-Host "  ExportWouldRemove: $ExportWouldRemove" -ForegroundColor White
+if ($ConfigSecretName) {
+    Write-Host "  ConfigSecretName: $ConfigSecretName" -ForegroundColor White
+    Write-Host "  Configuration Source: Specific secret" -ForegroundColor Green
+} else {
+    Write-Host "  Configuration Source: Repository default" -ForegroundColor Blue
+}
 
 if ($WhatIf) {
     Write-Host "`n🔍 Running in WhatIf mode (preview only)" -ForegroundColor Yellow
@@ -123,15 +138,22 @@ if ($confirm -notmatch '^[Yy]') {
 Write-Host "`n🔄 Triggering workflow..." -ForegroundColor Cyan
 
 try {
-    $result = gh workflow run "02-orchestrator-test.yml" `
-        --repo $Repository `
-        -f WhatIf=$WhatIf `
-        -f Mode=$Mode `
-        -f SkipPolicies=$SkipPolicies `
-        -f SkipAssignments=$SkipAssignments `
-        -f Force=$Force `
-        -f Verbose=$Verbose `
-        -f ExportWouldRemove=$ExportWouldRemove
+    $workflowParams = @(
+        "--repo", $Repository,
+        "-f", "WhatIf=$WhatIf",
+        "-f", "Mode=$Mode",
+        "-f", "SkipPolicies=$SkipPolicies",
+        "-f", "SkipAssignments=$SkipAssignments",
+        "-f", "Force=$Force",
+        "-f", "Verbose=$Verbose",
+        "-f", "ExportWouldRemove=$ExportWouldRemove"
+    )
+    
+    if ($ConfigSecretName) {
+        $workflowParams += @("-f", "configSecretName=$ConfigSecretName")
+    }
+
+    $result = gh workflow run "02-orchestrator-test.yml" @workflowParams
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Workflow triggered successfully!" -ForegroundColor Green

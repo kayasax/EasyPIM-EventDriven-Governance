@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: ""
+      configSecretName:
+        description: "Key Vault secret name containing PIM configuration (auto-detected when triggered by Azure Function)"
+        required: false
+        type: string
+        default: ""
       WhatIf:
         description: "Preview mode - show what would be done without making changes"
         required: false
@@ -54,7 +59,7 @@ on:
 
 env:
   KEYVAULT_NAME: ${{ vars.AZURE_KEYVAULT_NAME }}
-  SECRET_NAME: ${{ vars.AZURE_KEYVAULT_SECRET_NAME }}
+  SECRET_NAME: ${{ github.event.inputs.configSecretName || vars.AZURE_KEYVAULT_SECRET_NAME }}
   TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -113,6 +118,15 @@ jobs:
         Write-Host "   Client ID: $($graphContext.ClientId)" -ForegroundColor White
         Write-Host "   Tenant ID: $($graphContext.TenantId)" -ForegroundColor White
         Write-Host "   Scopes: $($graphContext.Scopes -join ', ')" -ForegroundColor White
+
+        Write-Host "Configuration:" -ForegroundColor Cyan
+        Write-Host "  Key Vault: ${{ env.KEYVAULT_NAME }}" -ForegroundColor White
+        Write-Host "  Secret Name: ${{ env.SECRET_NAME }}" -ForegroundColor White
+        if ('${{ github.event.inputs.configSecretName }}' -ne '') {
+          Write-Host "  ⚡ Dynamic config from Event Grid trigger" -ForegroundColor Green
+        } else {
+          Write-Host "  📋 Default config from manual trigger" -ForegroundColor Yellow
+        }
 
         Write-Host "Parameters:" -ForegroundColor Yellow
         Write-Host "  WhatIf: ${{ github.event.inputs.WhatIf }}" -ForegroundColor White
