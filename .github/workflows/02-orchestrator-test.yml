@@ -123,7 +123,12 @@ jobs:
     - name: 'EasyPIM Orchestrator Execution'
       shell: pwsh
       run: |
-        $success = . ./scripts/workflows/Invoke-EasyPIMOrchestratorExecution.ps1 `
+        # Import modules first in the execution context
+        Import-Module EasyPIM -Force
+        Import-Module EasyPIM.Orchestrator -Force
+
+        # Call the script directly without dot sourcing
+        $success = & ./scripts/workflows/Invoke-EasyPIMOrchestratorExecution.ps1 `
           -KeyVaultName '${{ env.KEYVAULT_NAME }}' `
           -SecretName '${{ env.SECRET_NAME }}' `
           -TenantId '${{ env.TENANT_ID }}' `

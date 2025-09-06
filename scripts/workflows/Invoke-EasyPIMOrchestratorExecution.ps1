@@ -47,7 +47,16 @@ param(
 
 Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
 
-# Ensure authentication is established in this step
+# Verify modules are available (they should be loaded by the workflow step)
+$easypimModule = Get-Module -Name EasyPIM
+$orchestratorModule = Get-Module -Name EasyPIM.Orchestrator
+
+if (-not $easypimModule -or -not $orchestratorModule) {
+    Write-Error "❌ CRITICAL: Required EasyPIM modules not loaded in current session"
+    Write-Host "Available modules:" -ForegroundColor Yellow
+    Get-Module | Select-Object Name, Version | Format-Table -AutoSize
+    return $false
+}
 Write-Host "🔍 Verifying authentication context..." -ForegroundColor Cyan
 $graphContext = Get-MgContext
 if (-not $graphContext) {
@@ -133,42 +142,10 @@ try {
     # Execute EasyPIM Orchestrator
     Write-Host "`n🔄 Executing EasyPIM Orchestrator..." -ForegroundColor Cyan
 
-    # CRITICAL: Re-verify modules are still loaded before orchestrator execution
-    Write-Host "🔍 CRITICAL: Re-verifying module availability..." -ForegroundColor Yellow
-
-    $easypimModule = Get-Module -Name EasyPIM
-    $orchestratorModule = Get-Module -Name EasyPIM.Orchestrator
-
-    if (-not $easypimModule) {
-        Write-Host "❌ CRITICAL: EasyPIM module not loaded, attempting re-import..." -ForegroundColor Red
-        try {
-            Import-Module EasyPIM -Force -ErrorAction Stop
-            Write-Host "✅ EasyPIM module re-imported successfully" -ForegroundColor Green
-        }
-        catch {
-            Write-Error "❌ CRITICAL: Failed to re-import EasyPIM module: $($_.Exception.Message)"
-            return $false
-        }
-    }
-
-    if (-not $orchestratorModule) {
-        Write-Host "❌ CRITICAL: EasyPIM.Orchestrator module not loaded, attempting re-import..." -ForegroundColor Red
-        try {
-            Import-Module EasyPIM.Orchestrator -Force -ErrorAction Stop
-            Write-Host "✅ EasyPIM.Orchestrator module re-imported successfully" -ForegroundColor Green
-        }
-        catch {
-            Write-Error "❌ CRITICAL: Failed to re-import EasyPIM.Orchestrator module: $($_.Exception.Message)"
-            return $false
-        }
-    }
-
-    # Final verification that the function is available
+    # Verify function is available
     $orchestratorFunction = Get-Command "Invoke-EasyPIMOrchestrator" -ErrorAction SilentlyContinue
     if (-not $orchestratorFunction) {
         Write-Error "❌ CRITICAL: Invoke-EasyPIMOrchestrator function not available"
-        Write-Host "Available modules:" -ForegroundColor Yellow
-        Get-Module | Select-Object Name, Version | Format-Table -AutoSize
         return $false
     }
 
