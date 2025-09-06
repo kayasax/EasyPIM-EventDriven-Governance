@@ -1,7 +1,7 @@
 # 🚀 EasyPIM CI/CD Automation
 
 [![Phase 1: Authentication Test](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/01-auth-test.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/01-auth-test.yml)
-[![Phase 2: EasyPIM Orchestrator Test](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/02-orchestrator-test.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/02-orchestrator-test.yml)
+[![Phase 2: EasyPIM Policy Orchestrator](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/02-orchestrator-test.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/02-orchestrator-test.yml)
 [![Phase 3: Policy Drift Detection](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/03-policy-drift-check.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/03-policy-drift-check.yml)
 
 > **🛡️ Revolutionize your Azure Privileged Identity Management with event-driven automation!**

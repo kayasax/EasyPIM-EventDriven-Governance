@@ -76,7 +76,7 @@ jobs:
         id: config
         shell: pwsh
         run: |
-          Write-Host "� Configuring drift detection parameters..." -ForegroundColor Cyan
+          Write-Host "⚙️ Configuring drift detection parameters..." -ForegroundColor Cyan
 
           $verbose = '${{ github.event.inputs.Verbose }}' -eq 'true'
 
@@ -342,7 +342,7 @@ jobs:
           <tr>
           <td>
 
-          **� Analysis Parameters**
+          **🔧 Analysis Parameters**
           - **Verbose Output:** ``${{ github.event.inputs.Verbose || 'false' }}``
           - **Detection Mode:** ``Comprehensive Policy Scan``
           - **Scope:** ``All Configured Policies``
@@ -365,7 +365,7 @@ jobs:
 
           ${{ github.event.inputs.configSecretName && format('> **🎯 Smart Detection:** Configuration automatically selected based on Key Vault secret `{0}`', github.event.inputs.configSecretName) || '> **📋 Scheduled/Manual Check:** Using repository default configuration settings' }}
 
-          ## � **Recommended Actions**
+          ## 🎯 **Recommended Actions**
 
           "@
 
@@ -374,7 +374,7 @@ jobs:
             $summary += @"
           | Priority | Action | Description |
           |----------|--------|-------------|
-          | � **HIGH** | [�📋 Review Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) | Investigate execution failure |
+          | 🔴 **HIGH** | [📋 Review Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) | Investigate execution failure |
           | 🔄 **NEXT** | [⚡ Re-run Check](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Retry after fixing issues |
           "@
           } elseif ($driftDetected -eq 'true' -and $driftCount -ne '0') {
@@ -382,8 +382,8 @@ jobs:
           | Priority | Action | Description |
           |----------|--------|-------------|
           | 🟠 **MEDIUM** | [⚡ Run Orchestrator](https://github.com/${{ github.repository }}/actions/workflows/02-orchestrator-test.yml) | Apply configuration to remediate drift |
-          | � **VERIFY** | [📊 Re-check Compliance](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Validate remediation |
-          | � **AUDIT** | [📦 Download Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) | Archive drift report |
+          | ✅ **VERIFY** | [📊 Re-check Compliance](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Validate remediation |
+          | 📋 **AUDIT** | [📦 Download Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) | Archive drift report |
           "@
           } else {
             $summary += @"
@@ -391,7 +391,7 @@ jobs:
           |----------|--------|-------------|
           | ✅ **MAINTAIN** | [📅 Schedule Regular Checks](https://github.com/${{ github.repository }}/blob/main/.github/workflows/03-policy-drift-check.yml) | Automated daily monitoring active |
           | 📊 **MONITOR** | [📈 View Trends](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Track compliance history |
-          | � **OPTIMIZE** | [🔧 Configuration](https://github.com/${{ github.repository }}/blob/main/docs/Step-by-Step-Guide.md) | Fine-tune detection settings |
+          | ⚙️ **OPTIMIZE** | [🔧 Configuration](https://github.com/${{ github.repository }}/blob/main/docs/Step-by-Step-Guide.md) | Fine-tune detection settings |
           "@
           }
 

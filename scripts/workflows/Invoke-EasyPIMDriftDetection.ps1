@@ -103,7 +103,7 @@ try {
     # Analyze drift and errors separately
     $driftItems = @()
     $errorItems = @()
-    if ($results) { 
+    if ($results) {
         $driftItems = $results | Where-Object { $_.Status -eq 'Drift' }
         $errorItems = $results | Where-Object { $_.Status -eq 'Error' }
     }

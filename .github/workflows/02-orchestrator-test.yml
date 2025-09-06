@@ -1,9 +1,11 @@
-name: 'Phase 2: EasyPIM Orchestrator Test'
+name: 'Phase 2: EasyPIM Policy Orchestrator'
 
 run-name: >-
   EasyPIM ${{ github.event.inputs.WhatIf == 'true' && '🔍 Preview' || '⚡ Apply' }}
   (${{ github.event.inputs.Mode }})
-  ${{ github.event.inputs.run_description && '- Custom Event' || '' }}
+  ${{ github.event.inputs.configSecretName && format('- Triggered by Key Vault secret change: {0} in {1}', github.event.inputs.configSecretName, vars.AZURE_KEYVAULT_NAME) ||
+      (github.event.inputs.run_description && format('- {0}', github.event.inputs.run_description) || '') }}
+  ${{ github.event.inputs.configSecretName && (contains(github.event.inputs.configSecretName, 'TEST') && ' (Test Mode - Preview Only)' || ' (Production Mode)') || '' }}
 
 on:
   workflow_dispatch:
