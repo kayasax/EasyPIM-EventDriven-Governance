@@ -11,7 +11,7 @@ try {
 
     # Install required Azure modules for EasyPIM orchestrator
     Write-Host "📦 Installing required Azure modules..." -ForegroundColor Gray
-    Install-Module -Name Az.KeyVault, Az.Resources, Az.Profile -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
+    Install-Module -Name Az.KeyVault, Az.Resources, Az.Accounts -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
     Write-Host "   ✅ Azure modules installed successfully" -ForegroundColor Green
 
     Write-Host "📦 Importing EasyPIM module..." -ForegroundColor Gray

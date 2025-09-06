@@ -130,10 +130,16 @@ jobs:
         Import-Module EasyPIM -Force
         Import-Module EasyPIM.Orchestrator -Force
         
-        # Import required Azure modules for orchestrator
-        Import-Module Az.KeyVault -Force
-        Import-Module Az.Resources -Force
-        Import-Module Az.Profile -Force
+        # Import required Azure modules for orchestrator (if available)
+        try {
+          Import-Module Az.KeyVault -Force -ErrorAction SilentlyContinue
+          Import-Module Az.Resources -Force -ErrorAction SilentlyContinue  
+          Import-Module Az.Accounts -Force -ErrorAction SilentlyContinue
+          Write-Host "✅ Azure modules imported (those available)" -ForegroundColor Green
+        }
+        catch {
+          Write-Warning "⚠️ Some Azure modules could not be imported: $($_.Exception.Message)"
+        }
 
         # Verify function is available
         $orchestratorFunction = Get-Command "Invoke-EasyPIMOrchestrator" -ErrorAction SilentlyContinue
