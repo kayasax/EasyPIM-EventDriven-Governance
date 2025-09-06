@@ -3,7 +3,7 @@ name: 'Phase 2: EasyPIM Orchestrator Test'
 run-name: >-
   EasyPIM ${{ github.event.inputs.WhatIf == 'true' && '🔍 Preview' || '⚡ Apply' }}
   (${{ github.event.inputs.Mode }})
-  ${{ github.event.inputs.run_description && format('- {0}', github.event.inputs.run_description) || '' }}
+  ${{ github.event.inputs.run_description && '- Custom Event' || '' }}
 
 on:
   workflow_dispatch:
@@ -300,9 +300,9 @@ jobs:
 
         ## � **Event-Driven Intelligence**
 
-        ${{ github.event.inputs.configSecretName && format('> **🎯 Smart Detection:** Configuration automatically selected based on Key Vault secret `{0}`', github.event.inputs.configSecretName) || '> **📋 Manual Configuration:** Using repository default configuration settings' }}
+        ${{ github.event.inputs.configSecretName && '> **🎯 Smart Detection:** Configuration automatically selected based on event trigger' || '> **📋 Manual Configuration:** Using repository default configuration settings' }}
 
-        ${{ github.event.inputs.run_description && format('> **📝 Event Context:** {0}', github.event.inputs.run_description) || '' }}
+        ${{ github.event.inputs.run_description && '> **📝 Event Context:** See workflow artifacts for full event details' || '' }}
 
         ## 🚀 **Quick Actions**
 
