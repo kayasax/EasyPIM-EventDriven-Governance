@@ -123,29 +123,95 @@ jobs:
     - name: 'EasyPIM Orchestrator Execution'
       shell: pwsh
       run: |
-        # Import modules first in the execution context
+        # Restore inline execution - external script has issues with module scope in GitHub Actions Linux
+        Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
+
+        # Import modules in this execution context
         Import-Module EasyPIM -Force
         Import-Module EasyPIM.Orchestrator -Force
 
-        # Call the script directly without dot sourcing
-        $success = & ./scripts/workflows/Invoke-EasyPIMOrchestratorExecution.ps1 `
-          -KeyVaultName '${{ env.KEYVAULT_NAME }}' `
-          -SecretName '${{ env.SECRET_NAME }}' `
-          -TenantId '${{ env.TENANT_ID }}' `
-          -SubscriptionId '${{ env.SUBSCRIPTION_ID }}' `
-          -ClientId '${{ env.AZURE_CLIENT_ID }}' `
-          -Mode '${{ github.event.inputs.Mode }}' `
-          -WhatIf:('${{ github.event.inputs.WhatIf }}' -eq 'true') `
-          -SkipPolicies:('${{ github.event.inputs.SkipPolicies }}' -eq 'true') `
-          -SkipAssignments:('${{ github.event.inputs.SkipAssignments }}' -eq 'true') `
-          -AllowProtectedRoles:('${{ github.event.inputs.AllowProtectedRoles }}' -eq 'true') `
-          -VerboseOutput:('${{ github.event.inputs.Verbose }}' -eq 'true') `
-          -ExportWouldRemove:('${{ github.event.inputs.ExportWouldRemove }}' -eq 'true') `
-          -ConfigSecretName '${{ github.event.inputs.configSecretName }}' `
-          -RunDescription '${{ github.event.inputs.run_description }}'
+        # Verify function is available
+        $orchestratorFunction = Get-Command "Invoke-EasyPIMOrchestrator" -ErrorAction SilentlyContinue
+        if (-not $orchestratorFunction) {
+          Write-Error "❌ CRITICAL: Invoke-EasyPIMOrchestrator function not available"
+          exit 1
+        }
 
-        if (-not $success) {
-          Write-Error "❌ EasyPIM Orchestrator execution failed"
+        Write-Host "✅ Module verification passed, proceeding with orchestrator..." -ForegroundColor Green
+
+        # Build parameters for Invoke-EasyPIMOrchestrator
+        $params = @{
+          KeyVaultName = '${{ env.KEYVAULT_NAME }}'
+          SecretName = '${{ env.SECRET_NAME }}'
+          TenantId = '${{ env.TENANT_ID }}'
+          SubscriptionId = '${{ env.SUBSCRIPTION_ID }}'
+          Mode = '${{ github.event.inputs.Mode }}'
+        }
+
+        # Add boolean parameters only if true
+        if ('${{ github.event.inputs.WhatIf }}' -eq 'true') {
+          $params.WhatIf = $true
+        }
+
+        if ('${{ github.event.inputs.SkipPolicies }}' -eq 'true') {
+          $params.SkipPolicies = $true
+        }
+
+        if ('${{ github.event.inputs.SkipAssignments }}' -eq 'true') {
+          $params.SkipAssignments = $true
+        }
+
+        if ('${{ github.event.inputs.AllowProtectedRoles }}' -eq 'true') {
+          $params.AllowProtectedRoles = $true
+        }
+
+        if ('${{ github.event.inputs.ExportWouldRemove }}' -eq 'true') {
+          $params.WouldRemoveExportPath = "./would-remove-export.json"
+        }
+
+        # Capture start time
+        $startTime = Get-Date
+
+        try {
+          Write-Host "🚀 Calling Invoke-EasyPIMOrchestrator..." -ForegroundColor Cyan
+          Invoke-EasyPIMOrchestrator @params
+
+          # Capture end time and create summary
+          $endTime = Get-Date
+          $executionTime = ($endTime - $startTime).ToString("mm\:ss")
+
+          Write-Host "✅ EasyPIM Orchestrator completed successfully" -ForegroundColor Green
+          Write-Host "⏱️ Execution time: $executionTime" -ForegroundColor Cyan
+
+          # Create summary JSON for the dashboard
+          $summaryData = @{
+            "Status" = "Success"
+            "ExecutionTime" = $executionTime
+            "StartTime" = $startTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            "EndTime" = $endTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            "Parameters" = $params
+            "Mode" = if ($params.WhatIf) { "Preview" } else { "Applied" }
+            "ConfigurationSource" = if ('${{ github.event.inputs.configSecretName }}') { "Event-Driven" } else { "Manual" }
+            "RunDescription" = '${{ github.event.inputs.run_description }}'
+          }
+
+          $summaryData | ConvertTo-Json -Depth 3 | Out-File -FilePath "./easypim-summary.json" -Encoding utf8
+          Write-Host "📊 Summary data saved for dashboard" -ForegroundColor Green
+        }
+        catch {
+          Write-Host "❌ EasyPIM Orchestrator failed: $($_.Exception.Message)" -ForegroundColor Red
+          Write-Host "Full error details:" -ForegroundColor Red
+          $_ | Format-List * -Force
+
+          # Create error summary for dashboard
+          $errorSummary = @{
+            "Status" = "Failed"
+            "Error" = $_.Exception.Message
+            "Timestamp" = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+            "Parameters" = $params
+          }
+          $errorSummary | ConvertTo-Json -Depth 3 | Out-File -FilePath "./easypim-error.json" -Encoding utf8
+
           exit 1
         }
 
