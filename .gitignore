@@ -6,3 +6,6 @@ modules/
 .funcignore
 .gitignore
 .vscode
+host.json
+local.settings.json
+requirements.psd1
