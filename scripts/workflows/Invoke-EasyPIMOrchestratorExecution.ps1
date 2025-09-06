@@ -33,7 +33,7 @@ param(
     [bool]$AllowProtectedRoles = $false,
 
     [Parameter(Mandatory = $false)]
-    [bool]$Verbose = $false,
+    [bool]$VerboseOutput = $false,
 
     [Parameter(Mandatory = $false)]
     [bool]$ExportWouldRemove = $false,
@@ -86,7 +86,7 @@ Write-Host "  Mode: $Mode" -ForegroundColor White
 Write-Host "  SkipPolicies: $SkipPolicies" -ForegroundColor White
 Write-Host "  SkipAssignments: $SkipAssignments" -ForegroundColor White
 Write-Host "  AllowProtectedRoles: $AllowProtectedRoles" -ForegroundColor White
-Write-Host "  Verbose: $Verbose" -ForegroundColor White
+Write-Host "  Verbose: $VerboseOutput" -ForegroundColor White
 Write-Host "  ExportWouldRemove: $ExportWouldRemove" -ForegroundColor White
 
 # Build parameters for Invoke-EasyPIMOrchestrator
@@ -119,7 +119,7 @@ if ($AllowProtectedRoles) {
     Write-Host "⚠️ Protected roles operations enabled" -ForegroundColor Yellow
 }
 
-if ($Verbose) {
+if ($VerboseOutput) {
     $params.Verbose = $true
     Write-Host "📝 Verbose output enabled" -ForegroundColor Yellow
 }

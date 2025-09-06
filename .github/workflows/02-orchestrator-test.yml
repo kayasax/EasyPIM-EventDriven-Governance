@@ -110,7 +110,7 @@ jobs:
           -SkipPolicies:('${{ github.event.inputs.SkipPolicies }}' -eq 'true') `
           -SkipAssignments:('${{ github.event.inputs.SkipAssignments }}' -eq 'true') `
           -AllowProtectedRoles:('${{ github.event.inputs.AllowProtectedRoles }}' -eq 'true') `
-          -Verbose:('${{ github.event.inputs.Verbose }}' -eq 'true') `
+          -VerboseOutput:('${{ github.event.inputs.Verbose }}' -eq 'true') `
           -ExportWouldRemove:('${{ github.event.inputs.ExportWouldRemove }}' -eq 'true') `
           -ConfigSecretName '${{ github.event.inputs.configSecretName }}' `
           -RunDescription '${{ github.event.inputs.run_description }}'
