@@ -90,28 +90,15 @@ jobs:
               'SubscriptionId' = $env:SUBSCRIPTION_ID
           }
 
-          # Configuration source - check KeyVault native support first, fallback to temp file
+          # Configuration source - use KeyVault native support only
           if ($env:KEYVAULT_NAME) {
-              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME" -ForegroundColor Green
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME/$env:SECRET_NAME" -ForegroundColor Green
 
-              # Test native KeyVault support first - add both methods for compatibility
+              # Use native KeyVault support only (no temp file fallback)
               $driftParams['KeyVaultName'] = $env:KEYVAULT_NAME
               $driftParams['SecretName'] = $env:SECRET_NAME
 
-              # Also prepare temp file as fallback (will be removed once native support is confirmed)
-              Write-Host "🔄 Also preparing temp file for compatibility..." -ForegroundColor Yellow
-              $configJson = az keyvault secret show --vault-name $env:KEYVAULT_NAME --name $env:SECRET_NAME --query "value" -o tsv
-
-              if ([string]::IsNullOrEmpty($configJson)) {
-                  Write-Error "❌ Failed to retrieve config from Key Vault - empty response"
-                  exit 1
-              }
-
-              $tempConfigPath = "./temp-drift-config.json"
-              $configJson | Out-File -FilePath $tempConfigPath -Encoding UTF8
-              $driftParams['ConfigPath'] = $tempConfigPath
-
-              Write-Host "✅ Retrieved config successfully (Length: $($configJson.Length) chars)" -ForegroundColor Green
+              Write-Host "✅ KeyVault configuration ready" -ForegroundColor Green
           } else {
               Write-Error "❌ No Key Vault configuration found. AZURE_KEYVAULT_NAME variable is required."
               exit 1
@@ -126,13 +113,9 @@ jobs:
           Write-Host "🎯 Drift Detection Parameters:" -ForegroundColor Blue
           Write-Host "   TenantId: $env:TENANT_ID"
           Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
-          if ($env:KEYVAULT_NAME) {
-              Write-Host "   KeyVaultName: $env:KEYVAULT_NAME"
-              Write-Host "   SecretName: $env:SECRET_NAME"
-              Write-Host "   ConfigPath: $($driftParams['ConfigPath']) (fallback)"
-          } else {
-              Write-Host "   ❌ Key Vault configuration required but not provided"
-          }
+          Write-Host "   KeyVaultName: $env:KEYVAULT_NAME"
+          Write-Host "   SecretName: $env:SECRET_NAME"
+          Write-Host "   Method: Native KeyVault (no temp files)" -ForegroundColor Green
           if ($verbose) {
               Write-Host "   Verbose: enabled"
           }
@@ -170,17 +153,21 @@ jobs:
               $parsed = $json | ConvertFrom-Json
               $driftCount = $parsed.driftCount
               $driftDetected = $parsed.driftDetected
+              $errorCount = if ($parsed.errorCount) { $parsed.errorCount } else { 0 }
 
               Write-Host "🔍 Parsed drift results:" -ForegroundColor Cyan
               Write-Host "   driftDetected: $driftDetected" -ForegroundColor White
               Write-Host "   driftCount: $driftCount" -ForegroundColor White
+              Write-Host "   errorCount: $errorCount" -ForegroundColor White
 
               "drift-detected=$driftDetected" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
               "drift-count=$driftCount" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              "error-count=$errorCount" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
               Write-Host "✅ Step outputs set:" -ForegroundColor Green
               Write-Host "   drift-detected=$driftDetected" -ForegroundColor White
               Write-Host "   drift-count=$driftCount" -ForegroundColor White
+              Write-Host "   error-count=$errorCount" -ForegroundColor White
 
               if ($parsed.drift -and $parsed.drift.Count -gt 0) {
                 $first = ($parsed.drift | Select-Object -First 5 | ConvertTo-Json -Compress)
@@ -264,6 +251,7 @@ jobs:
           $driftStatus = '${{ job.status }}'
           $driftDetected = '${{ steps.drift_exec.outputs.drift-detected }}'
           $driftCount = '${{ steps.drift_exec.outputs.drift-count }}'
+          $errorCount = '${{ steps.drift_exec.outputs.error-count }}'
 
           # Determine status indicators
           $statusIcon = if ($driftStatus -eq 'success') { '✅' } else { '❌' }
@@ -282,6 +270,15 @@ jobs:
             $driftIcon = '🔴'
             $driftBadge = '❌ **CHECK FAILED**'
             $driftDescription = 'Execution error prevented drift evaluation'
+          }
+
+          # Add error information if present
+          $errorInfo = ""
+          if ($errorCount -and $errorCount -ne '0') {
+            $errorInfo = " | ⚠️ $errorCount config error(s)"
+            if ($driftDetected -eq 'false') {
+              $driftDescription += " (with configuration issues to resolve)"
+            }
           }
 
           # Configuration source detection
@@ -303,6 +300,7 @@ jobs:
           |---------------|--------------|---------------|
           | **Total Items Checked** | *See logs* | ✅ Analyzed |
           | **Drift Detected** | **$driftCount** | ⚠️ Requires attention |
+          | **Configuration Errors** | **$errorCount** | $(if ($errorCount -and $errorCount -ne '0') { '⚠️ Needs review' } else { '✅ Clean' }) |
           | **Compliant Items** | *Remainder* | ✅ Passing |
 
           > **📋 Details:** Complete drift analysis available in workflow artifacts and execution logs
@@ -334,7 +332,7 @@ jobs:
 
           | 🚦 **Execution** | 🔍 **Drift Status** | 📡 **Trigger** | ⏰ **Timestamp** |
           |------------------|---------------------|-----------------|------------------|
-          | $statusColor **$($driftStatus.ToUpper())** | $driftIcon $driftBadge | $configSource | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC') |
+          | $statusColor **$($driftStatus.ToUpper())** | $driftIcon $driftBadge$errorInfo | $configSource | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC') |
 
           $driftDetails
 

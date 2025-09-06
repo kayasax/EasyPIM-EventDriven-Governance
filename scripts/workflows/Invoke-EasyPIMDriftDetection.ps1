@@ -100,20 +100,34 @@ try {
     # Persist raw object output for auditing
     try { $results | Format-List * | Out-File -FilePath "./drift-raw-output.log" -Encoding UTF8 } catch { }
 
-    # Analyze drift
+    # Analyze drift and errors separately
     $driftItems = @()
-    if ($results) { $driftItems = $results | Where-Object { $_.Status -eq 'Drift' } }
+    $errorItems = @()
+    if ($results) { 
+        $driftItems = $results | Where-Object { $_.Status -eq 'Drift' }
+        $errorItems = $results | Where-Object { $_.Status -eq 'Error' }
+    }
     $driftCount = $driftItems.Count
+    $errorCount = $errorItems.Count
     $totalCount = if ($results) { $results.Count } else { 0 }
     $hasDrift = $driftCount -gt 0
 
+    # Report results clearly
     if ($hasDrift) {
         Write-Host "⚠️ DRIFT DETECTED: $driftCount item(s) out of $totalCount" -ForegroundColor Yellow
         $driftItems | ForEach-Object {
-            Write-Host (" - [{0}] {1} :: {2}" -f $_.Type, $_.Name, ($_.Differences -replace "\r?\n"," ")) -ForegroundColor Yellow
+            Write-Host (" - [DRIFT] [{0}] {1} :: {2}" -f $_.Type, $_.Name, ($_.Differences -replace "\r?\n"," ")) -ForegroundColor Yellow
         }
     } else {
         Write-Host "✅ No drift detected ($totalCount items evaluated)" -ForegroundColor Green
+    }
+
+    if ($errorCount -gt 0) {
+        Write-Host "⚠️ Configuration errors found: $errorCount item(s)" -ForegroundColor Magenta
+        $errorItems | ForEach-Object {
+            Write-Host (" - [ERROR] [{0}] {1} :: {2}" -f $_.Type, $_.Name, ($_.Differences -replace "\r?\n"," ")) -ForegroundColor Magenta
+        }
+        Write-Host "💡 Note: Errors indicate configuration issues, not policy drift" -ForegroundColor Cyan
     }
 
     # Build JSON summary
@@ -121,8 +135,10 @@ try {
         generated    = (Get-Date).ToString('o')
         total        = $totalCount
         driftCount   = $driftCount
+        errorCount   = $errorCount
         driftDetected= $hasDrift
         drift        = $driftItems | Select-Object Type, Name, Target, Status, Differences
+        errors       = $errorItems | Select-Object Type, Name, Target, Status, Differences
     }
     $summaryPath = "./drift-summary.json"
     $summary | ConvertTo-Json -Depth 8 | Out-File -FilePath $summaryPath -Encoding UTF8
