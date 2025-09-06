@@ -63,7 +63,7 @@ jobs:
           Write-Host "🎯 Drift Detection Configuration Source:" -ForegroundColor Cyan
           Write-Host "   Key Vault: $env:KEYVAULT_NAME" -ForegroundColor White
           Write-Host "   Secret Name: $env:SECRET_NAME" -ForegroundColor White
-          
+
           if ('${{ github.event.inputs.configSecretName }}') {
             Write-Host "   Source: Event Grid trigger (configSecretName parameter)" -ForegroundColor Green
             Write-Host "   Environment: Detected from secret name" -ForegroundColor Yellow

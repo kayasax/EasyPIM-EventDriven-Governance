@@ -135,6 +135,6 @@ flowchart LR
 
 ---
 
-*Built with ❤️ for Azure administrators who value security, automation, and operational excellence*  
+*Built with ❤️ for Azure administrators who value security, automation, and operational excellence*
 *Loïc*
 </div>

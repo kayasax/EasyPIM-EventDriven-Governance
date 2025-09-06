@@ -148,7 +148,7 @@ try {
         "-f", "Verbose=$Verbose",
         "-f", "ExportWouldRemove=$ExportWouldRemove"
     )
-    
+
     if ($ConfigSecretName) {
         $workflowParams += @("-f", "configSecretName=$ConfigSecretName")
     }

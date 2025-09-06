@@ -97,7 +97,7 @@ try {
         "--repo", $Repository,
         "-f", "Verbose=$Verbose"
     )
-    
+
     if ($ConfigSecretName) {
         $workflowParams += @("-f", "configSecretName=$ConfigSecretName")
     }
