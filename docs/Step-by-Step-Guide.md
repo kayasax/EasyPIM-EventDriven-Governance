@@ -1169,7 +1169,7 @@ Our system now supports **automatic environment detection** based on the Key Vau
    ```powershell
    # Automatically detects environment from secret name
    configSecretName = $secretName  # Passed to GitHub Actions
-   
+
    # Smart parameter setting
    if ($secretName -match "test|debug") {
        $workflowInputs.WhatIf = $true

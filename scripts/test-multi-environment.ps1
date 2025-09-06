@@ -43,7 +43,7 @@ $testCases = @(
         Description = "Should trigger WhatIf mode for test environments"
     },
     @{
-        Name = "Production Environment" 
+        Name = "Production Environment"
         SecretName = "pim-config-prod"
         ExpectedWhatIf = $false
         ExpectedMode = "delta"
@@ -104,12 +104,12 @@ foreach ($testCase in $testCases) {
 
     try {
         Write-Host "   🚀 Sending test event..." -ForegroundColor Blue
-        
+
         $response = Invoke-RestMethod -Uri $functionUrl -Method POST -Body $requestBody -ContentType "application/json" -Verbose:$false
-        
+
         Write-Host "   ✅ Response received: $response" -ForegroundColor Green
         Write-Host "   💡 Check GitHub Actions to verify parameters were set correctly" -ForegroundColor Cyan
-        
+
     } catch {
         Write-Warning "   ⚠️ Request failed: $($_.Exception.Message)"
         if ($_.Exception.Response) {
@@ -125,11 +125,11 @@ Write-Host "`n🎉 Multi-environment testing complete!" -ForegroundColor Green
 
 if ($TestDriftDetection) {
     Write-Host "`n🔍 Testing Drift Detection with different configurations..." -ForegroundColor Cyan
-    
+
     foreach ($testCase in $testCases) {
         Write-Host "`n📊 Testing Drift Detection: $($testCase.Name)" -ForegroundColor Magenta
         Write-Host "   Using ConfigSecretName: $($testCase.SecretName)" -ForegroundColor White
-        
+
         try {
             Write-Host "   🚀 Triggering drift detection workflow..." -ForegroundColor Blue
             & "$PSScriptRoot\Invoke-DriftDetection.ps1" -ConfigSecretName $testCase.SecretName -Verbose $true -Repository "kayasax/EasyPIM-EventDriven-Governance"
@@ -137,7 +137,7 @@ if ($TestDriftDetection) {
         } catch {
             Write-Warning "   ⚠️ Drift detection trigger failed: $($_.Exception.Message)"
         }
-        
+
         Start-Sleep -Seconds 5
     }
 }

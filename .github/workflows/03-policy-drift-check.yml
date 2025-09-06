@@ -199,14 +199,14 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "📦 Preparing drift detection artifacts..." -ForegroundColor Cyan
-          
+
           # Create artifacts directory
           $artifactsDir = "./drift-artifacts"
           New-Item -ItemType Directory -Path $artifactsDir -Force | Out-Null
-          
+
           # Collect available drift detection files
           $artifactFiles = @()
-          
+
           # Check for drift detection outputs
           $driftPaths = @("LOGS/*.log", "*.log", "drift-report.*", "drift-summary.json", "*.json")
           foreach ($path in $driftPaths) {
@@ -216,7 +216,7 @@ jobs:
               $artifactFiles += $files.Name
             }
           }
-          
+
           # Create a drift detection manifest
           $manifest = @{
             "RunId" = "${{ github.run_id }}"
@@ -232,9 +232,9 @@ jobs:
             }
             "Files" = $artifactFiles
           } | ConvertTo-Json -Depth 3
-          
+
           $manifest | Out-File -FilePath "$artifactsDir/drift-detection-manifest.json" -Encoding utf8
-          
+
           # Create summary for artifacts
           if ($artifactFiles.Count -gt 0) {
             Write-Host "✅ Collected $($artifactFiles.Count) drift detection files" -ForegroundColor Green
@@ -264,16 +264,16 @@ jobs:
           $driftStatus = '${{ job.status }}'
           $driftDetected = '${{ steps.drift_exec.outputs.drift-detected }}'
           $driftCount = '${{ steps.drift_exec.outputs.drift-count }}'
-          
+
           # Determine status indicators
           $statusIcon = if ($driftStatus -eq 'success') { '✅' } else { '❌' }
           $statusColor = if ($driftStatus -eq 'success') { '🟢' } else { '🔴' }
-          
+
           # Determine drift status
           $driftIcon = '🟢'
           $driftBadge = '✅ **COMPLIANT**'
           $driftDescription = 'All policies match desired configuration'
-          
+
           if ($driftStatus -eq 'success' -and $driftDetected -eq 'true' -and $driftCount -ne '0') {
             $driftIcon = '🟠'
             $driftBadge = '⚠️ **DRIFT DETECTED**'
@@ -283,43 +283,43 @@ jobs:
             $driftBadge = '❌ **CHECK FAILED**'
             $driftDescription = 'Execution error prevented drift evaluation'
           }
-          
+
           # Configuration source detection
-          $configSource = if ('${{ github.event.inputs.configSecretName }}') { 
-            '🚀 **Event-Driven** (Auto-triggered)' 
-          } else { 
-            '👤 **Manual Trigger**' 
+          $configSource = if ('${{ github.event.inputs.configSecretName }}') {
+            '🚀 **Event-Driven** (Auto-triggered)'
+          } else {
+            '👤 **Manual Trigger**'
           }
-          
+
           # Try to capture drift details if available
           $driftDetails = ""
           if ($driftStatus -eq 'success' -and $driftDetected -eq 'true' -and $driftCount -ne '0') {
             $sampleDrift = '${{ steps.drift_exec.outputs.drift-sample }}'
             if ($sampleDrift) {
               $driftDetails = @"
-          
+
           ### 📋 **Drift Analysis**
-          
+
           | 🎯 **Metric** | 📊 **Count** | 📈 **Status** |
           |---------------|--------------|---------------|
           | **Total Items Checked** | *See logs* | ✅ Analyzed |
           | **Drift Detected** | **$driftCount** | ⚠️ Requires attention |
           | **Compliant Items** | *Remainder* | ✅ Passing |
-          
+
           <details>
           <summary>🔍 <strong>Sample Drift Details</strong></summary>
-          
+
           ``````json
           $sampleDrift
           ``````
-          
+
           </details>
           "@
             } else {
               $driftDetails = @"
-          
+
           ### 📋 **Drift Analysis**
-          
+
           | 🎯 **Status** | 📊 **Details** |
           |---------------|----------------|
           | **Items with Drift** | **$driftCount** |
@@ -328,9 +328,9 @@ jobs:
             }
           } else {
             $driftDetails = @"
-          
+
           ### 📋 **Compliance Analysis**
-          
+
           | 🎯 **Status** | 📊 **Result** |
           |---------------|---------------|
           | **Compliance Check** | $driftDescription |
@@ -340,48 +340,48 @@ jobs:
 
           $summary = @"
           # $statusIcon **EasyPIM Policy Drift Detection Dashboard**
-          
+
           ## 🎯 **Compliance Overview**
-          
+
           | 🚦 **Execution** | 🔍 **Drift Status** | 📡 **Trigger** | ⏰ **Timestamp** |
           |------------------|---------------------|-----------------|------------------|
           | $statusColor **$($driftStatus.ToUpper())** | $driftIcon $driftBadge | $configSource | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC') |
-          
+
           $driftDetails
-          
+
           ## ⚙️ **Detection Configuration**
-          
+
           <table>
           <tr>
           <td>
-          
+
           **� Analysis Parameters**
           - **Verbose Output:** ``${{ github.event.inputs.Verbose || 'false' }}``
           - **Detection Mode:** ``Comprehensive Policy Scan``
           - **Scope:** ``All Configured Policies``
           - **Threshold:** ``Zero Tolerance``
-          
+
           </td>
           <td>
-          
+
           **🌐 Environment Context**
           - **Vault:** ``${{ env.KEYVAULT_NAME }}``
           - **Config:** ``${{ env.SECRET_NAME }}``
           - **Tenant:** ``${{ env.TENANT_ID }}``
           - **Subscription:** ``${{ env.SUBSCRIPTION_ID }}``
-          
+
           </td>
           </tr>
           </table>
-          
+
           ## 🔍 **Event-Driven Intelligence**
-          
+
           ${{ github.event.inputs.configSecretName && format('> **🎯 Smart Detection:** Configuration automatically selected based on Key Vault secret `{0}`', github.event.inputs.configSecretName) || '> **📋 Scheduled/Manual Check:** Using repository default configuration settings' }}
-          
+
           ## � **Recommended Actions**
-          
+
           "@
-          
+
           # Add conditional action recommendations
           if ($driftStatus -ne "success") {
             $summary += @"
@@ -407,14 +407,14 @@ jobs:
           | � **OPTIMIZE** | [🔧 Configuration](https://github.com/${{ github.repository }}/blob/main/docs/Step-by-Step-Guide.md) | Fine-tune detection settings |
           "@
           }
-          
+
           $summary += @"
-          
+
           ---
-          
+
           <details>
           <summary>🔧 <strong>Technical Details</strong></summary>
-          
+
           - **Run ID:** ``${{ github.run_id }}``
           - **Run Number:** ``#${{ github.run_number }}``
           - **Triggered by:** ``${{ github.actor }}``
@@ -422,9 +422,9 @@ jobs:
           - **Branch:** ``${{ github.ref_name }}``
           - **Workflow:** ``Phase 3 - Policy Drift Detection``
           - **Version:** ``v1.1 (Event-Driven Multi-Environment)``
-          
+
           </details>
-          
+
           > 💡 **Governance Note:** This drift detection provides continuous compliance monitoring. Use Phase 2 Orchestrator to apply configuration changes when drift is detected.
           "@
 
