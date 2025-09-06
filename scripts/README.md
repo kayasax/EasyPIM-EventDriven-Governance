@@ -1,13 +1,19 @@
-# Azure Resources Deployment Guide
+# EasyPIM Event-Driven Governance - Deployment Scripts
 
-This directory contains the infrastructure-as-code (IaC) templates and scripts to deploy all Azure resources required for EasyPIM CI/CD testing.
+This directory contains the infrastructure-as-code (IaC) templates and scripts to deploy all Azure resources required for EasyPIM Event-Driven Governance with support for multiple CI/CD platforms.
 
 ## 📁 Files Overview
 
+### 🚀 **Platform Setup Scripts (New!)**
+- **`setup-platform.ps1`** - Interactive orchestrator for platform selection and automated setup
+- **`configure-cicd.ps1`** - Enhanced configuration script supporting GitHub Actions and Azure DevOps
+- **`deploy-azure-resources-enhanced.ps1`** - Platform-aware deployment script with advanced features
+
+### 🏗️ **Core Infrastructure Scripts**
 - **`deploy-azure-resources.bicep`** - Main Bicep template defining all Azure resources
-- **`deploy-azure-resources.ps1`** - PowerShell deployment script with helper functions
+- **`deploy-azure-resources.ps1`** - Original PowerShell deployment script
 - **`deploy-azure-resources.parameters.json`** - Parameters file for customization
-- **`README.md`** - This documentation file
+- **`configure-github-cicd.ps1`** - GitHub-specific configuration script (legacy)
 
 ## 🏗️ Resources Deployed
 
@@ -33,21 +39,73 @@ The Bicep template creates the following Azure resources:
 - **Event Subscription** - Triggers Azure Function on secret changes
 - **Smart Detection** - Environment-aware processing based on secret naming patterns
 
-## 🚀 Quick Deployment
+## 🚀 Quick Start - New Platform Setup
 
-### Prerequisites
-- Azure CLI or PowerShell Az modules installed
-- Appropriate Azure permissions (Contributor + User Access Administrator)
-- GitHub repository created: `kayasax/EasyPIM-EventDriven-Governance`
+### 🎯 Interactive Setup (Recommended)
+The easiest way to get started with any platform:
 
-### Option 1: PowerShell Script (Recommended)
 ```powershell
-# Connect to Azure
-Connect-AzAccount
+# Interactive setup with platform selection
+.\setup-platform.ps1
 
-# Run deployment script
-.\deploy-azure-resources.ps1 -ResourceGroupName "rg-easypim-cicd-test" -GitHubRepository "kayasax/EasyPIM-EventDriven-Governance"
+# Preview deployment without making changes
+.\setup-platform.ps1 -WhatIf
+
+# Non-interactive setup for GitHub Actions
+.\setup-platform.ps1 -Interactive:$false -Platform GitHub -GitHubRepository "owner/repo"
+
+# Non-interactive setup for Azure DevOps
+.\setup-platform.ps1 -Interactive:$false -Platform AzureDevOps -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
+
+# Setup for both platforms
+.\setup-platform.ps1 -Platform Both -GitHubRepository "owner/repo" -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
 ```
+
+### 🔧 Manual Setup
+For advanced users who prefer step-by-step control:
+
+#### Step 1: Deploy Azure Resources
+```powershell
+# Deploy for GitHub Actions (default)
+.\deploy-azure-resources-enhanced.ps1 -TargetPlatform GitHub
+
+# Deploy for Azure DevOps
+.\deploy-azure-resources-enhanced.ps1 -TargetPlatform AzureDevOps
+
+# Deploy for both platforms
+.\deploy-azure-resources-enhanced.ps1 -TargetPlatform Both
+
+# Preview deployment
+.\deploy-azure-resources-enhanced.ps1 -WhatIf
+```
+
+#### Step 2: Configure CI/CD Platform
+```powershell
+# Configure GitHub Actions
+.\configure-cicd.ps1 -Platform GitHub -GitHubRepository "owner/repo"
+
+# Configure Azure DevOps
+.\configure-cicd.ps1 -Platform AzureDevOps -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
+
+# Configure both platforms
+.\configure-cicd.ps1 -Platform Both -GitHubRepository "owner/repo" -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
+```
+
+## 🎯 Platform Support
+
+### ✅ GitHub Actions
+- ✅ Automated secret and variable configuration
+- ✅ OIDC authentication with federated credentials
+- ✅ Event Grid integration for Key Vault triggers
+- ✅ Multi-environment support (TEST, PROD configs)
+- ✅ Modern enterprise dashboards
+
+### 🚧 Azure DevOps (Phase 1 Implementation)
+- ✅ Variable group configuration
+- ✅ Service connection setup (via Azure CLI)
+- ✅ Multi-environment support
+- 🚧 Pipeline templates (coming in Phase 2)
+- 🚧 Advanced dashboard integration (coming in Phase 3)
 
 ### Option 2: Azure CLI with Bicep
 ```bash
