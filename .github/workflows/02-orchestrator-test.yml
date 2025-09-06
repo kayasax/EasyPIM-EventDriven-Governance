@@ -79,6 +79,39 @@ jobs:
     - name: 'Checkout Repository'
       uses: actions/checkout@v4
 
+    - name: 'Install and Validate EasyPIM Modules (Critical Path)'
+      shell: pwsh
+      run: |
+        Write-Host "🔥 CRITICAL: Installing and validating EasyPIM modules..." -ForegroundColor Red
+        $success = . ./scripts/workflows/Install-EasyPIMModules.ps1
+        if (-not $success) {
+          Write-Error "❌ CRITICAL FAILURE: EasyPIM modules installation failed"
+          exit 1
+        }
+
+        # Additional strict validation after installation
+        Write-Host "🔍 CRITICAL: Performing strict module validation..." -ForegroundColor Yellow
+
+        # Test that we can actually invoke the orchestrator function
+        try {
+          $testParams = @{
+            KeyVaultName = "test"
+            SecretName = "test"
+            WhatIf = $true
+            TestMode = $true
+          }
+
+          # This should fail gracefully but prove the function is accessible
+          $null = Get-Command "Invoke-EasyPIMOrchestrator" -ErrorAction Stop
+          Write-Host "✅ CRITICAL: Invoke-EasyPIMOrchestrator function is accessible" -ForegroundColor Green
+        }
+        catch {
+          Write-Error "❌ CRITICAL FAILURE: Invoke-EasyPIMOrchestrator function not accessible: $($_.Exception.Message)"
+          Write-Host "🔍 Available EasyPIM commands:" -ForegroundColor Yellow
+          Get-Command -Module EasyPIM* | Select-Object Name, ModuleName | Format-Table -AutoSize
+          exit 1
+        }
+
     - name: 'Azure OIDC Login'
       uses: azure/login@v2
       with:
@@ -86,15 +119,6 @@ jobs:
         tenant-id: ${{ env.TENANT_ID }}
         subscription-id: ${{ env.SUBSCRIPTION_ID }}
         enable-AzPSSession: true
-
-    - name: 'Install EasyPIM Modules'
-      shell: pwsh
-      run: |
-        $success = . ./scripts/workflows/Install-EasyPIMModules.ps1
-        if (-not $success) {
-          Write-Error "❌ Failed to install EasyPIM modules"
-          exit 1
-        }
 
     - name: 'EasyPIM Orchestrator Execution'
       shell: pwsh
