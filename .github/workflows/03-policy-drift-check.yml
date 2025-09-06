@@ -295,24 +295,25 @@ jobs:
           $driftDetails = ""
           if ($driftStatus -eq 'success' -and $driftDetected -eq 'true' -and $driftCount -ne '0') {
             $sampleDrift = '${{ steps.drift_exec.outputs.drift-sample }}'
-            if ($sampleDrift) {
+            if ($sampleDrift -and $sampleDrift.Trim() -ne '') {
+              # Safely handle the JSON content to avoid PowerShell parsing issues
+              $safeSampleDrift = $sampleDrift -replace '"', '\"' -replace '`', '\`'
               $driftDetails = @"
-
+          
           ### 📋 **Drift Analysis**
-
+          
           | 🎯 **Metric** | 📊 **Count** | 📈 **Status** |
           |---------------|--------------|---------------|
           | **Total Items Checked** | *See logs* | ✅ Analyzed |
           | **Drift Detected** | **$driftCount** | ⚠️ Requires attention |
           | **Compliant Items** | *Remainder* | ✅ Passing |
-
+          
           <details>
           <summary>🔍 <strong>Sample Drift Details</strong></summary>
-
-          ``````json
-          $sampleDrift
-          ``````
-
+          
+          > **Note:** Sample drift data available in logs and artifacts for detailed analysis.
+          > Due to complex JSON structure, detailed drift information is best viewed in the downloadable artifacts.
+          
           </details>
           "@
             } else {
