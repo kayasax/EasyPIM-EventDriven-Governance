@@ -88,7 +88,7 @@ foreach ($path in $summaryPaths) {
 if ($summaryFile) {
     try {
         $results = Get-Content $summaryFile | ConvertFrom-Json
-        
+
         # Extract metrics with defaults
         $assignmentsCreated = $results.AssignmentsCreated ?? 0
         $assignmentsPlanned = $results.AssignmentsPlanned ?? 0
@@ -96,7 +96,7 @@ if ($summaryFile) {
         $policiesSkipped = $results.PoliciesSkipped ?? 0
         $assignmentsAnalyzed = $results.AssignmentsAnalyzed ?? 0
         $assignmentsRemoved = $results.AssignmentsRemoved ?? 0
-        
+
         # Check if we have the formatted summary
         if ($results.FormattedSummary) {
             $orchestratorSummary = @"
@@ -115,11 +115,11 @@ $($results.FormattedSummary)
 
 #### 📋 **Assignment Operations**
 - ✅ **Created:** $assignmentsCreated
-- 📝 **Planned:** $assignmentsPlanned  
+- 📝 **Planned:** $assignmentsPlanned
 - 🔍 **Analyzed:** $assignmentsAnalyzed
 - 🗑️ **Removed:** $assignmentsRemoved
 
-#### 🔐 **Policy Operations**  
+#### 🔐 **Policy Operations**
 - ✅ **Applied:** $policiesApplied
 - ⏭️ **Skipped:** $policiesSkipped
 
@@ -130,9 +130,9 @@ $($results.FormattedSummary)
 - **Timestamp:** $($results.Timestamp)
 "@
         }
-        
+
         $easypimResults = $orchestratorSummary
-        
+
     } catch {
         $easypimResults = @"
 
@@ -148,7 +148,7 @@ $($results.FormattedSummary)
         "./orchestrator-error.json",
         "orchestrator-error.json"
     )
-    
+
     $errorFile = $null
     foreach ($path in $errorPaths) {
         if (Test-Path $path) {
@@ -157,7 +157,7 @@ $($results.FormattedSummary)
             break
         }
     }
-    
+
     if ($errorFile) {
         try {
             $errorInfo = Get-Content $errorFile | ConvertFrom-Json
