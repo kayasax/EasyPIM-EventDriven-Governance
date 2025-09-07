@@ -127,6 +127,11 @@ try {
     Write-Host "   Key Vault: $KeyVaultName"
     Write-Host "   Secret: $SecretName"
     
+    # Ensure workflow artifacts directory exists
+    if (-not (Test-Path "./workflow-artifacts")) {
+        New-Item -ItemType Directory -Path "./workflow-artifacts" -Force | Out-Null
+    }
+    
     # Build orchestrator parameters
     $orchestratorParams = @{
         'KeyVaultName' = $KeyVaultName
@@ -157,8 +162,51 @@ try {
     Write-Host "🚀 Calling Invoke-EasyPIMOrchestrator with enhanced debugging..." -ForegroundColor Cyan
     
     try {
-        # Execute the orchestrator
-        Invoke-EasyPIMOrchestrator @orchestratorParams
+        # Execute the orchestrator and capture output
+        Write-Host "📊 Capturing orchestrator output for dashboard..." -ForegroundColor Gray
+        
+        # Capture all output streams
+        $orchestratorOutput = Invoke-EasyPIMOrchestrator @orchestratorParams -Verbose 4>&1 5>&1 6>&1
+        
+        # Parse the output to extract summary information
+        $outputText = $orchestratorOutput | Out-String
+        
+        # Create a summary object for the dashboard
+        $summaryData = @{
+            Timestamp = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            ExecutionMode = $Mode
+            WhatIfMode = $WhatIf
+            Status = "Success"
+            OrchestoratorOutput = $outputText
+        }
+        
+        # Try to extract specific metrics from the output
+        if ($outputText -match '\[OK\] Created\s*:\s*(\d+)') {
+            $summaryData.AssignmentsCreated = [int]$Matches[1]
+        }
+        if ($outputText -match '\[PLAN\] Planned\s*:\s*(\d+)') {
+            $summaryData.AssignmentsPlanned = [int]$Matches[1]
+        }
+        if ($outputText -match '\[SKIP\] Skipped\s*:\s*(\d+).*POLICY') {
+            $summaryData.PoliciesSkipped = [int]$Matches[1]
+        }
+        if ($outputText -match '\[OK\] Applied\s*:\s*(\d+).*POLICY') {
+            $summaryData.PoliciesApplied = [int]$Matches[1]
+        }
+        if ($outputText -match '\[INFO\] Analysis:\s*(\d+)\s*desired') {
+            $summaryData.AssignmentsAnalyzed = [int]$Matches[1]
+        }
+        if ($outputText -match '\[DEL\] Removed\s*:\s*(\d+)') {
+            $summaryData.AssignmentsRemoved = [int]$Matches[1]
+        }
+        
+        # Extract the formatted summary section if present
+        if ($outputText -match '(?s)┏━+┓.*?┃\s*OVERALL SUMMARY.*?┃.*?┗━+┛(.*?)(?=Mode semantics:|===|$)') {
+            $summaryData.FormattedSummary = $Matches[1].Trim()
+        }
+        
+        # Save summary for dashboard
+        $summaryData | ConvertTo-Json -Depth 3 | Out-File -FilePath "./workflow-artifacts/orchestrator-summary.json" -Encoding utf8
         
         Write-Host "✅ EasyPIM Orchestrator completed successfully!" -ForegroundColor Green
         return $true
@@ -174,6 +222,19 @@ try {
         
         Write-Host "   Stack Trace:" -ForegroundColor Red
         Write-Host $_.ScriptStackTrace -ForegroundColor Red
+        
+        # Create error summary for dashboard
+        $errorSummary = @{
+            Timestamp = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            ExecutionMode = $Mode
+            WhatIfMode = $WhatIf
+            Status = "Failed"
+            Error = $_.Exception.Message
+            FullError = $_ | Out-String
+        }
+        
+        # Save error summary for dashboard
+        $errorSummary | ConvertTo-Json -Depth 3 | Out-File -FilePath "./workflow-artifacts/orchestrator-error.json" -Encoding utf8
         
         # Check authentication state at time of failure
         Write-Host "🔍 Module state at time of failure:" -ForegroundColor Yellow

@@ -1,0 +1,480 @@
+EasyPIM Orchestrator Execution	Set up job	﻿2025-09-07T10:52:13.9007120Z Current runner version: '2.328.0'
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9031198Z ##[group]Runner Image Provisioner
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9032058Z Hosted Compute Agent
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9032720Z Version: 20250829.383
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9033522Z Commit: 27cb235aab5b0e52e153a26cd86b4742e89dac5d
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9034224Z Build Date: 2025-08-29T13:48:48Z
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9034880Z ##[endgroup]
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9035468Z ##[group]Operating System
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9036013Z Ubuntu
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9036560Z 24.04.3
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9037008Z LTS
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9037485Z ##[endgroup]
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9038137Z ##[group]Runner Image
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9038760Z Image: ubuntu-24.04
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9039288Z Version: 20250831.1.0
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9040383Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250831.1/images/ubuntu/Ubuntu2404-Readme.md
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9041779Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250831.1
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9043020Z ##[endgroup]
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9044384Z ##[group]GITHUB_TOKEN Permissions
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9046405Z Contents: read
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9047023Z Metadata: read
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9047624Z ##[endgroup]
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9049667Z Secret source: Actions
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9050371Z Prepare workflow directory
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9576724Z Prepare all required actions
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:13.9615426Z Getting action download info
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:14.4068333Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:14.4719995Z Download action repository 'azure/login@v2' (SHA:a457da9ea143d694b1b9c7c869ebb04ebe844ef5)
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:14.9286381Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+EasyPIM Orchestrator Execution	Set up job	2025-09-07T10:52:15.1055018Z Complete job name: EasyPIM Orchestrator Execution
+EasyPIM Orchestrator Execution	Checkout Repository	﻿2025-09-07T10:52:15.1679172Z ##[group]Run actions/checkout@v4
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1680074Z with:
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1680571Z   repository: kayasax/EasyPIM-EventDriven-Governance
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1681332Z   token: ***
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1681730Z   ssh-strict: true
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1682132Z   ssh-user: git
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1682544Z   persist-credentials: true
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1683003Z   clean: true
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1683587Z   sparse-checkout-cone-mode: true
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1684078Z   fetch-depth: 1
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1684481Z   fetch-tags: false
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1684903Z   show-progress: true
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1685321Z   lfs: false
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1685696Z   submodules: false
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1686118Z   set-safe-directory: true
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1686808Z env:
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1687216Z   KEYVAULT_NAME: kv-easypim-8368
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1687725Z   SECRET_NAME: easypim-config-json
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1688301Z   TENANT_ID: ***
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1688810Z   SUBSCRIPTION_ID: ***
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1689356Z   AZURE_CLIENT_ID: ***
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.1689766Z ##[endgroup]
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2747470Z Syncing repository: kayasax/EasyPIM-EventDriven-Governance
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2749312Z ##[group]Getting Git version info
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2750350Z Working directory is '/home/runner/work/EasyPIM-EventDriven-Governance/EasyPIM-EventDriven-Governance'
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2751568Z [command]/usr/bin/git version
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2782851Z git version 2.51.0
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2808813Z ##[endgroup]
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2822824Z Temporarily overriding HOME='/home/runner/work/_temp/44d18437-7af8-475c-b79d-1caa0910d34d' before making global git config changes
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2825219Z Adding repository directory to the temporary git global config as a safe directory
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2836319Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/EasyPIM-EventDriven-Governance/EasyPIM-EventDriven-Governance
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2870755Z Deleting the contents of '/home/runner/work/EasyPIM-EventDriven-Governance/EasyPIM-EventDriven-Governance'
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2874097Z ##[group]Initializing the repository
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2878495Z [command]/usr/bin/git init /home/runner/work/EasyPIM-EventDriven-Governance/EasyPIM-EventDriven-Governance
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2942607Z hint: Using 'master' as the name for the initial branch. This default branch name
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2944322Z hint: is subject to change. To configure the initial branch name to use in all
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2945624Z hint: of your new repositories, which will suppress this warning, call:
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2946676Z hint:
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2947434Z hint: 	git config --global init.defaultBranch <name>
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2948357Z hint:
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2949212Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2950244Z hint: 'development'. The just-created branch can be renamed via this command:
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2950944Z hint:
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2951394Z hint: 	git branch -m <name>
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2952112Z hint:
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2952724Z hint: Disable this message with "git config set advice.defaultBranchName false"
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2954194Z Initialized empty Git repository in /home/runner/work/EasyPIM-EventDriven-Governance/EasyPIM-EventDriven-Governance/.git/
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2958097Z [command]/usr/bin/git remote add origin https://github.com/kayasax/EasyPIM-EventDriven-Governance
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2988909Z ##[endgroup]
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2989650Z ##[group]Disabling automatic garbage collection
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.2992780Z [command]/usr/bin/git config --local gc.auto 0
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3020123Z ##[endgroup]
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3020837Z ##[group]Setting up auth
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3027190Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3056322Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3308355Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3339141Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3557936Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3600591Z ##[endgroup]
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3601455Z ##[group]Fetching the repository
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.3609641Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +f1f8d3a599083761b45e0e71373550b246473fb1:refs/remotes/origin/main
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7775296Z From https://github.com/kayasax/EasyPIM-EventDriven-Governance
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7776715Z  * [new ref]         f1f8d3a599083761b45e0e71373550b246473fb1 -> origin/main
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7804536Z ##[endgroup]
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7806431Z ##[group]Determining the checkout info
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7808530Z ##[endgroup]
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7813393Z [command]/usr/bin/git sparse-checkout disable
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7851919Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7880637Z ##[group]Checking out the ref
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7884299Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7965953Z Switched to a new branch 'main'
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7969032Z branch 'main' set up to track 'origin/main'.
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.7976286Z ##[endgroup]
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.8012863Z [command]/usr/bin/git log -1 --format=%H
+EasyPIM Orchestrator Execution	Checkout Repository	2025-09-07T10:52:15.8035029Z f1f8d3a599083761b45e0e71373550b246473fb1
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	﻿2025-09-07T10:52:15.8246820Z ##[group]Run Write-Host "🔥 Installing and validating EasyPIM modules..." -ForegroundColor Cyan
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.8249575Z [36;1mWrite-Host "🔥 Installing and validating EasyPIM modules..." -ForegroundColor Cyan[0m
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.8251797Z [36;1m$success = . ./scripts/workflows/Install-EasyPIMModules.ps1[0m
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.8253738Z [36;1mif (-not $success) {[0m
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.8255215Z [36;1m  Write-Error "❌ CRITICAL FAILURE: EasyPIM modules installation failed"[0m
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.8256825Z [36;1m  exit 1[0m
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.8257609Z [36;1m}[0m
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.8259485Z [36;1mWrite-Host "✅ EasyPIM modules installation and validation completed successfully" -ForegroundColor Green[0m
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.9028133Z shell: /usr/bin/pwsh -command ". '{0}'"
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.9029672Z env:
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.9030658Z   KEYVAULT_NAME: kv-easypim-8368
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.9031988Z   SECRET_NAME: easypim-config-json
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.9033881Z   TENANT_ID: ***
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.9035068Z   SUBSCRIPTION_ID: ***
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.9036164Z   AZURE_CLIENT_ID: ***
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:15.9037064Z ##[endgroup]
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:18.7954979Z 🔥 Installing and validating EasyPIM modules...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:18.8096331Z 🚀 Installing EasyPIM modules from PowerShell Gallery...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:18.8099628Z 📦 Installing latest EasyPIM and EasyPIM.Orchestrator...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:26.0364634Z [33;1mWARNING: The version '2.30.0' of module 'Microsoft.Graph.Authentication' is currently in use. Retry the operation after closing the applications.[0m
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:29.7222505Z    ✅ Latest versions installed successfully
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:29.7223726Z 📦 Installing required Azure modules...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:35.7568623Z    ✅ Azure modules installed successfully
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:35.7571511Z 📦 Importing EasyPIM module...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:36.9734027Z    ✅ EasyPIM imported successfully
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:36.9734776Z 📦 Importing EasyPIM.Orchestrator module...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0022880Z    ✅ EasyPIM.Orchestrator imported successfully
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0024997Z 🔍 Verifying module imports...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0025349Z 
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0025593Z 📋 Installed Module Versions:
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0098908Z    ✅ EasyPIM: v2.0.16 (Loaded: v2.0.16)
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0099830Z    ✅ EasyPIM.Orchestrator: v1.2.9 (Loaded: v1.2.9)
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0100197Z 
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0100422Z 🔍 Verifying key functions...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0120987Z    ✅ Invoke-EasyPIMOrchestrator function available
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0192958Z 🔍 Verifying module imports...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0273956Z 📋 Installed Module Versions:
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0275852Z    ✅ EasyPIM: v2.0.16 (Loaded: v2.0.16)
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0276359Z    ✅ EasyPIM.Orchestrator: v1.2.9 (Loaded: v1.2.9)
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0277231Z 🔍 Verifying key functions...
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0282481Z    ✅ Invoke-EasyPIMOrchestrator function available
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0282896Z 
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0283432Z ✅ EasyPIM modules installed and imported successfully!
+EasyPIM Orchestrator Execution	Install and Validate EasyPIM Modules	2025-09-07T10:52:37.0284362Z ✅ EasyPIM modules installation and validation completed successfully
+EasyPIM Orchestrator Execution	Azure OIDC Login	﻿2025-09-07T10:52:37.1220030Z ##[group]Run azure/login@v2
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1220322Z with:
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1220670Z   client-id: ***
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1220909Z   tenant-id: ***
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1221184Z   subscription-id: ***
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1221426Z   enable-AzPSSession: true
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1221650Z   environment: azurecloud
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1221873Z   allow-no-subscriptions: false
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1222136Z   audience: api://AzureADTokenExchange
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1222408Z   auth-type: SERVICE_PRINCIPAL
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1222626Z env:
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1222809Z   KEYVAULT_NAME: kv-easypim-8368
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1223055Z   SECRET_NAME: easypim-config-json
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1223509Z   TENANT_ID: ***
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1223756Z   SUBSCRIPTION_ID: ***
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1224000Z   AZURE_CLIENT_ID: ***
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1224195Z ##[endgroup]
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:37.1592408Z Running Azure CLI Login.
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:47.1512054Z [command]/usr/bin/az cloud set -n azurecloud
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:47.3731868Z Done setting cloud: "azurecloud"
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:47.6371535Z Federated token details:
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:47.6381088Z  issuer - https://token.actions.githubusercontent.com
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:47.6382312Z  subject claim - repo:kayasax/EasyPIM-EventDriven-Governance:ref:refs/heads/main
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:47.6383035Z  audience - api://AzureADTokenExchange
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:47.6384208Z  job_workflow_ref - kayasax/EasyPIM-EventDriven-Governance/.github/workflows/02-orchestrator-test.yml@refs/heads/main
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:47.6385216Z Attempting Azure CLI login by using OIDC...
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:49.0147361Z Subscription is set successfully.
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:49.0147919Z Azure CLI login succeeds by using OIDC.
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:49.0151714Z Running Azure PowerShell Login.
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.6838446Z {
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.6838875Z   Success: true,
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.6839587Z   Result: '/home/runner/.local/share/powershell/Modules/Az.Accounts/5.3.0/Az.Accounts.psd1'
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.6840359Z }
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.9292943Z Federated token details:
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.9293773Z  issuer - https://token.actions.githubusercontent.com
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.9294582Z  subject claim - repo:kayasax/EasyPIM-EventDriven-Governance:ref:refs/heads/main
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.9295362Z  audience - api://AzureADTokenExchange
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.9296446Z  job_workflow_ref - kayasax/EasyPIM-EventDriven-Governance/.github/workflows/02-orchestrator-test.yml@refs/heads/main
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:52:57.9297563Z Attempting Azure PowerShell login by using OIDC...
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:53:03.1448168Z { Success: true, Result: '' }
+EasyPIM Orchestrator Execution	Azure OIDC Login	2025-09-07T10:53:03.1448730Z Running Azure PowerShell Login successfully.
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	﻿2025-09-07T10:53:03.1539831Z ##[group]Run # Execute EasyPIM Orchestrator with integrated authentication in single session
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1540534Z [36;1m# Execute EasyPIM Orchestrator with integrated authentication in single session[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1541034Z [36;1m$success = . "./scripts/workflows/Invoke-EasyPIMWithAuth.ps1" `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1541410Z [36;1m  -KeyVaultName 'kv-easypim-8368' `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1541706Z [36;1m  -SecretName 'easypim-config-json' `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1542147Z [36;1m  -TenantId '***' `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1542491Z [36;1m  -SubscriptionId '***' `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1542805Z [36;1m  -ClientId '***' `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1543033Z [36;1m  -Mode 'delta' `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1543547Z [36;1m  -WhatIf ('true' -eq 'true') `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1543840Z [36;1m  -SkipPolicies ('false' -eq 'true') `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1544146Z [36;1m  -SkipAssignments ('false' -eq 'true') `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1544465Z [36;1m  -AllowProtectedRoles ('false' -eq 'true') `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1544827Z [36;1m  -VerboseOutput ('false' -eq 'true') `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1545136Z [36;1m  -ExportWouldRemove ('false' -eq 'true') `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1545456Z [36;1m  -ConfigSecretName '' `[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1545714Z [36;1m  -RunDescription ''[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1545950Z [36;1m[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1546135Z [36;1mif (-not $success) {[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1546447Z [36;1m  Write-Error "❌ EasyPIM Orchestrator execution failed"[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1546776Z [36;1m  exit 1[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1546958Z [36;1m}[0m
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1604701Z shell: /usr/bin/pwsh -command ". '{0}'"
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1604980Z env:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1605190Z   KEYVAULT_NAME: kv-easypim-8368
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1605443Z   SECRET_NAME: easypim-config-json
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1605786Z   TENANT_ID: ***
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1606050Z   SUBSCRIPTION_ID: ***
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1606312Z   AZURE_CLIENT_ID: ***
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.1606514Z ##[endgroup]
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.4082465Z 🚀 Starting EasyPIM Orchestrator with integrated authentication...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:03.4084422Z 🔗 Setting up Microsoft Graph authentication...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:04.0038255Z ✅ Successfully obtained Graph token, connecting to Microsoft Graph...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:04.0463065Z 🔗 Connecting to Microsoft Graph with clean session...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:04.4093917Z ✅ Connected to Microsoft Graph successfully
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:04.4113876Z 🔍 Microsoft Graph Context:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:04.4126002Z    ClientId: ***
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:04.4135608Z    TenantId: ***
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:04.4150979Z    Scopes: RoleManagementPolicy.ReadWrite.Directory, PrivilegedEligibilitySchedule.ReadWrite.AzureADGroup, PrivilegedAssignmentSchedule.ReadWrite.AzureADGroup, RoleManagementPolicy.ReadWrite.AzureADGroup, Directory.Read.All, User.Read.All, PrivilegedAccess.ReadWrite.AzureResources, RoleManagement.ReadWrite.Directory, PrivilegedAccess.ReadWrite.AzureADGroup
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:04.4153421Z 🔗 Setting up Azure PowerShell authentication...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:05.4046232Z ✅ Azure PowerShell authentication verified
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:05.4063332Z    Account: ***
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:05.4077405Z    Tenant: ***
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:05.4091688Z    Subscription: ***
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:05.4093004Z 🔍 Verifying EasyPIM.Orchestrator module...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5340431Z ✅ EasyPIM.Orchestrator module verified (v1.2.9)
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5341080Z 🚀 Executing EasyPIM Orchestrator...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5342160Z    Mode: delta
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5347504Z    WhatIf: True
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5348633Z    Key Vault: kv-easypim-8368
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5349926Z    Secret: easypim-config-json
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5352208Z 🚀 Calling Invoke-EasyPIMOrchestrator with enhanced debugging...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5694994Z What if: Performing the operation "Execute" on target "EasyPIM Orchestration lifecycle".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5711381Z 
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5713054Z +----------------------------------------------------+
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5714905Z | Starting EasyPIM Orchestration (Mode: delta)
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5716321Z +----------------------------------------------------+
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5718149Z 
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5749251Z ✅ [AUTH] Microsoft Graph connection verified (Identity: ***)
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5787460Z ✅ [AUTH] Azure PowerShell connection verified (Account: ***, Subscription: ME-MngEnvMCAP131594-loicmichel-1)
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:07.5894512Z Reading configuration from Key Vault 'kv-easypim-8368', secret 'easypim-config-json'
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:08.9087110Z ✅ Using Key Vault secret version: 7ed1559b210c41dfa28edaa0a5d30162 (created: 09/06/2025 16:56)
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:08.9919099Z 🔍 Validating configuration...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0485651Z ⚠️ Configuration validation found issues:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0512103Z   ⚠️ Warnings: 1
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0534983Z   ⚠️ [FieldNameMismatch] PolicyTemplates.HighSecurity.Approvers[0]
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0541014Z     Field 'description' should be 'Name'
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0548201Z     💡 Change 'description' to 'Name' in Approvers configuration
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0549089Z 
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0549459Z ✅ Auto-corrections applied:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0551930Z   + Auto-corrected Approvers format in PolicyTemplates.HighSecurity
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0552908Z 📝 Using auto-corrected configuration
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0562412Z 🔍 [DEBUG] Attempting to send startup telemetry...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0564073Z 🔍 [DEBUG] Using KeyVault parameter set for telemetry
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0618210Z 🔍 [DEBUG] Send-TelemetryEventFromConfig called for event: orchestrator_startup
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0626045Z 🔍 [DEBUG] Config object received, checking TelemetrySettings...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0636381Z 🔍 [DEBUG] Config.TelemetrySettings exists: True
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0643015Z 🔍 [DEBUG] Config.TelemetrySettings.ALLOW_TELEMETRY value: True
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0645981Z ✅ [DEBUG] Telemetry enabled - proceeding with event: orchestrator_startup
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.0741425Z ✅ [DEBUG] Telemetry identifier created successfully
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.6522145Z ✅ [DEBUG] PostHog API call succeeded
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.6524539Z ✅ [DEBUG] Telemetry event sent successfully: orchestrator_startup
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.6540777Z What if: Performing the operation "Set variable" on target "Name: TenantId Value: ***".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.6549597Z What if: Performing the operation "Set variable" on target "Name: SubscriptionId Value: ***".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.6895895Z ⚙️ [PROC] Processing policy configurations...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.7821352Z 🔍 [TEST] Validating principal and group IDs...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:09.7857017Z [Debug] Using Test-PrincipalExists from: EasyPIM.Orchestrator ()
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.2852171Z ✅ [OK] Principal validation passed (9 principals checked, 0 missing)
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.2860569Z [Orchestrator Debug] Assignment counts -> Azure(E:2 A:4) Entra(E:2 A:1) Groups(E:1 A:0)
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.2869786Z What if: Performing the operation "Set variable" on target "Name: SubscriptionId Value: ***".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.2919445Z What if: Performing the operation "Apply policies" on target "Tenant ***".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3109122Z What if: Performing the operation "Azure Role Policies" on target "Apply Azure Role Policy configurations:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3111063Z     * Role: 'Reader' | Scope: '/subscriptions/***' | Activation Duration: PT12H | MFA Required: No | Justification Required: No | Approval Required: False | Max Eligibility:  | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3114333Z     * Role: 'Tag Contributor' | Scope: '/subscriptions/***' | Activation Duration: PT8H | MFA Required: No | Justification Required: Yes | Approval Required: False | Max Eligibility:  | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3117871Z     * Role: 'Storage Table Data Contributor' | Scope: '/subscriptions/***/resourceGroups/cloud-shell-storage-westeurope/providers/Microsoft.Storage/storageAccounts/devjnsppstorlb2a2z' | Activation Duration: PT8H | MFA Required: No | Justification Required: No | Approval Required:  | Max Eligibility:  | Permanent Eligibility: Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3122410Z     * Role: 'Contributor' | Scope: '/subscriptions/***' | Activation Duration: PT30M | MFA Required: No | Justification Required: Yes | Approval Required: True | Approvers: IAM_approvers (2ab3f204-9c6f-409d-a9bd-6e302a0132db) | Authentication Context: c1:HighRiskOperations | Max Eligibility: P90D | Permanent Eligibility: Not Allowed".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3125028Z [WARNING] Skipping Azure Role Policies processing due to WhatIf
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3125772Z    Would have applied the following policy configurations:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3127484Z        * Role: 'Reader' | Scope: '/subscriptions/***' | Activation Duration: PT12H | MFA Required: No | Justification Required: No | Approval Required: False | Max Eligibility:  | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3129998Z        * Role: 'Tag Contributor' | Scope: '/subscriptions/***' | Activation Duration: PT8H | MFA Required: No | Justification Required: Yes | Approval Required: False | Max Eligibility:  | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3133731Z        * Role: 'Storage Table Data Contributor' | Scope: '/subscriptions/***/resourceGroups/cloud-shell-storage-westeurope/providers/Microsoft.Storage/storageAccounts/devjnsppstorlb2a2z' | Activation Duration: PT8H | MFA Required: No | Justification Required: No | Approval Required:  | Max Eligibility:  | Permanent Eligibility: Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:13.3137953Z        * Role: 'Contributor' | Scope: '/subscriptions/***' | Activation Duration: PT30M | MFA Required: No | Justification Required: Yes | Approval Required: True | Approvers: IAM_approvers (2ab3f204-9c6f-409d-a9bd-6e302a0132db) | Authentication Context: c1:HighRiskOperations | Max Eligibility: P90D | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5333084Z What if: Performing the operation "Entra Role Policies" on target "Apply Entra Role Policy configurations:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5334628Z     * Role: 'Guest Inviter' | Activation Duration: PT8H | Requirements: MultiFactorAuthentication, Justification | Approval Required: False
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5335696Z     * Role: 'testrole' | Activation Duration: PT8H | Requirements: MultiFactorAuthentication, Justification | Approval Required: False
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5337621Z     * Role: 'User Administrator' | Activation Duration: PT2H | Requirements: MultiFactorAuthentication, Justification | Approval Required: True | Approvers: @{Name=IAM_approvers; id=2ab3f204-9c6f-409d-a9bd-6e302a0132db} | Authentication Context: c1:HighRiskOperations | Max Eligibility: P90D | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5339892Z     * Role: 'Security Administrator' [⚠️ PROTECTED - BLOCKED] | Activation Duration: PT8H | Requirements: MultiFactorAuthentication, Justification | Approval Required: False
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5342402Z     * Role: 'Global Administrator' [⚠️ PROTECTED - BLOCKED] | Activation Duration: PT1H | Requirements: MultiFactorAuthentication, Justification | Approval Required: True | Approvers: @{Name=IAM_approvers; id=2ab3f204-9c6f-409d-a9bd-6e302a0132db} | Authentication Context: c1:HighRiskOperations | Max Eligibility: P60D | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5344637Z     * Role: 'Exchange Administrator' | Activation Duration: PT8H | Requirements: MultiFactorAuthentication, Justification | Approval Required: True | [WARNING: ApprovalRequired is true but no Approvers specified!]".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5345600Z [WARNING] Skipping Entra Role Policies processing due to WhatIf
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5346000Z    Would have applied the following policy configurations:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5346658Z        * Role: 'Guest Inviter' | Activation Duration: PT8H | Requirements: MultiFactorAuthentication, Justification | Approval Required: False
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5347549Z        * Role: 'testrole' | Activation Duration: PT8H | Requirements: MultiFactorAuthentication, Justification | Approval Required: False
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5349081Z        * Role: 'User Administrator' | Activation Duration: PT2H | Requirements: MultiFactorAuthentication, Justification | Approval Required: True | Approvers: @{Name=IAM_approvers; id=2ab3f204-9c6f-409d-a9bd-6e302a0132db} | Authentication Context: c1:HighRiskOperations | Max Eligibility: P90D | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5350957Z        * Role: 'Security Administrator' [⚠️ PROTECTED - BLOCKED] | Activation Duration: PT8H | Requirements: MultiFactorAuthentication, Justification | Approval Required: False
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5352762Z        * Role: 'Global Administrator' [⚠️ PROTECTED - BLOCKED] | Activation Duration: PT1H | Requirements: MultiFactorAuthentication, Justification | Approval Required: True | Approvers: @{Name=IAM_approvers; id=2ab3f204-9c6f-409d-a9bd-6e302a0132db} | Authentication Context: c1:HighRiskOperations | Max Eligibility: P60D | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5354641Z        * Role: 'Exchange Administrator' | Activation Duration: PT8H | Requirements: MultiFactorAuthentication, Justification | Approval Required: True | [WARNING: ApprovalRequired is true but no Approvers specified!]
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5364427Z What if: Performing the operation "Group Policies" on target "Apply Group Policy configurations:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5366323Z     * Group ID: 'b08e4e66-2d4c-4804-be04-f37d2b038342' | Role: 'Member' | Activation Duration: PT2H | MFA Required: No | Justification Required: Yes | Approval Required: True | Approvers: IAM_approvers (2ab3f204-9c6f-409d-a9bd-6e302a0132db) | Authentication Context: c1:HighRiskOperations | Max Eligibility: P90D | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5368550Z     * Group ID: 'b08e4e66-2d4c-4804-be04-f37d2b038342' | Role: 'Owner' | Activation Duration: PT1H | MFA Required: No | Justification Required: Yes | Approval Required: True | Approvers: IAM_approvers (2ab3f204-9c6f-409d-a9bd-6e302a0132db) | Authentication Context: c1:HighRiskOperations | Max Eligibility: P30D | Permanent Eligibility: Not Allowed".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5369760Z [WARNING] Skipping Group Policies processing due to WhatIf
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5370137Z    Would have applied the following policy configurations:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5371319Z        * Group ID: 'b08e4e66-2d4c-4804-be04-f37d2b038342' | Role: 'Member' | Activation Duration: PT2H | MFA Required: No | Justification Required: Yes | Approval Required: True | Approvers: IAM_approvers (2ab3f204-9c6f-409d-a9bd-6e302a0132db) | Authentication Context: c1:HighRiskOperations | Max Eligibility: P90D | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5373435Z        * Group ID: 'b08e4e66-2d4c-4804-be04-f37d2b038342' | Role: 'Owner' | Activation Duration: PT1H | MFA Required: No | Justification Required: Yes | Approval Required: True | Approvers: IAM_approvers (2ab3f204-9c6f-409d-a9bd-6e302a0132db) | Authentication Context: c1:HighRiskOperations | Max Eligibility: P30D | Permanent Eligibility: Not Allowed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5386350Z ✅ [OK] Policy dry-run completed (-WhatIf) - role policies appear correctly configured for assignment compliance
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5387179Z 🧹 [CLEANUP] Analyzing existing assignments against configuration...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5425987Z What if: Performing the operation "Invoke EasyPIM cleanup" on target "Cleanup operations".
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5473025Z 📊 [CLEANUP] Analysis complete. Found 9 desired assignments.
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5473832Z 🔄 [CLEANUP] Delta mode: No assignments will be removed (add/update only).
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5474500Z [ASSIGN] Creating assignments with validated role policies...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5591372Z [ASSIGN] Assignment processing complete: 0 total, 0 created, 0 failed, 0 skipped
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5615404Z Deferred Group Policies Retry:
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5622741Z   Applied: 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5630085Z   Skipped: 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5637423Z   Failed : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5678446Z 
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5679100Z ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5679870Z ┃ OVERALL SUMMARY                                                                ┃
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5680920Z ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5681644Z ┌───────────────────────────────────────────────────────────────────────────────┐
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5682139Z | ASSIGNMENT CREATIONS
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5682744Z ├───────────────────────────────────────────────────────────────────────────────┤
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5696087Z | [OK] Created : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5699630Z | [PLAN] Planned : 9
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5705571Z | [SKIP] Skipped : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5710271Z | [FAIL] Failed  : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5710982Z └───────────────────────────────────────────────────────────────────────────────┘
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5711744Z ┌───────────────────────────────────────────────────────────────────────────────┐
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5712652Z | POLICY OPERATIONS
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5713384Z ├───────────────────────────────────────────────────────────────────────────────┤
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5727752Z | [OK] Applied : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5728193Z | [SKIP] Skipped : 12
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5728955Z | [FAIL] Failed  : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5729625Z | [INFO] Total   : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5730525Z └───────────────────────────────────────────────────────────────────────────────┘
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5731266Z ┌───────────────────────────────────────────────────────────────────────────────┐
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5731754Z | CLEANUP OPERATIONS
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5732411Z ├───────────────────────────────────────────────────────────────────────────────┤
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5772907Z | [INFO] Analysis: 9 desired assignments analyzed
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5778211Z | [INFO] Status  : Analyzed 9 desired assignments. Full cleanup requires core EasyPIM module.
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5779045Z | [OK] Kept    : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5779421Z | [DEL] Removed : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5783976Z | [INFO] WouldRemove: 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5785799Z | [SKIP] Skipped : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5786538Z └───────────────────────────────────────────────────────────────────────────────┘
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5787425Z ┌───────────────────────────────────────────────────────────────────────────────┐
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5787989Z | DEFERRED GROUP POLICIES
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5788679Z ├───────────────────────────────────────────────────────────────────────────────┤
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5789230Z | [OK] Applied           : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5796255Z | ⏳ Still Not Eligible: 
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5796698Z | [FAIL] Failed            : 0
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5797397Z └───────────────────────────────────────────────────────────────────────────────┘
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5798264Z Mode semantics: delta = add/update only (no removals), initial = full reconcile (destructive).
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5799076Z === EasyPIM orchestration completed successfully ===
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5858977Z 🔍 [DEBUG] Send-TelemetryEventFromConfig called for event: orchestrator_completion
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5860023Z 🔍 [DEBUG] Config object received, checking TelemetrySettings...
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5861012Z 🔍 [DEBUG] Config.TelemetrySettings exists: True
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5862098Z 🔍 [DEBUG] Config.TelemetrySettings.ALLOW_TELEMETRY value: True
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5863631Z ✅ [DEBUG] Telemetry enabled - proceeding with event: orchestrator_completion
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:14.5866951Z ✅ [DEBUG] Telemetry identifier created successfully
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:15.1371089Z ✅ [DEBUG] PostHog API call succeeded
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:15.1371874Z ✅ [DEBUG] Telemetry event sent successfully: orchestrator_completion
+EasyPIM Orchestrator Execution	EasyPIM Orchestrator with Integrated Authentication	2025-09-07T10:53:15.1374772Z ✅ EasyPIM Orchestrator completed successfully!
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	﻿2025-09-07T10:53:15.2146469Z ##[group]Run . ./scripts/workflows/Generate-OrchestratorDashboard.ps1 `
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2147037Z [36;1m. ./scripts/workflows/Generate-OrchestratorDashboard.ps1 `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2147414Z [36;1m  -JobStatus 'success' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2147673Z [36;1m  -WhatIfMode 'true' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2147914Z [36;1m  -ConfigSecretName '' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2148157Z [36;1m  -RunDescription '' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2148388Z [36;1m  -Mode 'delta' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2148635Z [36;1m  -KeyVaultName 'kv-easypim-8368' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2148932Z [36;1m  -SecretName 'easypim-config-json' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2149315Z [36;1m  -TenantId '***' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2149629Z [36;1m  -SubscriptionId '***' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2149876Z [36;1m  -SkipPolicies 'false' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2150126Z [36;1m  -SkipAssignments 'false' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2150394Z [36;1m  -AllowProtectedRoles 'false' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2150926Z [36;1m  -GitHubRepository 'kayasax/EasyPIM-EventDriven-Governance' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2151327Z [36;1m  -GitHubRunId '17527556609' `[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2151590Z [36;1m  -GitHubRunNumber '93'[0m
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2207784Z shell: /usr/bin/pwsh -command ". '{0}'"
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2208053Z env:
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2208240Z   KEYVAULT_NAME: kv-easypim-8368
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2208492Z   SECRET_NAME: easypim-config-json
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2208802Z   TENANT_ID: ***
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2209066Z   SUBSCRIPTION_ID: ***
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2209318Z   AZURE_CLIENT_ID: ***
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.2209517Z ##[endgroup]
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.4779490Z 📊 Generating modern dashboard summary...
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.5430357Z ✅ Modern dashboard summary generated
+EasyPIM Orchestrator Execution	Generate Modern Dashboard Summary	2025-09-07T10:53:15.5440175Z True
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	﻿2025-09-07T10:53:15.5909320Z ##[group]Run . ./scripts/workflows/Collect-OrchestratorArtifacts.ps1 `
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5909862Z [36;1m. ./scripts/workflows/Collect-OrchestratorArtifacts.ps1 `[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5910229Z [36;1m  -RunId '17527556609' `[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5910474Z [36;1m  -RunNumber '93' `[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5910707Z [36;1m  -JobStatus 'success' `[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5910956Z [36;1m  -WhatIf 'true' `[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5911182Z [36;1m  -Mode 'delta' `[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5911441Z [36;1m  -SecretName 'easypim-config-json' `[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5911796Z [36;1m  -KeyVaultName 'kv-easypim-8368' `[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5912062Z [36;1m  -ConfigSecretName ''[0m
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5967983Z shell: /usr/bin/pwsh -command ". '{0}'"
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5968251Z env:
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5968439Z   KEYVAULT_NAME: kv-easypim-8368
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5968694Z   SECRET_NAME: easypim-config-json
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5969009Z   TENANT_ID: ***
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5969266Z   SUBSCRIPTION_ID: ***
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5969557Z   AZURE_CLIENT_ID: ***
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.5969755Z ##[endgroup]
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.8408102Z 📦 Preparing execution artifacts...
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.9335240Z ✅ Collected 2 artifact files
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.9366195Z    📄 easypim-module-versions.json
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.9368546Z    📄 easypim-module-versions.json
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.9406471Z 📋 Execution report and manifest created
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.9407876Z ✅ Artifacts prepared for upload
+EasyPIM Orchestrator Execution	Prepare Execution Artifacts	2025-09-07T10:53:15.9411712Z True
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	﻿2025-09-07T10:53:15.9891915Z ##[group]Run actions/upload-artifact@v4
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9892213Z with:
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9892415Z   name: easypim-execution-93-default
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9892682Z   path: ./workflow-artifacts/
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9892929Z   retention-days: 30
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9893304Z   if-no-files-found: warn
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9893543Z   compression-level: 6
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9893750Z   overwrite: false
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9893952Z   include-hidden-files: false
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9894166Z env:
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9894350Z   KEYVAULT_NAME: kv-easypim-8368
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9894603Z   SECRET_NAME: easypim-config-json
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9894927Z   TENANT_ID: ***
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9895207Z   SUBSCRIPTION_ID: ***
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9895458Z   AZURE_CLIENT_ID: ***
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:15.9895652Z ##[endgroup]
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:16.2019660Z With the provided path, there will be 3 files uploaded
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:16.2025139Z Artifact name is valid!
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:16.2027332Z Root directory input is valid!
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:16.5182005Z Beginning upload of artifact content to blob storage
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:16.8569230Z Uploaded bytes 1333
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:16.9433926Z Finished uploading artifact content to blob storage!
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:16.9437144Z SHA256 digest of uploaded artifact zip is 944e7a89f6a19babeb743d65acf9f8eba28c8790621b219b6f6f17e430de7ec7
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:16.9438523Z Finalizing artifact upload
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:17.0841488Z Artifact easypim-execution-93-default.zip successfully finalized. Artifact ID 3946985910
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:17.0843060Z Artifact easypim-execution-93-default has been successfully uploaded! Final size is 1333 bytes. Artifact ID is 3946985910
+EasyPIM Orchestrator Execution	Upload Execution Artifacts	2025-09-07T10:53:17.0849371Z Artifact download URL: https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/runs/17527556609/artifacts/3946985910
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	﻿2025-09-07T10:53:17.0987420Z Post job cleanup.
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:17.1365370Z Clearing azure cli accounts from the local cache.
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:17.1374152Z [command]/usr/bin/az account clear
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:18.8558645Z {
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:18.8559085Z   Success: true,
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:18.8559816Z   Result: '/home/runner/.local/share/powershell/Modules/Az.Accounts/5.3.0/Az.Accounts.psd1'
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:18.8560558Z }
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:18.8561415Z Clearing azure powershell accounts from the local cache.
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:18.8564943Z [command]/usr/bin/pwsh -Command Clear-AzContext -Scope Process
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:20.4404054Z [33;1mWARNING: You're using Az version 12.5.0. The latest version of Az is 14.4.0. Upgrade your Az modules using the following commands:
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:20.4405213Z   Update-PSResource Az -WhatIf    -- Simulate updating your Az modules.
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:20.4406062Z   Update-PSResource Az            -- Update your Az modules.
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:20.4407350Z There will be breaking changes from 12.5.0 to 14.4.0. Open https://go.microsoft.com/fwlink/?linkid=2241373 and check the details.[0m
+EasyPIM Orchestrator Execution	Post Azure OIDC Login	2025-09-07T10:53:20.5080908Z [command]/usr/bin/pwsh -Command Clear-AzContext -Scope CurrentUser -Force -ErrorAction SilentlyContinue
+EasyPIM Orchestrator Execution	Post Checkout Repository	﻿2025-09-07T10:53:21.8680384Z Post job cleanup.
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:21.9604411Z [command]/usr/bin/git version
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:21.9639586Z git version 2.51.0
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:21.9685263Z Temporarily overriding HOME='/home/runner/work/_temp/e143be1f-7a68-4430-9405-70762bb83d32' before making global git config changes
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:21.9686593Z Adding repository directory to the temporary git global config as a safe directory
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:21.9692105Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/EasyPIM-EventDriven-Governance/EasyPIM-EventDriven-Governance
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:21.9735099Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:21.9769486Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:22.0013634Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:22.0036756Z http.https://github.com/.extraheader
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:22.0050409Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+EasyPIM Orchestrator Execution	Post Checkout Repository	2025-09-07T10:53:22.0084540Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+EasyPIM Orchestrator Execution	Complete job	﻿2025-09-07T10:53:22.0405704Z Cleaning up orphan processes

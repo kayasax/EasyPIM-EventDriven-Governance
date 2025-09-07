@@ -65,34 +65,76 @@ $configSource = if ($ConfigSecretName) {
     '👤 **Manual Trigger**'
 }
 
-# Try to capture EasyPIM results if available
+# Try to capture EasyPIM results from the orchestrator summary
 $easypimResults = ""
-if (Test-Path "./easypim-summary.json") {
+$orchestratorSummary = ""
+
+if (Test-Path "./workflow-artifacts/orchestrator-summary.json") {
     try {
-        $results = Get-Content "./easypim-summary.json" | ConvertFrom-Json
+        $results = Get-Content "./workflow-artifacts/orchestrator-summary.json" | ConvertFrom-Json
+        
+        # Extract metrics with defaults
+        $assignmentsCreated = $results.AssignmentsCreated ?? 0
+        $assignmentsPlanned = $results.AssignmentsPlanned ?? 0
+        $policiesApplied = $results.PoliciesApplied ?? 0
+        $policiesSkipped = $results.PoliciesSkipped ?? 0
+        $assignmentsAnalyzed = $results.AssignmentsAnalyzed ?? 0
+        $assignmentsRemoved = $results.AssignmentsRemoved ?? 0
+        
+        # Check if we have the formatted summary
+        if ($results.FormattedSummary) {
+            $orchestratorSummary = @"
+
+### 📊 **EasyPIM Orchestrator Results**
+
+``````
+$($results.FormattedSummary)
+``````
+"@
+        } else {
+            # Create a summary table from extracted metrics
+            $orchestratorSummary = @"
+
+### 📊 **EasyPIM Orchestrator Results**
+
+#### 📋 **Assignment Operations**
+- ✅ **Created:** $assignmentsCreated
+- 📝 **Planned:** $assignmentsPlanned  
+- 🔍 **Analyzed:** $assignmentsAnalyzed
+- 🗑️ **Removed:** $assignmentsRemoved
+
+#### 🔐 **Policy Operations**  
+- ✅ **Applied:** $policiesApplied
+- ⏭️ **Skipped:** $policiesSkipped
+
+#### ⏱️ **Execution Details**
+- **Mode:** $($results.ExecutionMode)
+- **WhatIf:** $($results.WhatIfMode)
+- **Status:** $($results.Status)
+- **Timestamp:** $($results.Timestamp)
+"@
+        }
+        
+        $easypimResults = $orchestratorSummary
+        
+    } catch {
         $easypimResults = @"
 
-### 📈 **EasyPIM Execution Results**
-
-| Component | Processed | Created | Updated | Removed | Errors |
-|-----------|-----------|---------|---------|---------|---------|
-| 🔐 **Policies** | $($results.Policies.Processed ?? 'N/A') | $($results.Policies.Created ?? 'N/A') | $($results.Policies.Updated ?? 'N/A') | $($results.Policies.Removed ?? 'N/A') | $($results.Policies.Errors ?? 'N/A') |
-| 👥 **Assignments** | $($results.Assignments.Processed ?? 'N/A') | $($results.Assignments.Created ?? 'N/A') | $($results.Assignments.Updated ?? 'N/A') | $($results.Assignments.Removed ?? 'N/A') | $($results.Assignments.Errors ?? 'N/A') |
-| 🏷️ **Groups** | $($results.Groups.Processed ?? 'N/A') | $($results.Groups.Created ?? 'N/A') | $($results.Groups.Updated ?? 'N/A') | $($results.Groups.Removed ?? 'N/A') | $($results.Groups.Errors ?? 'N/A') |
-
-**⏱️ Total Execution Time:** $($results.ExecutionTime) | **🔄 Objects Processed:** $($results.TotalProcessed ?? 'N/A')
+### 📊 **EasyPIM Results**
+*Error parsing orchestrator summary: $($_.Exception.Message)*
+*Check execution logs above for detailed operation results*
 "@
-    } catch {
-        $easypimResults = "`n### 📊 **EasyPIM Results**`n*Detailed results will be available when EasyPIM generates summary output*"
     }
-} elseif (Test-Path "./easypim-error.json") {
+} elseif (Test-Path "./workflow-artifacts/orchestrator-error.json") {
     try {
-        $errorInfo = Get-Content "./easypim-error.json" | ConvertFrom-Json
+        $errorInfo = Get-Content "./workflow-artifacts/orchestrator-error.json" | ConvertFrom-Json
         $easypimResults = @"
 
 ### ❌ **EasyPIM Execution Error**
 
 **Error:** $($errorInfo.Error)
+
+**Mode:** $($errorInfo.ExecutionMode)
 
 **Timestamp:** $($errorInfo.Timestamp)
 
