@@ -119,15 +119,15 @@ jobs:
           if (-not $azToken) {
             throw "Failed to get Azure CLI access token"
           }
-          
+
           Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..." -ForegroundColor Green
-          
+
           # Connect to Microsoft Graph using the token
           $secureToken = ConvertTo-SecureString $azToken -AsPlainText -Force
           Connect-MgGraph -AccessToken $secureToken -NoWelcome
-          
+
           Write-Host "✅ Connected to Microsoft Graph successfully" -ForegroundColor Green
-          
+
           # Verify the connection
           $mgContext = Get-MgContext
           Write-Host "🔍 Microsoft Graph Context:" -ForegroundColor Cyan
