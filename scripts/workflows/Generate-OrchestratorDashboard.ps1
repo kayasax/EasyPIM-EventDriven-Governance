@@ -97,30 +97,9 @@ if ($summaryFile) {
         $assignmentsAnalyzed = $results.AssignmentsAnalyzed ?? 0
         $assignmentsRemoved = $results.AssignmentsRemoved ?? 0
 
-        # Build comprehensive results including both execution logs and summary
-        $executionLogs = ""
-        $summarySection = ""
-        
-        # Add execution logs if available
-        if ($results.OrchestoratorOutput) {
-            $executionLogs = @"
-
-### 📝 **EasyPIM Execution Logs**
-
-<details>
-<summary><strong>Click to view detailed execution logs</strong></summary>
-
-``````
-$($results.OrchestoratorOutput)
-``````
-
-</details>
-"@
-        }
-
-        # Add formatted summary if available
+        # Build results with formatted summary only (execution logs remain in step output)
         if ($results.FormattedSummary) {
-            $summarySection = @"
+            $easypimResults = @"
 
 ### 📊 **EasyPIM Orchestrator Results**
 
@@ -130,7 +109,7 @@ $($results.FormattedSummary)
 "@
         } else {
             # Create a summary table from extracted metrics
-            $summarySection = @"
+            $easypimResults = @"
 
 ### 📊 **EasyPIM Orchestrator Results**
 
@@ -151,9 +130,6 @@ $($results.FormattedSummary)
 - **Timestamp:** $($results.Timestamp)
 "@
         }
-
-        # Combine both sections
-        $easypimResults = $summarySection + $executionLogs
 
     } catch {
         $easypimResults = @"

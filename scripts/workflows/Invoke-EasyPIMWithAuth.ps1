@@ -162,11 +162,16 @@ try {
     Write-Host "🚀 Calling Invoke-EasyPIMOrchestrator with enhanced debugging..." -ForegroundColor Cyan
 
     try {
-        # Execute the orchestrator and capture output
+        # Execute the orchestrator and capture output while displaying it
         Write-Host "📊 Capturing orchestrator output for dashboard..." -ForegroundColor Gray
 
-        # Capture all output streams
-        $orchestratorOutput = Invoke-EasyPIMOrchestrator @orchestratorParams -Verbose 4>&1 5>&1 6>&1
+        # Capture all output streams while also displaying them
+        $orchestratorOutput = Invoke-EasyPIMOrchestrator @orchestratorParams -Verbose 4>&1 5>&1 6>&1 | Tee-Object -Variable capturedOutput
+
+        # Display the output in real-time for GitHub Actions step visibility
+        Write-Host "`n🔍 === EasyPIM Orchestrator Execution Output ===" -ForegroundColor Cyan
+        $orchestratorOutput | ForEach-Object { Write-Host $_ }
+        Write-Host "🔍 === End of EasyPIM Orchestrator Output ===`n" -ForegroundColor Cyan
 
         # Parse the output to extract summary information
         $outputText = $orchestratorOutput | Out-String
