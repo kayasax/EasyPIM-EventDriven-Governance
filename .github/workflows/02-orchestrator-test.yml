@@ -79,38 +79,10 @@ jobs:
     - name: 'Checkout Repository'
       uses: actions/checkout@v4
 
-    - name: 'Install and Validate EasyPIM Modules (Critical Path)'
+    - name: 'Install EasyPIM Modules'
       shell: pwsh
       run: |
-        Write-Host "🔥 CRITICAL: Installing and validating EasyPIM modules..." -ForegroundColor Red
-        $success = . ./scripts/workflows/Install-EasyPIMModules.ps1
-        if (-not $success) {
-          Write-Error "❌ CRITICAL FAILURE: EasyPIM modules installation failed"
-          exit 1
-        }
-
-        # Additional strict validation after installation
-        Write-Host "🔍 CRITICAL: Performing strict module validation..." -ForegroundColor Yellow
-
-        # Test that we can actually invoke the orchestrator function
-        try {
-          $testParams = @{
-            KeyVaultName = "test"
-            SecretName = "test"
-            WhatIf = $true
-            TestMode = $true
-          }
-
-          # This should fail gracefully but prove the function is accessible
-          $null = Get-Command "Invoke-EasyPIMOrchestrator" -ErrorAction Stop
-          Write-Host "✅ CRITICAL: Invoke-EasyPIMOrchestrator function is accessible" -ForegroundColor Green
-        }
-        catch {
-          Write-Error "❌ CRITICAL FAILURE: Invoke-EasyPIMOrchestrator function not accessible: $($_.Exception.Message)"
-          Write-Host "🔍 Available EasyPIM commands:" -ForegroundColor Yellow
-          Get-Command -Module EasyPIM* | Select-Object Name, ModuleName | Format-Table -AutoSize
-          exit 1
-        }
+        & ./scripts/workflows/Install-EasyPIMModules.ps1
 
     - name: 'Azure OIDC Login'
       uses: azure/login@v2
@@ -138,6 +110,35 @@ jobs:
         }
 
         Write-Host "✅ Module verification passed, proceeding with orchestrator..." -ForegroundColor Green
+
+        # Setup Microsoft Graph authentication before orchestrator execution
+        Write-Host "🔗 Setting up Microsoft Graph authentication..." -ForegroundColor Cyan
+        try {
+          # Get Azure CLI access token and use it for Microsoft Graph
+          $azToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
+          if (-not $azToken) {
+            throw "Failed to get Azure CLI access token"
+          }
+          
+          Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..." -ForegroundColor Green
+          
+          # Connect to Microsoft Graph using the token
+          $secureToken = ConvertTo-SecureString $azToken -AsPlainText -Force
+          Connect-MgGraph -AccessToken $secureToken -NoWelcome
+          
+          Write-Host "✅ Connected to Microsoft Graph successfully" -ForegroundColor Green
+          
+          # Verify the connection
+          $mgContext = Get-MgContext
+          Write-Host "🔍 Microsoft Graph Context:" -ForegroundColor Cyan
+          Write-Host "   ClientId: $($mgContext.ClientId)" -ForegroundColor White
+          Write-Host "   TenantId: $($mgContext.TenantId)" -ForegroundColor White
+          Write-Host "   Scopes: $($mgContext.Scopes -join ', ')" -ForegroundColor White
+        }
+        catch {
+          Write-Error "❌ Failed to setup Microsoft Graph authentication: $($_.Exception.Message)"
+          exit 1
+        }
 
         # Build parameters for Invoke-EasyPIMOrchestrator
         $params = @{
