@@ -117,7 +117,31 @@ jobs:
           exit 1
         }
 
-        Write-Host "✅ Module verification passed, proceeding with orchestrator..." -ForegroundColor Green        # Build parameters for Invoke-EasyPIMOrchestrator
+        Write-Host "✅ Module verification passed, proceeding with orchestrator..." -ForegroundColor Green
+
+        # Re-establish Graph authentication in this step (doesn't persist between steps)
+        Write-Host "🔗 Re-establishing Microsoft Graph authentication..." -ForegroundColor Cyan
+        $graphContext = Get-MgContext
+        if (-not $graphContext) {
+          Write-Host "❌ No existing Graph context, establishing new connection..." -ForegroundColor Yellow
+          # Re-run authentication setup in this step
+          $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
+          if (-not $authResult) {
+            Write-Error "❌ Authentication setup failed"
+            exit 1
+          }
+          $graphContext = Get-MgContext
+        }
+
+        if (-not $graphContext) {
+          Write-Error "❌ Failed to establish Graph context"
+          exit 1
+        }
+
+        Write-Host "✅ Graph context verified:" -ForegroundColor Green
+        Write-Host "   Client ID: $($graphContext.ClientId)" -ForegroundColor White
+        Write-Host "   Tenant ID: $($graphContext.TenantId)" -ForegroundColor White
+        Write-Host "   Scopes: $($graphContext.Scopes -join ', ')" -ForegroundColor White        # Build parameters for Invoke-EasyPIMOrchestrator
         $params = @{
           KeyVaultName = '${{ env.KEYVAULT_NAME }}'
           SecretName = '${{ env.SECRET_NAME }}'
