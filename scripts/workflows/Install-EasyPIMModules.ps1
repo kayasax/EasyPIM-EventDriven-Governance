@@ -117,6 +117,28 @@ try {
     # Export version info as JSON for artifact collection
     $versionInfo | ConvertTo-Json -Depth 3 | Out-File -FilePath "./easypim-module-versions.json" -Encoding utf8
 
+    # Comprehensive validation of installed modules
+    Write-Host "🔍 Verifying module imports..." -ForegroundColor Gray
+
+    # Get installed versions
+    $easypimModule = Get-Module -Name EasyPIM
+    $orchestratorModule = Get-Module -Name EasyPIM.Orchestrator
+    $easypimInstalled = Get-Module -Name EasyPIM -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+    $orchestratorInstalled = Get-Module -Name EasyPIM.Orchestrator -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+
+    Write-Host "📋 Installed Module Versions:" -ForegroundColor Cyan
+    Write-Host "   ✅ EasyPIM: v$($easypimInstalled.Version) (Loaded: v$($easypimModule.Version))" -ForegroundColor Green
+    Write-Host "   ✅ EasyPIM.Orchestrator: v$($orchestratorInstalled.Version) (Loaded: v$($orchestratorModule.Version))" -ForegroundColor Green
+
+    # Critical function validation
+    Write-Host "🔍 Verifying key functions..." -ForegroundColor Gray
+
+    $orchestratorFunction = Get-Command "Invoke-EasyPIMOrchestrator" -ErrorAction SilentlyContinue
+    if (-not $orchestratorFunction) {
+        throw "❌ CRITICAL: Invoke-EasyPIMOrchestrator function not found after module import"
+    }
+    Write-Host "   ✅ Invoke-EasyPIMOrchestrator function available" -ForegroundColor Green
+
     Write-Host "`n✅ EasyPIM modules installed and imported successfully!" -ForegroundColor Green
     return $true
 }

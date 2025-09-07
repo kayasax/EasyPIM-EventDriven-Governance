@@ -47,40 +47,14 @@ param(
 
 Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
 
-# Verify modules are available (they should be loaded by the workflow step)
-$easypimModule = Get-Module -Name EasyPIM
-$orchestratorModule = Get-Module -Name EasyPIM.Orchestrator
-
-if (-not $easypimModule -or -not $orchestratorModule) {
-    Write-Error "❌ CRITICAL: Required EasyPIM modules not loaded in current session"
-    Write-Host "Available modules:" -ForegroundColor Yellow
-    Get-Module | Select-Object Name, Version | Format-Table -AutoSize
-    return $false
-}
-Write-Host "🔍 Verifying authentication context..." -ForegroundColor Cyan
-$graphContext = Get-MgContext
-if (-not $graphContext) {
-    Write-Host "❌ Microsoft Graph context not found. Establishing authentication..." -ForegroundColor Yellow
-    # Re-run authentication in this step
-    $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId $TenantId -SubscriptionId $SubscriptionId -ClientId $ClientId
-    if (-not $authResult) {
-        Write-Error "❌ Authentication setup failed"
-        return $false
-    }
-    $graphContext = Get-MgContext
+# Simple verification that modules are loaded (they should be from previous workflow step)
+if (-not (Get-Module -Name EasyPIM) -or -not (Get-Module -Name EasyPIM.Orchestrator)) {
+    Write-Host "📦 Re-importing EasyPIM modules..." -ForegroundColor Yellow
+    Import-Module EasyPIM -Force
+    Import-Module EasyPIM.Orchestrator -Force
 }
 
-if (-not $graphContext) {
-    Write-Error "❌ Failed to establish Graph context"
-    return $false
-}
-
-Write-Host "✅ Graph context verified:" -ForegroundColor Green
-Write-Host "   Client ID: $($graphContext.ClientId)" -ForegroundColor White
-Write-Host "   Tenant ID: $($graphContext.TenantId)" -ForegroundColor White
-Write-Host "   Scopes: $($graphContext.Scopes -join ', ')" -ForegroundColor White
-
-Write-Host "`nConfiguration:" -ForegroundColor Cyan
+Write-Host "Configuration:" -ForegroundColor Cyan
 Write-Host "  Key Vault: $KeyVaultName" -ForegroundColor White
 Write-Host "  Secret Name: $SecretName" -ForegroundColor White
 if ($ConfigSecretName) {
@@ -89,7 +63,7 @@ if ($ConfigSecretName) {
     Write-Host "  📋 Default config from manual trigger" -ForegroundColor Yellow
 }
 
-Write-Host "`nParameters:" -ForegroundColor Yellow
+Write-Host "Parameters:" -ForegroundColor Yellow
 Write-Host "  WhatIf: $WhatIf" -ForegroundColor White
 Write-Host "  Mode: $Mode" -ForegroundColor White
 Write-Host "  SkipPolicies: $SkipPolicies" -ForegroundColor White
