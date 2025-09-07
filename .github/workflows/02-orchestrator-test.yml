@@ -98,20 +98,11 @@ jobs:
         subscription-id: ${{ env.SUBSCRIPTION_ID }}
         enable-AzPSSession: true
 
-    - name: 'Setup Authentication'
+    - name: 'EasyPIM Orchestrator with Integrated Authentication'
       shell: pwsh
       run: |
-        $authResult = . "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
-        if (-not $authResult) {
-          Write-Error "❌ Authentication setup failed"
-          exit 1
-        }
-
-    - name: 'EasyPIM Orchestrator Execution'
-      shell: pwsh
-      run: |
-        # Execute EasyPIM Orchestrator using dedicated script
-        $success = . "./scripts/workflows/Invoke-EasyPIMOrchestratorExecution.ps1" `
+        # Execute EasyPIM Orchestrator with integrated authentication in single session
+        $success = . "./scripts/workflows/Invoke-EasyPIMWithAuth.ps1" `
           -KeyVaultName '${{ env.KEYVAULT_NAME }}' `
           -SecretName '${{ env.SECRET_NAME }}' `
           -TenantId '${{ env.TENANT_ID }}' `
