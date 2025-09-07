@@ -79,11 +79,6 @@ jobs:
     - name: 'Checkout Repository'
       uses: actions/checkout@v4
 
-    - name: 'Install EasyPIM Modules'
-      shell: pwsh
-      run: |
-        & ./scripts/workflows/Install-EasyPIMModules.ps1
-
     - name: 'Azure OIDC Login'
       uses: azure/login@v2
       with:
@@ -92,13 +87,26 @@ jobs:
         subscription-id: ${{ env.SUBSCRIPTION_ID }}
         enable-AzPSSession: true
 
+    - name: 'Setup Authentication'
+      shell: pwsh
+      run: |
+        $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
+        if (-not $authResult) {
+          Write-Error "❌ Authentication setup failed"
+          exit 1
+        }
+
+    - name: 'Install EasyPIM Modules'
+      shell: pwsh
+      run: |
+        & ./scripts/workflows/Install-EasyPIMModules.ps1
+
     - name: 'EasyPIM Orchestrator Execution'
       shell: pwsh
       run: |
-        # Restore inline execution - external script has issues with module scope in GitHub Actions Linux
         Write-Host "⚙️ Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
 
-        # Import modules in this execution context
+        # Import modules in this execution context (modules should already be installed)
         Import-Module EasyPIM -Force
         Import-Module EasyPIM.Orchestrator -Force
 
@@ -109,38 +117,7 @@ jobs:
           exit 1
         }
 
-        Write-Host "✅ Module verification passed, proceeding with orchestrator..." -ForegroundColor Green
-
-        # Setup Microsoft Graph authentication before orchestrator execution
-        Write-Host "🔗 Setting up Microsoft Graph authentication..." -ForegroundColor Cyan
-        try {
-          # Get Azure CLI access token and use it for Microsoft Graph
-          $azToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken --output tsv
-          if (-not $azToken) {
-            throw "Failed to get Azure CLI access token"
-          }
-
-          Write-Host "✅ Successfully obtained Graph token, connecting to Microsoft Graph..." -ForegroundColor Green
-
-          # Connect to Microsoft Graph using the token
-          $secureToken = ConvertTo-SecureString $azToken -AsPlainText -Force
-          Connect-MgGraph -AccessToken $secureToken -NoWelcome
-
-          Write-Host "✅ Connected to Microsoft Graph successfully" -ForegroundColor Green
-
-          # Verify the connection
-          $mgContext = Get-MgContext
-          Write-Host "🔍 Microsoft Graph Context:" -ForegroundColor Cyan
-          Write-Host "   ClientId: $($mgContext.ClientId)" -ForegroundColor White
-          Write-Host "   TenantId: $($mgContext.TenantId)" -ForegroundColor White
-          Write-Host "   Scopes: $($mgContext.Scopes -join ', ')" -ForegroundColor White
-        }
-        catch {
-          Write-Error "❌ Failed to setup Microsoft Graph authentication: $($_.Exception.Message)"
-          exit 1
-        }
-
-        # Build parameters for Invoke-EasyPIMOrchestrator
+        Write-Host "✅ Module verification passed, proceeding with orchestrator..." -ForegroundColor Green        # Build parameters for Invoke-EasyPIMOrchestrator
         $params = @{
           KeyVaultName = '${{ env.KEYVAULT_NAME }}'
           SecretName = '${{ env.SECRET_NAME }}'
