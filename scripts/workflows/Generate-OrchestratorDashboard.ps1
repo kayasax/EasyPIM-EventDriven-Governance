@@ -159,9 +159,9 @@ $($results.FormattedSummary)
     }
     
     if ($errorFile) {
-    try {
-        $errorInfo = Get-Content $errorFile | ConvertFrom-Json
-        $easypimResults = @"
+        try {
+            $errorInfo = Get-Content $errorFile | ConvertFrom-Json
+            $easypimResults = @"
 
 ### ❌ **EasyPIM Execution Error**
 
@@ -173,11 +173,12 @@ $($results.FormattedSummary)
 
 *Check execution logs above for detailed error information*
 "@
-    } catch {
-        $easypimResults = "`n### ❌ **EasyPIM Execution Error**`n*Check execution logs above for detailed error information*"
+        } catch {
+            $easypimResults = "`n### ❌ **EasyPIM Execution Error**`n*Check execution logs above for detailed error information*"
+        }
+    } else {
+        $easypimResults = "`n### 📊 **EasyPIM Results**`n*Check execution logs above for detailed operation results*"
     }
-} else {
-    $easypimResults = "`n### 📊 **EasyPIM Results**`n*Check execution logs above for detailed operation results*"
 }
 
 # Check for module versions
