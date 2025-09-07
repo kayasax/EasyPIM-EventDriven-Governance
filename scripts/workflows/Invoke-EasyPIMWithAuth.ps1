@@ -99,35 +99,7 @@ try {
     Write-Host "   Tenant: $($azContext.Tenant)"
     Write-Host "   Subscription: $($azContext.Subscription)"
 
-    # Step 3: Retrieve Configuration from Key Vault
-    Write-Host "🔑 Retrieving configuration from Key Vault '$KeyVaultName'..." -ForegroundColor Yellow
-    
-    try {
-        $configJson = Get-AzKeyVaultSecret -VaultName $KeyVaultName -Name $SecretName -AsPlainText -ErrorAction Stop
-        
-        if ([string]::IsNullOrWhiteSpace($configJson)) {
-            throw "Configuration secret '$SecretName' is empty or null"
-        }
-        
-        Write-Host "✅ Successfully retrieved configuration from Key Vault" -ForegroundColor Green
-        Write-Host "   Secret Name: $SecretName"
-        Write-Host "   Config Size: $($configJson.Length) characters"
-        
-        # Validate JSON structure
-        try {
-            $configObject = $configJson | ConvertFrom-Json
-            Write-Host "✅ Configuration JSON is valid" -ForegroundColor Green
-        }
-        catch {
-            throw "Configuration JSON is invalid: $($_.Exception.Message)"
-        }
-        
-    } catch {
-        Write-Host "❌ Failed to retrieve configuration from Key Vault: $($_.Exception.Message)" -ForegroundColor Red
-        throw "Key Vault access failed: $($_.Exception.Message)"
-    }
-
-    # Step 4: Verify Module Availability
+    # Step 3: Verify Module Availability
     Write-Host "🔍 Verifying EasyPIM.Orchestrator module..." -ForegroundColor Yellow
     
     $orchestratorModule = Get-Module -Name EasyPIM.Orchestrator -ErrorAction SilentlyContinue
@@ -148,7 +120,7 @@ try {
     
     Write-Host "✅ EasyPIM.Orchestrator module verified (v$($orchestratorModule.Version))" -ForegroundColor Green
 
-    # Step 5: Execute EasyPIM Orchestrator
+    # Step 4: Execute EasyPIM Orchestrator
     Write-Host "🚀 Executing EasyPIM Orchestrator..." -ForegroundColor Cyan
     Write-Host "   Mode: $Mode"
     Write-Host "   WhatIf: $WhatIf"
@@ -157,14 +129,29 @@ try {
     
     # Build orchestrator parameters
     $orchestratorParams = @{
-        'Config' = $configJson
+        'KeyVaultName' = $KeyVaultName
+        'SecretName' = $SecretName
         'Mode' = $Mode
         'WhatIf' = $WhatIf
         'SkipPolicies' = $SkipPolicies
         'SkipAssignments' = $SkipAssignments
         'AllowProtectedRoles' = $AllowProtectedRoles
-        'Verbose' = $VerboseOutput
-        'ExportWouldRemove' = $ExportWouldRemove
+    }
+    
+    # Add optional parameters
+    if ($TenantId) {
+        $orchestratorParams['TenantId'] = $TenantId
+    }
+    
+    if ($SubscriptionId) {
+        $orchestratorParams['SubscriptionId'] = $SubscriptionId
+    }
+    
+    # Add export path for would-remove items if requested
+    if ($ExportWouldRemove) {
+        $exportPath = "./workflow-artifacts/would-remove-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
+        $orchestratorParams['WouldRemoveExportPath'] = $exportPath
+        Write-Host "   Export Would Remove: $exportPath"
     }
     
     Write-Host "🚀 Calling Invoke-EasyPIMOrchestrator with enhanced debugging..." -ForegroundColor Cyan
