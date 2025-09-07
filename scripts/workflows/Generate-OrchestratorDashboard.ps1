@@ -50,9 +50,11 @@ param(
 
 Write-Host "📊 Generating modern dashboard summary..." -ForegroundColor Cyan
 
-# Determine execution status
+# Determine execution status - check for failures in orchestrator results first
+$actualStatus = $JobStatus
 $statusIcon = if ($JobStatus -eq 'success') { '✅' } else { '❌' }
 $statusColor = if ($JobStatus -eq 'success') { '🟢' } else { '🔴' }
+$statusText = if ($JobStatus -eq 'success') { 'SUCCESS' } else { 'FAILED' }
 
 # Determine execution mode badge
 $whatIfBool = $WhatIfMode -eq 'true'
@@ -96,6 +98,28 @@ if ($summaryFile) {
         $policiesSkipped = $results.PoliciesSkipped ?? 0
         $assignmentsAnalyzed = $results.AssignmentsAnalyzed ?? 0
         $assignmentsRemoved = $results.AssignmentsRemoved ?? 0
+        $assignmentsFailed = $results.AssignmentsFailed ?? 0
+        $policiesFailed = $results.PoliciesFailed ?? 0
+
+        # Check for failures and update status if needed
+        $hasFailures = ($assignmentsFailed -gt 0) -or ($policiesFailed -gt 0)
+        
+        # If we don't have failure counts from the summary object, try to extract from formatted summary
+        if (-not $hasFailures -and $results.FormattedSummary) {
+            if ($results.FormattedSummary -match '\[FAIL\] Failed\s*:\s*(\d+)') {
+                $totalFailures = [int]$Matches[1]
+                if ($totalFailures -gt 0) {
+                    $hasFailures = $true
+                }
+            }
+        }
+        
+        if ($hasFailures -and $JobStatus -eq 'success') {
+            $actualStatus = 'completed-with-errors'
+            $statusIcon = '⚠️'
+            $statusColor = '🟡'
+            $statusText = 'COMPLETED WITH ERRORS'
+        }
 
         # Build results with formatted summary only (execution logs remain in step output)
         if ($results.FormattedSummary) {
@@ -203,7 +227,7 @@ $summary = @"
 
 | 🚦 **Status** | 🎮 **Mode** | 📡 **Trigger** | ⏰ **Timestamp** |
 |---------------|-------------|-----------------|------------------|
-| $statusColor **$($JobStatus.ToUpper())** | $modeBadge | $configSource | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC') |
+| $statusColor **$statusText** | $modeBadge | $configSource | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC') |
 
 $easypimResults
 

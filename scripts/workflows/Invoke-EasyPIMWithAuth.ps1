@@ -210,10 +210,50 @@ try {
             $summaryData.FormattedSummary = $Matches[1].Trim()
         }
 
+        # Check for failures in the orchestrator results
+        $hasFailures = $false
+        $failureDetails = @()
+
+        # Extract failure counts from the formatted summary
+        if ($outputText -match '\[FAIL\] Failed\s*:\s*(\d+).*ASSIGNMENT') {
+            $assignmentFailures = [int]$Matches[1]
+            if ($assignmentFailures -gt 0) {
+                $hasFailures = $true
+                $failureDetails += "Assignment operations failed: $assignmentFailures"
+                $summaryData.AssignmentsFailed = $assignmentFailures
+            }
+        }
+
+        if ($outputText -match '\[FAIL\] Failed\s*:\s*(\d+).*POLICY') {
+            $policyFailures = [int]$Matches[1]
+            if ($policyFailures -gt 0) {
+                $hasFailures = $true
+                $failureDetails += "Policy operations failed: $policyFailures"
+                $summaryData.PoliciesFailed = $policyFailures
+            }
+        }
+
+        # Update status based on failures
+        if ($hasFailures) {
+            $summaryData.Status = "CompletedWithErrors"
+            $summaryData.FailureDetails = $failureDetails
+            Write-Host "⚠️ EasyPIM Orchestrator completed with errors:" -ForegroundColor Yellow
+            foreach ($detail in $failureDetails) {
+                Write-Host "   ❌ $detail" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "✅ EasyPIM Orchestrator completed successfully!" -ForegroundColor Green
+        }
+
         # Save summary for dashboard
         $summaryData | ConvertTo-Json -Depth 3 | Out-File -FilePath "./workflow-artifacts/orchestrator-summary.json" -Encoding utf8
 
-        Write-Host "✅ EasyPIM Orchestrator completed successfully!" -ForegroundColor Green
+        # Return success (orchestrator ran) but let the caller know about failures
+        if ($hasFailures) {
+            Write-Host "🔍 Orchestrator execution completed but detected failures in operations" -ForegroundColor Yellow
+            Write-Host "📊 Check the dashboard summary for detailed failure information" -ForegroundColor Yellow
+        }
+        
         return $true
 
     } catch {
