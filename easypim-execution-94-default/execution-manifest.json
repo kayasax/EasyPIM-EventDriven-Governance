@@ -1,0 +1,23 @@
+{
+  "Status": "success",
+  "Timestamp": "2025-09-07T11:54:57Z",
+  "RunNumber": "94",
+  "Environment": {
+    "PowerShellVersion": "7.4.11",
+    "OS": "Ubuntu 24.04.3 LTS",
+    "Platform": "Unix"
+  },
+  "RunId": "17528139634",
+  "Configuration": {
+    "Vault": "kv-easypim-8368",
+    "WhatIf": "true",
+    "EventDriven": false,
+    "ConfigSecretName": "",
+    "Mode": "delta",
+    "ConfigSecret": "easypim-config-json"
+  },
+  "Files": [
+    "easypim-module-versions.json",
+    "easypim-module-versions.json"
+  ]
+}

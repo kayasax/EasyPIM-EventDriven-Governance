@@ -69,9 +69,25 @@ $configSource = if ($ConfigSecretName) {
 $easypimResults = ""
 $orchestratorSummary = ""
 
-if (Test-Path "./workflow-artifacts/orchestrator-summary.json") {
+# Try multiple possible paths for the orchestrator summary
+$summaryPaths = @(
+    "./workflow-artifacts/orchestrator-summary.json",
+    "./orchestrator-summary.json",
+    "orchestrator-summary.json"
+)
+
+$summaryFile = $null
+foreach ($path in $summaryPaths) {
+    if (Test-Path $path) {
+        $summaryFile = $path
+        Write-Host "Found orchestrator summary at: $path" -ForegroundColor Green
+        break
+    }
+}
+
+if ($summaryFile) {
     try {
-        $results = Get-Content "./workflow-artifacts/orchestrator-summary.json" | ConvertFrom-Json
+        $results = Get-Content $summaryFile | ConvertFrom-Json
         
         # Extract metrics with defaults
         $assignmentsCreated = $results.AssignmentsCreated ?? 0
@@ -125,9 +141,26 @@ $($results.FormattedSummary)
 *Check execution logs above for detailed operation results*
 "@
     }
-} elseif (Test-Path "./workflow-artifacts/orchestrator-error.json") {
+} else {
+    # Check for error files
+    $errorPaths = @(
+        "./workflow-artifacts/orchestrator-error.json",
+        "./orchestrator-error.json",
+        "orchestrator-error.json"
+    )
+    
+    $errorFile = $null
+    foreach ($path in $errorPaths) {
+        if (Test-Path $path) {
+            $errorFile = $path
+            Write-Host "Found orchestrator error at: $path" -ForegroundColor Red
+            break
+        }
+    }
+    
+    if ($errorFile) {
     try {
-        $errorInfo = Get-Content "./workflow-artifacts/orchestrator-error.json" | ConvertFrom-Json
+        $errorInfo = Get-Content $errorFile | ConvertFrom-Json
         $easypimResults = @"
 
 ### ❌ **EasyPIM Execution Error**
