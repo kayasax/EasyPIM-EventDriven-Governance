@@ -166,7 +166,7 @@ try {
         Write-Host "📊 Capturing orchestrator output for dashboard..." -ForegroundColor Gray
 
         # Capture all output streams while also displaying them
-        $orchestratorOutput = Invoke-EasyPIMOrchestrator @orchestratorParams -Verbose 4>&1 5>&1 6>&1 | Tee-Object -Variable capturedOutput
+        $orchestratorOutput = Invoke-EasyPIMOrchestrator @orchestratorParams | Tee-Object -Variable capturedOutput
 
         # Display the output in real-time for GitHub Actions step visibility
         Write-Host "`n🔍 === EasyPIM Orchestrator Execution Output ===" -ForegroundColor Cyan
@@ -253,7 +253,7 @@ try {
             Write-Host "🔍 Orchestrator execution completed but detected failures in operations" -ForegroundColor Yellow
             Write-Host "📊 Check the dashboard summary for detailed failure information" -ForegroundColor Yellow
         }
-        
+
         return $true
 
     } catch {
