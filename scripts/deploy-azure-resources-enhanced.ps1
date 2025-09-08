@@ -46,31 +46,31 @@ USAGE:
 PARAMETERS:
   -TargetPlatform        CI/CD platform to optimize for (default: GitHub)
                          Options: GitHub, AzureDevOps, Both
-
+  
   -ResourceGroupName     Azure resource group name (default: rg-easypim-cicd-test)
-
+  
   -Location              Azure region for deployment (default: East US)
-
+  
   -AppName               Application name prefix (auto-generated if not provided)
-
+  
   -KeyVaultName          Key Vault name (auto-generated if not provided)
-
+  
   -ConfigurationFile     Path to parameters file (default: scripts\deploy-azure-resources.parameters.json)
-
+  
   -WhatIf                Preview deployment without making changes
-
+  
   -Force                 Skip confirmation prompts
 
 EXAMPLES:
   # Deploy for GitHub Actions (default)
   .\deploy-azure-resources-enhanced.ps1
-
+  
   # Deploy for Azure DevOps with custom names
   .\deploy-azure-resources-enhanced.ps1 -TargetPlatform AzureDevOps -AppName "contoso-easypim" -Location "West Europe"
-
+  
   # Deploy for both platforms with preview
   .\deploy-azure-resources-enhanced.ps1 -TargetPlatform Both -WhatIf
-
+  
   # Force deployment without prompts
   .\deploy-azure-resources-enhanced.ps1 -TargetPlatform Both -Force
 
@@ -266,7 +266,7 @@ function Deploy-AzureResources {
 
         # Prepare deployment command
         $deploymentName = "easypim-deployment-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-
+        
         $deployCmd = @(
             "az", "deployment", "group", "create"
             "--resource-group", $ResourceGroupName

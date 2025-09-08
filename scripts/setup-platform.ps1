@@ -60,42 +60,42 @@ USAGE:
 PARAMETERS:
   -Platform              CI/CD platform to configure
                          Options: GitHub, AzureDevOps, Both
-
+  
   -Interactive           Enable interactive mode (default: true)
                          Use -Interactive:`$false for non-interactive setup
-
+  
   -GitHubRepository      GitHub repository in format 'owner/repo'
                          Required when Platform is GitHub or Both
-
+  
   -AzureDevOpsOrganization  Azure DevOps organization name
                            Required when Platform is AzureDevOps or Both
-
+  
   -AzureDevOpsProject    Azure DevOps project name
                          Required when Platform is AzureDevOps or Both
-
+  
   -ResourceGroupName     Azure resource group name (default: rg-easypim-cicd-test)
-
+  
   -Location              Azure location (default: East US)
-
+  
   -WhatIf                Preview deployment without making changes
-
+  
   -Force                 Skip confirmation prompts
-
+  
   -Help                  Show this help message
 
 EXAMPLES:
   # Interactive setup (recommended)
   .\setup-platform.ps1
-
+  
   # Preview deployment
   .\setup-platform.ps1 -WhatIf
-
+  
   # Non-interactive GitHub setup
   .\setup-platform.ps1 -Interactive:`$false -Platform GitHub -GitHubRepository "contoso/easypim"
-
+  
   # Non-interactive Azure DevOps setup
   .\setup-platform.ps1 -Interactive:`$false -Platform AzureDevOps -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
-
+  
   # Setup both platforms
   .\setup-platform.ps1 -Platform Both -GitHubRepository "contoso/easypim" -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
 
@@ -129,8 +129,8 @@ function Select-Platform {
             "1" { return "GitHub" }
             "2" { return "AzureDevOps" }
             "3" { return "Both" }
-            default {
-                Write-Host "❌ Invalid choice. Please enter 1, 2, or 3." -ForegroundColor Red
+            default { 
+                Write-Host "❌ Invalid choice. Please enter 1, 2, or 3." -ForegroundColor Red 
             }
         }
     } while ($true)
@@ -148,7 +148,7 @@ function Get-GitHubInfo {
     Write-Host "`n📋 GitHub Repository Configuration" -ForegroundColor Yellow
     Write-Host "Please provide your GitHub repository information:" -ForegroundColor White
     Write-Host "Format: owner/repository (e.g., contoso/easypim-governance)" -ForegroundColor Gray
-
+    
     do {
         $repo = Read-Host "GitHub Repository"
         if ($repo -match "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$") {
@@ -173,7 +173,7 @@ function Get-AzureDevOpsInfo {
         Write-Host "`n📋 Azure DevOps Organization Configuration" -ForegroundColor Yellow
         Write-Host "Please provide your Azure DevOps organization name:" -ForegroundColor White
         Write-Host "Example: If your URL is https://dev.azure.com/contoso, enter 'contoso'" -ForegroundColor Gray
-
+        
         do {
             $org = Read-Host "Azure DevOps Organization"
             if ($org -and $org.Length -gt 0) {
@@ -189,7 +189,7 @@ function Get-AzureDevOpsInfo {
     if (-not $project) {
         Write-Host "`nPlease provide your Azure DevOps project name:" -ForegroundColor White
         Write-Host "Example: EasyPIM or MyGovernanceProject" -ForegroundColor Gray
-
+        
         do {
             $project = Read-Host "Azure DevOps Project"
             if ($project -and $project.Length -gt 0) {
@@ -252,15 +252,15 @@ function Show-ConfigSummary {
     Write-Host "`n📋 Configuration Summary" -ForegroundColor Yellow
     Write-Host "═══════════════════════════════════════" -ForegroundColor Yellow
     Write-Host "Platform: $Platform" -ForegroundColor White
-
+    
     if ($GitHubRepo) {
         Write-Host "GitHub Repository: $GitHubRepo" -ForegroundColor White
     }
-
+    
     if ($AdoInfo) {
         Write-Host "Azure DevOps: $($AdoInfo.Organization)/$($AdoInfo.Project)" -ForegroundColor White
     }
-
+    
     Write-Host "Resource Group: $($AzureConfig.ResourceGroup)" -ForegroundColor White
     Write-Host "Location: $($AzureConfig.Location)" -ForegroundColor White
     Write-Host "What-If Mode: $($WhatIf.IsPresent)" -ForegroundColor White
@@ -297,7 +297,7 @@ function Invoke-DeploymentPhase {
     foreach ($param in $deployParams.GetEnumerator()) {
         Write-Host "   -$($param.Key): $($param.Value)" -ForegroundColor Gray
     }
-
+    
     try {
         & ".\scripts\deploy-azure-resources-enhanced.ps1" @deployParams
         if ($LASTEXITCODE -eq 0) {
@@ -358,7 +358,7 @@ function Invoke-ConfigurationPhase {
     foreach ($param in $configParams.GetEnumerator()) {
         Write-Host "   -$($param.Key): $($param.Value)" -ForegroundColor Gray
     }
-
+    
     try {
         & ".\scripts\configure-cicd.ps1" @configParams
         if ($LASTEXITCODE -eq 0) {
@@ -409,7 +409,9 @@ function Show-FinalInstructions {
     }
 
     Write-Host "`n📖 Documentation:" -ForegroundColor Yellow
-    Write-Host "• 📘 Step-by-Step Guide: docs/Step-by-Step-Guide.md" -ForegroundColor White
+    Write-Host "• 📘 Platform Setup Guide: docs/Platform-Setup-Guide.md" -ForegroundColor White
+    Write-Host "• 🚀 GitHub Actions Guide: docs/GitHub-Actions-Guide.md" -ForegroundColor White
+    Write-Host "• 🔵 Azure DevOps Guide: docs/Azure-DevOps-Guide.md" -ForegroundColor White
     Write-Host "• 🔄 Azure DevOps Integration: docs/Azure-DevOps-Integration-Plan.md" -ForegroundColor White
     Write-Host "• 🧪 Testing Guide: Available in repository documentation" -ForegroundColor White
 

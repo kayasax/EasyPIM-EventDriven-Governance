@@ -22,12 +22,12 @@ flowchart TB
     KV["🔑 Key Vault<br/>Config Change"]
     EG["⚡ Event Grid<br/>Instant Trigger"]
     AF["🔧 Azure Function<br/>Smart Processing"]
-
+    
     subgraph "CI/CD Platform Choice"
         GH["🚀 GitHub Actions<br/>Workflows"]
         ADO["🔵 Azure DevOps<br/>Pipelines"]
     end
-
+    
     EP["🛡️ EasyPIM<br/>Policy Enforcement"]
 
     KV --> EG
@@ -241,7 +241,7 @@ steps:
       inlineScript: |
         Write-Host "🔍 Verifying authentication context..." -ForegroundColor Cyan
         az account show --output table
-
+        
         # Setup authentication for EasyPIM
         & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" `
           -TenantId "${{ parameters.tenantId }}" `

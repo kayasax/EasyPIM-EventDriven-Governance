@@ -28,7 +28,24 @@
 
 ---
 
-## 🎯 **Key Benefits That Matter**
+## � **Multi-Platform Support**
+
+<div align="center">
+
+Choose the CI/CD platform that fits your organization:
+
+| 🚀 **GitHub Actions** | 🔵 **Azure DevOps** | 🌟 **Both Platforms** |
+|----------------------|---------------------|----------------------|
+| ✅ Perfect for open source | ✅ Enterprise-grade features | ✅ Maximum flexibility |
+| ✅ Quick setup (15 mins) | ✅ Advanced project management | ✅ Team choice freedom |
+| ✅ GitHub-native integration | ✅ Hybrid cloud capabilities | ✅ Migration support |
+| **[Setup Guide →](docs/GitHub-Actions-Guide.md)** | **[Setup Guide →](docs/Azure-DevOps-Guide.md)** | **[Platform Guide →](docs/Platform-Setup-Guide.md)** |
+
+</div>
+
+---
+
+## �🎯 **Key Benefits That Matter**
 
 <table>
 <tr>
@@ -105,7 +122,7 @@ flowchart LR
 
 ### 🔥 **Ready to Transform Your PIM Operations?**
 
-**[📖 Follow Our Complete Step-by-Step Guide →](docs/Step-by-Step-Guide.md)**
+**[📖 Choose Your Platform & Get Started →](docs/Platform-Setup-Guide.md)**
 
 *Everything you need: Azure setup, Event Grid integration, GitHub configuration, and real-world examples*
 
@@ -123,7 +140,7 @@ flowchart LR
 | 🚀 **GitHub Actions Workflows** | 3-phase testing and deployment automation | ✅ Production Ready |
 | 📊 **Drift Detection** | Continuous compliance monitoring | ✅ Production Ready |
 | 🛠️ **Deployment Scripts** | One-click Azure resource provisioning | ✅ Production Ready |
-| 📖 **Complete Documentation** | Step-by-step implementation guide | ✅ Production Ready |
+| 📖 **Complete Documentation** | Multi-platform implementation guides | ✅ Production Ready |
 
 ---
 
@@ -131,7 +148,7 @@ flowchart LR
 
 ### 🎯 **Start Your PIM Automation Journey**
 
-**[📖 Complete Setup Guide](docs/Step-by-Step-Guide.md)** • **[🔧 Scripts Documentation](scripts/README.md)** • **[🚀 GitHub Actions](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions)**
+**[📖 Platform Setup Guide](docs/Platform-Setup-Guide.md)** • **[� GitHub Actions Guide](docs/GitHub-Actions-Guide.md)** • **[� Azure DevOps Guide](docs/Azure-DevOps-Guide.md)** • **[🔧 Scripts Documentation](scripts/README.md)**
 
 ---
 

@@ -272,7 +272,7 @@ $($RunDescription ? "> **📝 Event Context:** $RunDescription" : '')
 | 🔍 **View Logs** | Detailed execution logs | [📋 Workflow Run](https://github.com/$GitHubRepository/actions/runs/$GitHubRunId) |
 | 🔄 **Re-run** | Execute workflow again | [⚡ Actions](https://github.com/$GitHubRepository/actions/workflows/02-orchestrator-test.yml) |
 | 🎯 **Drift Check** | Verify compliance | [🎯 Phase 3](https://github.com/$GitHubRepository/actions/workflows/03-policy-drift-check.yml) |
-| 📖 **Documentation** | Setup guide | [📚 Docs](https://github.com/$GitHubRepository/blob/main/docs/Step-by-Step-Guide.md) |
+| 📖 **Documentation** | Setup guide | [📚 Platform Guide](https://github.com/$GitHubRepository/blob/main/docs/Platform-Setup-Guide.md) \| [🚀 GitHub Guide](https://github.com/$GitHubRepository/blob/main/docs/GitHub-Actions-Guide.md) |
 
 ---
 

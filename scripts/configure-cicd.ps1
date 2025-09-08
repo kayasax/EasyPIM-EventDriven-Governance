@@ -17,27 +17,27 @@ USAGE:
 PARAMETERS:
   -Platform              CI/CD platform to configure (required)
                          Options: GitHub, AzureDevOps, Both
-
+  
   -GitHubRepository      GitHub repository in format 'owner/repo'
                          Required when Platform is GitHub or Both
-
+  
   -AzureDevOpsProject    Azure DevOps project name
                          Required when Platform is AzureDevOps or Both
-
+  
   -AzureDevOpsOrganization  Azure DevOps organization name
                            Required when Platform is AzureDevOps or Both
-
+  
   -ResourceGroupName     Azure resource group name (default: rg-easypim-cicd-test)
-
+  
   -Force                 Skip confirmation prompts
 
 EXAMPLES:
   # Configure GitHub Actions only
   .\configure-cicd.ps1 -Platform GitHub -GitHubRepository "contoso/easypim-governance"
-
+  
   # Configure Azure DevOps only
   .\configure-cicd.ps1 -Platform AzureDevOps -AzureDevOpsProject "EasyPIM" -AzureDevOpsOrganization "contoso"
-
+  
   # Configure both platforms
   .\configure-cicd.ps1 -Platform Both -GitHubRepository "contoso/easypim-governance" -AzureDevOpsProject "EasyPIM" -AzureDevOpsOrganization "contoso"
 
@@ -402,17 +402,17 @@ function Set-AzureDevOpsConfiguration {
 
     # Create or update variable group
     $variableGroupName = "EasyPIM-EventDriven-Governance"
-
+    
     Write-Host "   📝 Creating/updating variable group: $variableGroupName" -ForegroundColor Gray
-
+    
     try {
         # Check if variable group exists
         $existingGroup = az pipelines variable-group list --organization $orgUrl --project $Project --group-name $variableGroupName 2>$null | ConvertFrom-Json
-
+        
         if ($existingGroup -and $existingGroup.Count -gt 0) {
             $groupId = $existingGroup[0].id
             Write-Host "      ✅ Found existing variable group (ID: $groupId)" -ForegroundColor Green
-
+            
             # Update existing variables
             foreach ($variable in $variables.GetEnumerator()) {
                 try {
@@ -438,11 +438,11 @@ function Set-AzureDevOpsConfiguration {
         } else {
             # Create new variable group
             Write-Host "      📋 Creating new variable group..." -ForegroundColor Gray
-
+            
             # Create the variable group first
             $newGroup = az pipelines variable-group create --organization $orgUrl --project $Project --name $variableGroupName --description "EasyPIM Event-Driven Governance CI/CD Variables" | ConvertFrom-Json
             $groupId = $newGroup.id
-
+            
             # Add variables to the new group
             foreach ($variable in $variables.GetEnumerator()) {
                 try {
@@ -552,7 +552,10 @@ if ($Platform -eq "GitHub" -or $Platform -eq "Both") {
 GitHub Actions:
 1. Test Phase 1 authentication: Go to GitHub Actions → 'Phase 1: Authentication Test' → Run workflow
 2. Grant admin consent for Azure AD application permissions (if not done already)
-3. Review the Step-by-Step Guide: docs/Step-by-Step-Guide.md
+3. Review the setup guides based on your platform:
+   - Platform choice: docs/Platform-Setup-Guide.md
+   - GitHub Actions: docs/GitHub-Actions-Guide.md
+   - Azure DevOps: docs/Azure-DevOps-Guide.md
 
 🔗 Repository: https://github.com/$GitHubRepository
 🔗 Actions: https://github.com/$GitHubRepository/actions
