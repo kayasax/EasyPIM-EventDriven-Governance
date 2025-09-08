@@ -230,7 +230,7 @@ jobs:
 
         # Determine execution mode badge
         $whatIfMode = '${{ github.event.inputs.WhatIf }}' -eq 'true'
-        $modeBadge = if ($whatIfMode) { '� **PREVIEW MODE**' } else { '⚡ **LIVE EXECUTION**' }
+        $modeBadge = if ($whatIfMode) { '🔍 **PREVIEW MODE**' } else { '⚡ **LIVE EXECUTION**' }
 
         # Configuration source detection
         $configSource = if ('${{ github.event.inputs.configSecretName }}') {
@@ -251,7 +251,7 @@ jobs:
         | Component | Processed | Created | Updated | Removed | Errors |
         |-----------|-----------|---------|---------|---------|---------|
         | 🔐 **Policies** | $($results.Policies.Processed) | $($results.Policies.Created) | $($results.Policies.Updated) | $($results.Policies.Removed) | $($results.Policies.Errors) |
-        | � **Assignments** | $($results.Assignments.Processed) | $($results.Assignments.Created) | $($results.Assignments.Updated) | $($results.Assignments.Removed) | $($results.Assignments.Errors) |
+        | 👤 **Assignments** | $($results.Assignments.Processed) | $($results.Assignments.Created) | $($results.Assignments.Updated) | $($results.Assignments.Removed) | $($results.Assignments.Errors) |
         | 🏷️ **Groups** | $($results.Groups.Processed) | $($results.Groups.Created) | $($results.Groups.Updated) | $($results.Groups.Removed) | $($results.Groups.Errors) |
 
         **⏱️ Total Execution Time:** $($results.ExecutionTime) | **🔄 Objects Processed:** $($results.TotalProcessed)
@@ -290,7 +290,7 @@ jobs:
         </td>
         <td>
 
-        **� Environment Context**
+        **🔧 Environment Context**
         - **Vault:** ``${{ env.KEYVAULT_NAME }}``
         - **Config:** ``${{ env.SECRET_NAME }}``
         - **Tenant:** ``${{ env.TENANT_ID }}``
@@ -300,7 +300,7 @@ jobs:
         </tr>
         </table>
 
-        ## � **Event-Driven Intelligence**
+        ## 🧠 **Event-Driven Intelligence**
 
         ${{ github.event.inputs.configSecretName && '> **🎯 Smart Detection:** Configuration automatically selected based on event trigger' || '> **📋 Manual Configuration:** Using repository default configuration settings' }}
 
@@ -312,7 +312,7 @@ jobs:
         |--------|-------------|------|
         | 🔍 **View Logs** | Detailed execution logs | [📋 Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
         | 🔄 **Re-run** | Execute workflow again | [⚡ Actions](https://github.com/${{ github.repository }}/actions/workflows/02-orchestrator-test.yml) |
-        | � **Drift Check** | Verify compliance | [🎯 Phase 3](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) |
+        | 🎯 **Drift Check** | Verify compliance | [🎯 Phase 3](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) |
         | 📖 **Documentation** | Setup guide | [📚 Platform Guide](https://github.com/${{ github.repository }}/blob/main/docs/Platform-Setup-Guide.md) \| [🚀 GitHub Guide](https://github.com/${{ github.repository }}/blob/main/docs/GitHub-Actions-Guide.md) |
 
         ---

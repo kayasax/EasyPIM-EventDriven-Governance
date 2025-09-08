@@ -28,7 +28,7 @@
 
 ---
 
-## � **Multi-Platform Support**
+## 🌟 **Multi-Platform Support**
 
 <div align="center">
 
@@ -45,7 +45,7 @@ Choose the CI/CD platform that fits your organization:
 
 ---
 
-## �🎯 **Key Benefits That Matter**
+## 🎯 **Key Benefits That Matter**
 
 <table>
 <tr>
@@ -148,7 +148,7 @@ flowchart LR
 
 ### 🎯 **Start Your PIM Automation Journey**
 
-**[📖 Platform Setup Guide](docs/Platform-Setup-Guide.md)** • **[� GitHub Actions Guide](docs/GitHub-Actions-Guide.md)** • **[� Azure DevOps Guide](docs/Azure-DevOps-Guide.md)** • **[🔧 Scripts Documentation](scripts/README.md)**
+**[📖 Platform Setup Guide](docs/Platform-Setup-Guide.md)** • **[🚀 GitHub Actions Guide](docs/GitHub-Actions-Guide.md)** • **[🔵 Azure DevOps Guide](docs/Azure-DevOps-Guide.md)** • **[🔧 Scripts Documentation](scripts/README.md)**
 
 ---
 
