@@ -135,7 +135,6 @@ az devops configure --defaults organization=https://dev.azure.com/YourOrg projec
 # Clone and setup in one go
 git clone https://github.com/kayasax/EasyPIM-EventDriven-Governance.git
 cd EasyPIM-EventDriven-Governance
-git checkout feature/ado-integration
 
 # Preview deployment first (safe)
 .\scripts\setup-platform.ps1 -Platform AzureDevOps -WhatIf

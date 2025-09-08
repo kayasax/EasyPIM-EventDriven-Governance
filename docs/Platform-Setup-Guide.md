@@ -92,9 +92,6 @@ Choose the platform that best fits your organization:
 git clone https://github.com/kayasax/EasyPIM-EventDriven-Governance.git
 cd EasyPIM-EventDriven-Governance
 
-# Switch to the ADO integration branch
-git checkout feature/ado-integration
-
 # Preview what will be deployed (safe - no changes made)
 .\scripts\setup-platform.ps1 -Platform Both -WhatIf
 ```
