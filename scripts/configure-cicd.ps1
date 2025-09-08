@@ -552,7 +552,10 @@ if ($Platform -eq "GitHub" -or $Platform -eq "Both") {
 GitHub Actions:
 1. Test Phase 1 authentication: Go to GitHub Actions → 'Phase 1: Authentication Test' → Run workflow
 2. Grant admin consent for Azure AD application permissions (if not done already)
-3. Review the Step-by-Step Guide: docs/Step-by-Step-Guide.md
+3. Review the setup guides based on your platform:
+   - Platform choice: docs/Platform-Setup-Guide.md
+   - GitHub Actions: docs/GitHub-Actions-Guide.md
+   - Azure DevOps: docs/Azure-DevOps-Guide.md
 
 🔗 Repository: https://github.com/$GitHubRepository
 🔗 Actions: https://github.com/$GitHubRepository/actions

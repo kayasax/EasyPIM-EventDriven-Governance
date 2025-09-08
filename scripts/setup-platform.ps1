@@ -409,7 +409,9 @@ function Show-FinalInstructions {
     }
 
     Write-Host "`n📖 Documentation:" -ForegroundColor Yellow
-    Write-Host "• 📘 Step-by-Step Guide: docs/Step-by-Step-Guide.md" -ForegroundColor White
+    Write-Host "• 📘 Platform Setup Guide: docs/Platform-Setup-Guide.md" -ForegroundColor White
+    Write-Host "• 🚀 GitHub Actions Guide: docs/GitHub-Actions-Guide.md" -ForegroundColor White
+    Write-Host "• 🔵 Azure DevOps Guide: docs/Azure-DevOps-Guide.md" -ForegroundColor White
     Write-Host "• 🔄 Azure DevOps Integration: docs/Azure-DevOps-Integration-Plan.md" -ForegroundColor White
     Write-Host "• 🧪 Testing Guide: Available in repository documentation" -ForegroundColor White
 

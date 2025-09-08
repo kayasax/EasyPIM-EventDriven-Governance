@@ -391,7 +391,7 @@ jobs:
           |----------|--------|-------------|
           | ✅ **MAINTAIN** | [📅 Schedule Regular Checks](https://github.com/${{ github.repository }}/blob/main/.github/workflows/03-policy-drift-check.yml) | Automated daily monitoring active |
           | 📊 **MONITOR** | [📈 View Trends](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Track compliance history |
-          | ⚙️ **OPTIMIZE** | [🔧 Configuration](https://github.com/${{ github.repository }}/blob/main/docs/Step-by-Step-Guide.md) | Fine-tune detection settings |
+          | ⚙️ **OPTIMIZE** | [🔧 Configuration](https://github.com/${{ github.repository }}/blob/main/docs/Platform-Setup-Guide.md) | Fine-tune detection settings |
           "@
           }
 
