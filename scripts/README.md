@@ -310,4 +310,7 @@ Key Vault Secret Change → Event Grid → Azure Function → GitHub Actions →
 
 **Real-Time PIM Automation**: Changes to Key Vault secrets now automatically trigger EasyPIM workflows with intelligent parameter selection, creating a complete event-driven PIM management system!
 
-**See `docs/Step-by-Step-Guide.md` for complete implementation details and architecture documentation.**
+**See the documentation guides for complete implementation details:**
+- 📋 [Platform Setup Guide](../docs/Platform-Setup-Guide.md) - Choose your CI/CD platform
+- 🚀 [GitHub Actions Guide](../docs/GitHub-Actions-Guide.md) - Complete GitHub setup
+- 🔵 [Azure DevOps Guide](../docs/Azure-DevOps-Guide.md) - Complete Azure DevOps setup

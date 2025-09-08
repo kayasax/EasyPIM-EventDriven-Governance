@@ -1,6 +1,8 @@
-# 🚀 EasyPIM CI/CD Template - Complete Integration Guide
+# 🚀 EasyPIM Event-Driven Governance - GitHub Actions Guide
 
-**Transform your Privileged Identity Management with automated CI/CD workflows**
+**Complete setup and integration guide for GitHub Actions workflows**
+
+> 📋 **New to EasyPIM?** Start with the [Platform Setup Guide](Platform-Setup-Guide.md) to choose your CI/CD platform.
 
 ---
 
