@@ -7,7 +7,7 @@ param(
     [string]$TargetPlatform = "GitHub",
 
     [Parameter(Mandatory = $false)]
-    [string]$ResourceGroupName = "rg-easypim-cicd-test",
+    [string]$ResourceGroupName = "rg-easypim-cicd",
 
     [Parameter(Mandatory = $false)]
     [string]$Location = "East US",
@@ -19,7 +19,13 @@ param(
     [string]$KeyVaultName,
 
     [Parameter(Mandatory = $false)]
-    [string]$ConfigurationFile = "scripts\deploy-azure-resources.parameters.json",
+    [string]$ConfigurationFile = "templates\deploy-azure-resources-working.parameters.json",
+
+    [Parameter(Mandatory = $false)]
+    [string]$BicepTemplate = "templates\deploy-azure-resources-working.bicep",
+
+    [Parameter(Mandatory = $false)]
+    [string]$GitHubRepository,
 
     [Parameter(Mandatory = $false)]
     [switch]$WhatIf,
@@ -135,7 +141,7 @@ function Test-Prerequisites {
     }
 
     # Check if Bicep template exists
-    $bicepFile = "scripts\deploy-azure-resources.bicep"
+    $bicepFile = $BicepTemplate
     if (-not (Test-Path $bicepFile)) {
         Write-Error "❌ Bicep template not found: $bicepFile"
         $allGood = $false
@@ -184,6 +190,117 @@ function Get-PlatformResourceNames {
     }
 }
 
+# Check for existing resources and suggest reuse
+function Test-ExistingResources {
+    param(
+        [string]$ResourceGroupName,
+        [hashtable]$ProposedNames,
+        [string]$Platform
+    )
+
+    Write-Host "🔍 Checking for existing resources..." -ForegroundColor Cyan
+    $existingResources = @{}
+    $conflicts = @()
+    
+    try {
+        # Check if resource group exists
+        $rgExists = az group show --name $ResourceGroupName --query "name" -o tsv 2>$null
+        if ($rgExists) {
+            Write-Host "   ✅ Resource group '$ResourceGroupName' exists" -ForegroundColor Green
+            
+            # Check for Key Vault with similar naming pattern
+            $kvPattern = "*easypim*kv*"
+            $existingKvs = az keyvault list --resource-group $ResourceGroupName --query "[?contains(name, 'easypim') && contains(name, 'kv')].{name:name,id:id}" -o json 2>$null
+            if ($existingKvs -and $existingKvs -ne "[]") {
+                $kvs = $existingKvs | ConvertFrom-Json
+                foreach ($kv in $kvs) {
+                    Write-Host "   🔑 Found existing Key Vault: $($kv.name)" -ForegroundColor Yellow
+                    $existingResources["KeyVault"] = @{
+                        Name = $kv.name
+                        Id = $kv.id
+                        Type = "Microsoft.KeyVault/vaults"
+                    }
+                }
+            }
+            
+            # Check for Storage Accounts with similar naming pattern
+            $storagePattern = "*easypim*"
+            $existingStorage = az storage account list --resource-group $ResourceGroupName --query "[?contains(name, 'easypim')].{name:name,id:id,location:primaryLocation}" -o json 2>$null
+            if ($existingStorage -and $existingStorage -ne "[]") {
+                $storageAccounts = $existingStorage | ConvertFrom-Json
+                foreach ($sa in $storageAccounts) {
+                    Write-Host "   💾 Found existing Storage Account: $($sa.name)" -ForegroundColor Yellow
+                    $existingResources["StorageAccount"] = @{
+                        Name = $sa.name
+                        Id = $sa.id
+                        Location = $sa.location
+                        Type = "Microsoft.Storage/storageAccounts"
+                    }
+                }
+            }
+            
+            # Check for Function Apps with similar naming pattern
+            $funcPattern = "*easypim*"
+            $existingFuncs = az functionapp list --resource-group $ResourceGroupName --query "[?contains(name, 'easypim')].{name:name,id:id,location:location}" -o json 2>$null
+            if ($existingFuncs -and $existingFuncs -ne "[]") {
+                $functions = $existingFuncs | ConvertFrom-Json
+                foreach ($func in $functions) {
+                    Write-Host "   ⚡ Found existing Function App: $($func.name)" -ForegroundColor Yellow
+                    $existingResources["FunctionApp"] = @{
+                        Name = $func.name
+                        Id = $func.id
+                        Location = $func.location
+                        Type = "Microsoft.Web/sites"
+                    }
+                }
+            }
+        } else {
+            Write-Host "   📋 Resource group '$ResourceGroupName' will be created" -ForegroundColor Gray
+        }
+        
+        # Check for naming conflicts with proposed names
+        foreach ($resourceType in $ProposedNames.Keys) {
+            if ($resourceType -eq "GitHubRepository") { continue }
+            
+            $proposedName = $ProposedNames[$resourceType]
+            switch ($resourceType) {
+                "KeyVaultName" {
+                    $existing = az keyvault show --name $proposedName --query "name" -o tsv 2>$null
+                    if ($existing -and !$existingResources.ContainsKey("KeyVault")) {
+                        $conflicts += "Key Vault '$proposedName' already exists in another resource group"
+                    }
+                }
+                "StorageAccountName" {
+                    $existing = az storage account check-name --name $proposedName --query "nameAvailable" -o tsv 2>$null
+                    if ($existing -eq "false" -and !$existingResources.ContainsKey("StorageAccount")) {
+                        $conflicts += "Storage Account '$proposedName' name is not available"
+                    }
+                }
+                "FunctionAppName" {
+                    $existing = az functionapp show --name $proposedName --resource-group $ResourceGroupName --query "name" -o tsv 2>$null
+                    if ($existing -and !$existingResources.ContainsKey("FunctionApp")) {
+                        $conflicts += "Function App '$proposedName' already exists"
+                    }
+                }
+            }
+        }
+        
+        return @{
+            ExistingResources = $existingResources
+            Conflicts = $conflicts
+            CanReuse = $existingResources.Count -gt 0
+        }
+        
+    } catch {
+        Write-Host "   ⚠️ Could not fully check existing resources: $($_.Exception.Message)" -ForegroundColor Yellow
+        return @{
+            ExistingResources = @{}
+            Conflicts = @()
+            CanReuse = $false
+        }
+    }
+}
+
 # Update parameters file with platform-specific values
 function Update-ParametersFile {
     param(
@@ -197,32 +314,53 @@ function Update-ParametersFile {
 
     try {
         $parameters = Get-Content $FilePath | ConvertFrom-Json
+        $updated = $false
 
-        # Update resource names
-        $parameters.parameters.appName.value = $ResourceNames.AppName
-        $parameters.parameters.keyVaultName.value = $ResourceNames.KeyVaultName
-        $parameters.parameters.location.value = $Location
-
-        # Add platform-specific tags
-        if (-not $parameters.parameters.PSObject.Properties["tags"]) {
-            $parameters.parameters | Add-Member -MemberType NoteProperty -Name "tags" -Value @{
-                value = @{}
-            }
+        # Update location if different
+        if ($parameters.parameters.location.value -ne $Location) {
+            $parameters.parameters.location.value = $Location
+            Write-Host "   📍 Updated location to: $Location" -ForegroundColor Gray
+            $updated = $true
         }
 
-        $parameters.parameters.tags.value["Platform"] = $Platform
-        $parameters.parameters.tags.value["Project"] = "EasyPIM-EventDriven-Governance"
-        $parameters.parameters.tags.value["Environment"] = "test"
-        $parameters.parameters.tags.value["DeployedAt"] = (Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC")
+        # Update GitHub repository if provided and different
+        if ($ResourceNames.ContainsKey("GitHubRepository") -and $parameters.parameters.githubRepository.value -ne $ResourceNames.GitHubRepository) {
+            $parameters.parameters.githubRepository.value = $ResourceNames.GitHubRepository
+            Write-Host "   📋 Updated GitHub repository to: $($ResourceNames.GitHubRepository)" -ForegroundColor Gray
+            $updated = $true
+        }
 
-        # Create a backup of the original file
-        $backupFile = "$FilePath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-        Copy-Item $FilePath $backupFile
-        Write-Host "   📋 Backup created: $backupFile" -ForegroundColor Gray
+        # Update tags with platform and deployment information
+        if ($parameters.parameters.tags -and $parameters.parameters.tags.value) {
+            # Convert tags to hashtable for easier manipulation
+            $tagsValue = $parameters.parameters.tags.value
+            
+            # Update platform-specific tags
+            $tagsValue | Add-Member -MemberType NoteProperty -Name "Platform" -Value $Platform -Force
+            $tagsValue | Add-Member -MemberType NoteProperty -Name "Project" -Value "EasyPIM-EventDriven-Governance" -Force
+            $tagsValue | Add-Member -MemberType NoteProperty -Name "DeployedAt" -Value (Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC") -Force
+            
+            if ($ResourceNames.ContainsKey("GitHubRepository")) {
+                $tagsValue | Add-Member -MemberType NoteProperty -Name "Repository" -Value $ResourceNames.GitHubRepository -Force
+            }
+            
+            Write-Host "   🏷️ Updated tags with platform: $Platform" -ForegroundColor Gray
+            $updated = $true
+        }
 
-        # Save updated parameters
-        $parameters | ConvertTo-Json -Depth 10 | Set-Content $FilePath
-        Write-Host "   ✅ Parameters file updated" -ForegroundColor Green
+        # Create backup and save only if there were changes
+        $backupFile = $null
+        if ($updated) {
+            $backupFile = "$FilePath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            Copy-Item $FilePath $backupFile
+            Write-Host "   📋 Backup created: $backupFile" -ForegroundColor Gray
+
+            # Save updated parameters
+            $parameters | ConvertTo-Json -Depth 10 | Set-Content $FilePath
+            Write-Host "   ✅ Parameters file updated" -ForegroundColor Green
+        } else {
+            Write-Host "   ✅ Parameters file already up-to-date" -ForegroundColor Green
+        }
 
         return @{
             OriginalFile = $FilePath
@@ -290,18 +428,25 @@ function Deploy-AzureResources {
         }
 
         # Execute deployment
-        $deploymentResult = & $deployCmd[0] $deployCmd[1..($deployCmd.Length-1)] | ConvertFrom-Json
-
-        if ($LASTEXITCODE -eq 0) {
-            if ($WhatIf) {
+        if ($WhatIf) {
+            # For what-if, just capture the output without JSON parsing
+            $deploymentOutput = & $deployCmd[0] $deployCmd[1..($deployCmd.Length-1)]
+            if ($LASTEXITCODE -eq 0) {
                 Write-Host "   ✅ What-if analysis completed successfully" -ForegroundColor Green
+                return @{ whatif = $true; output = $deploymentOutput }
             } else {
+                throw "Deployment failed with exit code: $LASTEXITCODE"
+            }
+        } else {
+            # For actual deployment, parse JSON result
+            $deploymentResult = & $deployCmd[0] $deployCmd[1..($deployCmd.Length-1)] | ConvertFrom-Json
+            if ($LASTEXITCODE -eq 0) {
                 Write-Host "   ✅ Deployment completed successfully" -ForegroundColor Green
                 Write-Host "   📋 Deployment ID: $($deploymentResult.id)" -ForegroundColor Gray
+                return $deploymentResult
+            } else {
+                throw "Deployment failed with exit code: $LASTEXITCODE"
             }
-            return $deploymentResult
-        } else {
-            throw "Deployment failed with exit code: $LASTEXITCODE"
         }
     }
     catch {
@@ -336,6 +481,11 @@ if (-not (Test-Prerequisites)) {
 # Generate resource names
 $resourceNames = Get-PlatformResourceNames -Platform $TargetPlatform -BaseAppName $AppName -BaseKeyVaultName $KeyVaultName
 
+# Add GitHub repository information if provided
+if ($GitHubRepository) {
+    $resourceNames["GitHubRepository"] = $GitHubRepository
+}
+
 Write-Host "`n📋 Generated Resource Names:" -ForegroundColor Yellow
 Write-Host "• App Name: $($resourceNames.AppName)" -ForegroundColor White
 Write-Host "• Key Vault: $($resourceNames.KeyVaultName)" -ForegroundColor White
@@ -343,6 +493,35 @@ Write-Host "• Function App: $($resourceNames.FunctionAppName)" -ForegroundColo
 Write-Host "• Storage Account: $($resourceNames.StorageAccountName)" -ForegroundColor White
 Write-Host "• Application Insights: $($resourceNames.ApplicationInsightsName)" -ForegroundColor White
 Write-Host "• Service Principal: $($resourceNames.ServicePrincipalName)" -ForegroundColor White
+
+# Check for existing resources that can be reused
+$resourceCheck = Test-ExistingResources -ResourceGroupName $ResourceGroupName -ProposedNames $resourceNames -Platform $TargetPlatform
+
+if ($resourceCheck.ExistingResources.Count -gt 0) {
+    Write-Host "`n♻️  Existing Resources Found:" -ForegroundColor Green
+    foreach ($resourceType in $resourceCheck.ExistingResources.Keys) {
+        $resource = $resourceCheck.ExistingResources[$resourceType]
+        Write-Host "• ${resourceType}: $($resource.Name) (will be reused)" -ForegroundColor Cyan
+    }
+    
+    if (-not $Force -and -not $WhatIf) {
+        Write-Host "`n💡 The deployment will reuse existing compatible resources and only create missing ones." -ForegroundColor Yellow
+        $continue = Read-Host "Continue with reusing existing resources? (Y/n)"
+        if ($continue -match "^[Nn]") {
+            Write-Host "❌ Operation cancelled by user" -ForegroundColor Red
+            exit 0
+        }
+    }
+}
+
+if ($resourceCheck.Conflicts.Count -gt 0) {
+    Write-Host "`n⚠️ Resource Name Conflicts Detected:" -ForegroundColor Red
+    foreach ($conflict in $resourceCheck.Conflicts) {
+        Write-Host "• $conflict" -ForegroundColor Yellow
+    }
+    Write-Host "`nPlease resolve these conflicts before proceeding." -ForegroundColor Red
+    exit 1
+}
 
 # Confirm before proceeding
 if (-not $Force -and -not $WhatIf) {
@@ -358,14 +537,33 @@ if (-not $Force -and -not $WhatIf) {
     }
 }
 
-# Update parameters file
-$parameterUpdate = Update-ParametersFile -FilePath $ConfigurationFile -ResourceNames $resourceNames -Platform $TargetPlatform -Location $Location
-if (-not $parameterUpdate) {
-    exit 1
+# Choose template based on existing resources
+if ($resourceCheck.ExistingResources.Count -gt 0) {
+    # Use simple template that only creates monitoring resources and references existing ones
+    $selectedTemplate = "templates\deploy-azure-resources-simple.bicep"
+    $selectedParams = "templates\deploy-azure-resources-simple.parameters.json"
+    
+    # Update simple parameters with existing storage account name
+    if ($resourceCheck.ExistingResources.ContainsKey("StorageAccount")) {
+        $simpleParams = Get-Content $selectedParams | ConvertFrom-Json
+        $simpleParams.parameters.storageAccountName.value = $resourceCheck.ExistingResources.StorageAccount.Name
+        $simpleParams | ConvertTo-Json -Depth 10 | Set-Content $selectedParams
+    }
+    Write-Host "🔄 Using simplified template to work with existing resources" -ForegroundColor Cyan
+} else {
+    # Use full template to create new resources
+    $selectedTemplate = $BicepTemplate
+    $selectedParams = $ConfigurationFile
+    
+    # Update parameters file
+    $parameterUpdate = Update-ParametersFile -FilePath $ConfigurationFile -ResourceNames $resourceNames -Platform $TargetPlatform -Location $Location
+    if (-not $parameterUpdate) {
+        exit 1
+    }
 }
 
 # Deploy resources
-$deploymentResult = Deploy-AzureResources -ResourceGroupName $ResourceGroupName -Location $Location -BicepFile "scripts\deploy-azure-resources.bicep" -ParametersFile $ConfigurationFile -ResourceNames $resourceNames -WhatIf $WhatIf.IsPresent
+$deploymentResult = Deploy-AzureResources -ResourceGroupName $ResourceGroupName -Location $Location -BicepFile $selectedTemplate -ParametersFile $selectedParams -ResourceNames $resourceNames -WhatIf $WhatIf.IsPresent
 
 if ($deploymentResult) {
     if ($WhatIf) {

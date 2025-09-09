@@ -9,27 +9,26 @@
       "value": "test"
     },
     "githubRepository": {
-      "value": "kayasax/EasyPIM-CICD-test"
+      "value": "kayasax/EasyPIM-EventDriven-Governance"
     },
-    "githubEnvironment": {
+    "azureClientId": {
       "value": ""
-    },
-    "servicePrincipalName": {
-      "value": "easypim-cicd-test-sp"
     },
     "keyVaultAdministrators": {
       "value": []
     },
     "location": {
-      "value": "francecentral"
+      "value": "eastus"
     },
     "tags": {
       "value": {
-        "Project": "EasyPIM-CICD-Testing",
         "Environment": "test",
         "Purpose": "CI-CD-Automation",
         "CreatedBy": "Bicep-Template",
-        "Repository": "kayasax/EasyPIM-CICD-test"
+        "Repository": "kayasax/EasyPIM-EventDriven-Governance",
+        "Platform": "Both",
+        "Project": "EasyPIM-EventDriven-Governance",
+        "DeployedAt": "2025-09-09 17:47:04 UTC"
       }
     }
   }
