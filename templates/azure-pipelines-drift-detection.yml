@@ -1,0 +1,235 @@
+# Azure DevOps Pipeline: PIM Policy Drift Detection
+# Equivalent to GitHub workflow: 03-policy-drift-check.yml
+
+trigger: none # Manual trigger only
+
+schedules:
+- cron: "0 6 * * *" # Run daily at 6 AM UTC
+  displayName: Daily drift detection
+  branches:
+    include:
+    - main
+  always: false # Only run if there are changes
+
+parameters:
+- name: Verbose
+  displayName: 'Enable verbose output'
+  type: boolean
+  default: false
+
+- name: configSecretName
+  displayName: 'Key Vault secret name (optional - uses default if not provided)'
+  type: string
+  default: ''
+
+variables:
+- group: EasyPIM-EventDriven-Governance
+- name: KEYVAULT_NAME
+  value: $(AZURE_KEY_VAULT_NAME)
+- name: SECRET_NAME
+  value: ${{ parameters.configSecretName != '' && parameters.configSecretName || variables.EASYPIM_SECRET_NAME }}
+
+pool: Default
+
+name: EasyPIM_Drift_Detection_$(Date:yyyyMMdd)_$(Rev:r)
+
+stages:
+- stage: DriftDetection
+  displayName: 'Policy Drift Detection'
+  jobs:
+  - job: ConfigurationSetup
+    displayName: 'Setup Drift Detection'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Setup Authentication'
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'FilePath'
+        ScriptPath: 'scripts/workflows/Setup-EasyPIMAuthentication.ps1'
+        ScriptArguments: >
+          -TenantId "$(AZURE_TENANT_ID)"
+          -SubscriptionId "$(AZURE_SUBSCRIPTION_ID)"
+          -ClientId "$(AZURE_CLIENT_ID)"
+        azurePowerShellVersion: 'LatestVersion'
+
+    - task: AzurePowerShell@5
+      displayName: 'Install EasyPIM Modules'
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'FilePath'
+        ScriptPath: 'scripts/workflows/Install-EasyPIMModules.ps1'
+        azurePowerShellVersion: 'LatestVersion'
+
+    - task: AzurePowerShell@5
+      displayName: 'Display Configuration Source'
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "🎯 Drift Detection Configuration Source:" -ForegroundColor Cyan
+          Write-Host "   Key Vault: $(KEYVAULT_NAME)" -ForegroundColor White
+          Write-Host "   Secret Name: $(SECRET_NAME)" -ForegroundColor White
+
+          if ('${{ parameters.configSecretName }}') {
+            Write-Host "   Source: Manual trigger with custom secret" -ForegroundColor Green
+          } else {
+            Write-Host "   Source: Scheduled run or manual trigger (default configuration)" -ForegroundColor Blue
+          }
+          
+          Write-Host "   Verbose Output: ${{ parameters.Verbose }}" -ForegroundColor Yellow
+        azurePowerShellVersion: 'LatestVersion'
+
+  - job: ExecuteDriftDetection
+    displayName: 'Execute Drift Detection'
+    dependsOn: ConfigurationSetup
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Configure Drift Detection Parameters'
+      name: configureParams
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "⚙️ Configuring drift detection parameters..." -ForegroundColor Cyan
+
+          $verbose = [bool]::Parse('${{ parameters.Verbose }}')
+
+          if ($verbose) {
+              Write-Host "📝 Verbose output enabled"
+          }
+
+          # Build drift detection parameters
+          $driftParams = @{
+              'TenantId' = "$(AZURE_TENANT_ID)"
+              'SubscriptionId' = "$(AZURE_SUBSCRIPTION_ID)"
+          }
+
+          # Configuration source - use KeyVault native support only
+          if ("$(KEYVAULT_NAME)") {
+              Write-Host "📋 Using configuration from Key Vault: $(KEYVAULT_NAME)/$(SECRET_NAME)" -ForegroundColor Green
+
+              # Use native KeyVault support only (no temp file fallback)
+              $driftParams['KeyVaultName'] = "$(KEYVAULT_NAME)"
+              $driftParams['SecretName'] = "$(SECRET_NAME)"
+
+              Write-Host "✅ KeyVault configuration ready" -ForegroundColor Green
+          } else {
+              Write-Error "❌ No Key Vault configuration found. AZURE_KEY_VAULT_NAME variable is required."
+              exit 1
+          }
+
+          # Add conditional parameters
+          if ($verbose) {
+              $driftParams['Verbose'] = $true
+              Write-Host "📝 Verbose output enabled" -ForegroundColor Blue
+          }
+
+          Write-Host "🎯 Drift Detection Parameters:" -ForegroundColor Blue
+          Write-Host "   TenantId: $(AZURE_TENANT_ID)"
+          Write-Host "   SubscriptionId: $(AZURE_SUBSCRIPTION_ID)"
+          Write-Host "   KeyVaultName: $(KEYVAULT_NAME)"
+          Write-Host "   SecretName: $(SECRET_NAME)"
+          Write-Host "   Method: Native KeyVault (no temp files)" -ForegroundColor Green
+          if ($verbose) {
+              Write-Host "   Verbose: enabled"
+          }
+
+          # Store parameters for next task
+          $paramsJson = ($driftParams | ConvertTo-Json -Depth 3 -Compress)
+          Write-Host "##vso[task.setvariable variable=driftParams;isOutput=true]$paramsJson"
+          Write-Host "✅ Parameters configured successfully" -ForegroundColor Green
+        azurePowerShellVersion: 'LatestVersion'
+
+    - task: AzurePowerShell@5
+      displayName: 'Execute Policy Drift Detection'
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          # Retrieve parameters from previous task
+          $driftParamsJson = "$(configureParams.driftParams)"
+          Write-Host "📥 Retrieved parameters JSON: $($driftParamsJson.Substring(0, [Math]::Min(100, $driftParamsJson.Length)))..." -ForegroundColor Gray
+
+          $driftParams = $driftParamsJson | ConvertFrom-Json -AsHashtable
+          $graphContext = Get-MgContext
+
+          # Execute using the dedicated script
+          & "./scripts/workflows/Invoke-EasyPIMDriftDetection.ps1" -DriftParams $driftParams -GraphContext $graphContext
+
+          # Clean up temp file if it was created
+          if (Test-Path "./temp-drift-config.json") {
+              Remove-Item "./temp-drift-config.json" -ErrorAction SilentlyContinue
+              Write-Host "🧹 Cleaned up temporary config file" -ForegroundColor Gray
+          }
+
+          # Surface drift summary to pipeline outputs if present
+          if (Test-Path './drift-summary.json') {
+              $json = Get-Content './drift-summary.json' -Raw
+              Write-Host "📊 Drift Detection Summary:"
+              Write-Host $json
+              
+              # Parse and display key metrics
+              $summary = $json | ConvertFrom-Json
+              if ($summary.driftCount -gt 0) {
+                  Write-Host "⚠️  DRIFT DETECTED: $($summary.driftCount) policy drift(s) found" -ForegroundColor Yellow
+              } else {
+                  Write-Host "✅ No policy drift detected" -ForegroundColor Green
+              }
+          }
+
+          Write-Host "✅ Drift detection completed successfully!" -ForegroundColor Green
+        azurePowerShellVersion: 'LatestVersion'
+      env:
+        AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+        AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+        AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+
+  - job: PublishResults
+    displayName: 'Publish Drift Detection Results'
+    dependsOn: ExecuteDriftDetection
+    condition: always()
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Generate Drift Report'
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "📊 Generating drift detection report..." -ForegroundColor Cyan
+          
+          # Create drift detection summary
+          $reportPath = "drift-detection-report-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
+          
+          $report = @{
+            timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
+            pipeline = "$(Build.DefinitionName)"
+            buildId = "$(Build.BuildId)"
+            configSecret = "$(SECRET_NAME)"
+            keyVault = "$(KEYVAULT_NAME)"
+            verbose = [bool]::Parse('${{ parameters.Verbose }}')
+            trigger = "$(Build.Reason)"
+            result = "$(Agent.JobStatus)"
+            branch = "$(Build.SourceBranch)"
+          } | ConvertTo-Json -Depth 10
+          
+          $report | Out-File -FilePath $reportPath -Encoding UTF8
+          
+          Write-Host "📋 Drift report generated: $reportPath"
+          Write-Host "Report content:"
+          Get-Content $reportPath
+          
+          # Copy drift summary if it exists
+          if (Test-Path './drift-summary.json') {
+              Copy-Item './drift-summary.json' -Destination "drift-summary-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
+              Write-Host "📄 Drift summary preserved"
+          }
+          
+          Write-Host "✅ Report generation completed!" -ForegroundColor Green
+        azurePowerShellVersion: 'LatestVersion'
+        
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Drift Detection Artifacts'
+      inputs:
+        pathToPublish: 'drift-*.json'
+        artifactName: 'EasyPIM-Drift-Detection-Report'
+        publishLocation: 'Container'

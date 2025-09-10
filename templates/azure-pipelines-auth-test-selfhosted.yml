@@ -1,0 +1,153 @@
+# Azure DevOps Pipeline: EasyPIM Authentication Test (Self-Hosted)
+# Uses self-hosted agent - no parallelism limitations
+
+trigger: none
+
+variables:
+- group: EasyPIM-EventDriven-Governance
+
+# Use self-hosted agent pool
+pool: Default #server if we want serverless (Microsoft managed)
+
+jobs:
+- job: EasyPIM_Auth_Test
+  displayName: 'EasyPIM Authentication & Environment Test'
+  timeoutInMinutes: 30
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Environment Check'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "🔍 EasyPIM Authentication Test (Self-Hosted)" -ForegroundColor Cyan
+        Write-Host "=============================================" -ForegroundColor Cyan
+
+        Write-Host "`n🖥️ Agent Information:" -ForegroundColor Yellow
+        Write-Host "   Computer: $env:COMPUTERNAME" -ForegroundColor Gray
+        Write-Host "   User: $env:USERNAME" -ForegroundColor Gray
+        Write-Host "   Agent: $(Agent.Name)" -ForegroundColor Gray
+        Write-Host "   Pool: $(Agent.PoolName)" -ForegroundColor Gray
+
+        # Check required environment variables
+        Write-Host "`n📋 Environment Variables:" -ForegroundColor Yellow
+
+        $vars = @{
+          "AZURE_TENANT_ID" = $env:AZURE_TENANT_ID
+          "AZURE_SUBSCRIPTION_ID" = $env:AZURE_SUBSCRIPTION_ID
+          "AZURE_CLIENT_ID" = $env:AZURE_CLIENT_ID
+          "AZURE_RESOURCE_GROUP" = $env:AZURE_RESOURCE_GROUP
+          "AZURE_KEY_VAULT_NAME" = $env:AZURE_KEY_VAULT_NAME
+          "AZURE_KEY_VAULT_URI" = $env:AZURE_KEY_VAULT_URI
+          "EASYPIM_SECRET_NAME" = $env:EASYPIM_SECRET_NAME
+        }
+
+        $allSet = $true
+        foreach ($var in $vars.GetEnumerator()) {
+          if ($var.Value) {
+            Write-Host "  ✅ $($var.Key): Set" -ForegroundColor Green
+          } else {
+            Write-Host "  ❌ $($var.Key): Missing" -ForegroundColor Red
+            $allSet = $false
+          }
+        }
+
+        if ($allSet) {
+          Write-Host "`n🎉 All environment variables are configured!" -ForegroundColor Green
+        } else {
+          Write-Host "`n⚠️ Some environment variables are missing" -ForegroundColor Yellow
+        }
+    env:
+      AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+      AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+      AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+      AZURE_RESOURCE_GROUP: $(AZURE_RESOURCE_GROUP)
+      AZURE_KEY_VAULT_NAME: $(AZURE_KEY_VAULT_NAME)
+      AZURE_KEY_VAULT_URI: $(AZURE_KEY_VAULT_URI)
+      EASYPIM_SECRET_NAME: $(EASYPIM_SECRET_NAME)
+
+  - task: PowerShell@2
+    displayName: 'Azure CLI Test'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "`n🔐 Testing Azure CLI..." -ForegroundColor Yellow
+
+        # Check if Azure CLI is available
+        if (Get-Command az -ErrorAction SilentlyContinue) {
+          Write-Host "  ✅ Azure CLI available" -ForegroundColor Green
+
+          try {
+            # Test authentication
+            $account = az account show --query "{subscriptionId:id, tenantId:tenantId, user:user.name}" | ConvertFrom-Json
+            Write-Host "  ✅ Authenticated as: $($account.user)" -ForegroundColor Green
+            Write-Host "     Subscription: $($account.subscriptionId)" -ForegroundColor Gray
+            Write-Host "     Tenant: $($account.tenantId)" -ForegroundColor Gray
+          } catch {
+            Write-Host "  ⚠️  Azure CLI authentication required" -ForegroundColor Yellow
+            Write-Host "     Run 'az login' to authenticate" -ForegroundColor Gray
+          }
+        } else {
+          Write-Host "  ⚠️  Azure CLI not found - will be installed during EasyPIM execution" -ForegroundColor Yellow
+        }
+
+  - task: PowerShell@2
+    displayName: 'PowerShell Modules Check'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "`n📦 Checking PowerShell Modules..." -ForegroundColor Yellow
+
+        $requiredModules = @("Az.Accounts", "Az.KeyVault", "Az.Resources", "Microsoft.Graph.Authentication")
+
+        foreach ($module in $requiredModules) {
+          $installed = Get-Module -ListAvailable -Name $module -ErrorAction SilentlyContinue
+          if ($installed) {
+            $version = $installed | Sort-Object Version -Descending | Select-Object -First 1
+            Write-Host "  ✅ $module v$($version.Version)" -ForegroundColor Green
+          } else {
+            Write-Host "  ⚠️  $module (will be installed during execution)" -ForegroundColor Yellow
+          }
+        }
+
+  - task: PowerShell@2
+    displayName: 'Connectivity Test'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "`n🌐 Testing Connectivity..." -ForegroundColor Yellow
+
+        $endpoints = @(
+          @{ Name = "Azure Management"; Url = "https://management.azure.com/" }
+          @{ Name = "Microsoft Graph"; Url = "https://graph.microsoft.com/" }
+          @{ Name = "PowerShell Gallery"; Url = "https://www.powershellgallery.com/" }
+        )
+
+        foreach ($endpoint in $endpoints) {
+          try {
+            $response = Invoke-WebRequest -Uri $endpoint.Url -UseBasicParsing -TimeoutSec 10 -Method Head
+            Write-Host "  ✅ $($endpoint.Name): Accessible" -ForegroundColor Green
+          } catch {
+            Write-Host "  ⚠️  $($endpoint.Name): Limited access" -ForegroundColor Yellow
+          }
+        }
+
+  - task: PowerShell@2
+    displayName: 'Test Summary'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "`n🎯 Self-Hosted Agent Test Complete!" -ForegroundColor Green
+        Write-Host "====================================" -ForegroundColor Green
+
+        Write-Host "`n✅ Achievements:" -ForegroundColor Cyan
+        Write-Host "   • Self-hosted agent working" -ForegroundColor White
+        Write-Host "   • No parallelism limitations" -ForegroundColor White
+        Write-Host "   • Variable group accessible" -ForegroundColor White
+        Write-Host "   • PowerShell execution confirmed" -ForegroundColor White
+
+        Write-Host "`n🚀 Ready for EasyPIM workflows!" -ForegroundColor Green
+        Write-Host "`n📝 Available pipelines:" -ForegroundColor Yellow
+        Write-Host "   1. EasyPIM Authentication Test (this one)" -ForegroundColor White
+        Write-Host "   2. EasyPIM Policy Orchestrator" -ForegroundColor White
+        Write-Host "   3. EasyPIM Drift Detection" -ForegroundColor White

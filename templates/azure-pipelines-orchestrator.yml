@@ -1,0 +1,147 @@
+# Azure DevOps Pipeline: EasyPIM Policy Orchestrator
+# Equivalent to GitHub workflow: 02-orchestrator-test.yml
+
+trigger: none # Manual trigger only
+
+parameters:
+- name: run_description
+  displayName: 'Custom description for this run (optional)'
+  type: string
+  default: ''
+
+- name: configSecretName
+  displayName: 'Key Vault secret name containing PIM configuration'
+  type: string
+  default: ''
+
+- name: WhatIf
+  displayName: 'Preview mode - show what would be done without making changes'
+  type: boolean
+  default: true
+
+- name: Mode
+  displayName: 'Orchestrator execution mode'
+  type: string
+  default: 'delta'
+  values:
+  - delta
+  - initial
+
+variables:
+- group: EasyPIM-EventDriven-Governance
+- name: KEYVAULT_NAME
+  value: $(AZURE_KEY_VAULT_NAME)
+- name: SECRET_NAME
+  value: $(EASYPIM_SECRET_NAME)
+
+pool: Default
+
+name: EasyPIM_${{ parameters.WhatIf == true && 'Preview' || 'Apply' }}_$(Date:yyyyMMdd)_$(Rev:r)
+
+stages:
+- stage: Validation
+  displayName: 'Pre-execution Validation'
+  jobs:
+  - job: ValidateInputs
+    displayName: 'Validate Configuration'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Validate EasyPIM Configuration'
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "🔍 Validating EasyPIM configuration..."
+          
+          # Determine secret name
+          $secretName = "${{ parameters.configSecretName }}"
+          if ([string]::IsNullOrEmpty($secretName)) {
+            $secretName = "$(SECRET_NAME)"
+          }
+          
+          Write-Host "📋 Using configuration secret: $secretName"
+          Write-Host "🎯 Execution mode: ${{ parameters.Mode }}"
+          Write-Host "🔍 What-If mode: ${{ parameters.WhatIf }}"
+          
+          # Test Key Vault access
+          try {
+            $secret = Get-AzKeyVaultSecret -VaultName "$(KEYVAULT_NAME)" -Name $secretName
+            Write-Host "✅ Configuration secret found and accessible"
+          }
+          catch {
+            Write-Host "❌ Cannot access configuration secret: $_"
+            exit 1
+          }
+          
+          Write-Host "✅ Validation completed successfully!"
+        azurePowerShellVersion: 'LatestVersion'
+
+- stage: Execution
+  displayName: 'EasyPIM Policy Execution'
+  dependsOn: Validation
+  condition: succeeded()
+  jobs:
+  - job: ExecuteOrchestrator
+    displayName: 'Run EasyPIM Orchestrator'
+    timeoutInMinutes: 30
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Execute EasyPIM Policy Orchestrator'
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'FilePath'
+        ScriptPath: 'scripts/workflows/Invoke-EasyPIMExecution.ps1'
+        ScriptArguments: >
+          -KeyVaultName "$(KEYVAULT_NAME)"
+          -SecretName "${{ parameters.configSecretName != '' && parameters.configSecretName || variables.SECRET_NAME }}"
+          -WhatIf:$${{ parameters.WhatIf }}
+          -Mode "${{ parameters.Mode }}"
+          -Verbose
+        azurePowerShellVersion: 'LatestVersion'
+      env:
+        AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+        AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+        AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+
+  - job: GenerateReport
+    displayName: 'Generate Execution Report'
+    dependsOn: ExecuteOrchestrator
+    condition: always()
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Generate and Upload Report'
+      inputs:
+        azureSubscription: 'EasyPIM-Azure-Connection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "📊 Generating execution report..."
+          
+          # Create execution summary
+          $reportPath = "execution-report-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
+          
+          $report = @{
+            timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
+            pipeline = "$(Build.DefinitionName)"
+            buildId = "$(Build.BuildId)"
+            mode = "${{ parameters.Mode }}"
+            whatIf = ${{ parameters.WhatIf }}
+            configSecret = "${{ parameters.configSecretName != '' && parameters.configSecretName || variables.SECRET_NAME }}"
+            description = "${{ parameters.run_description }}"
+            result = "$(Agent.JobStatus)"
+          } | ConvertTo-Json -Depth 10
+          
+          $report | Out-File -FilePath $reportPath -Encoding UTF8
+          
+          Write-Host "📋 Report generated: $reportPath"
+          Write-Host "Report content:"
+          Get-Content $reportPath
+          
+          Write-Host "✅ Report generation completed!"
+        azurePowerShellVersion: 'LatestVersion'
+        
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Execution Report'
+      inputs:
+        pathToPublish: 'execution-report-*.json'
+        artifactName: 'EasyPIM-Execution-Report'
+        publishLocation: 'Container'
