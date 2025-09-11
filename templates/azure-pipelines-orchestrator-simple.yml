@@ -1,0 +1,142 @@
+# SIMPLIFIED Azure Pipeline using script files instead of inline scripts
+# This version avoids the Azure DevOps inline script execution issues
+
+trigger: none # Manual trigger only
+
+parameters:
+- name: serviceConnection
+  displayName: 'Azure Service Connection'
+  type: string
+  default: 'EasyPIM-Azure-Connection'
+
+- name: keyVaultName
+  displayName: 'Key Vault Name'
+  type: string
+  default: 'default'
+
+- name: run_description
+  displayName: 'Custom description for this run (optional)'
+  type: string
+  default: 'EasyPIM Orchestrator Execution'
+
+- name: configSecretName
+  displayName: 'Key Vault secret name containing PIM configuration (optional)'
+  type: string
+  default: 'default'
+
+- name: WhatIf
+  displayName: 'Preview mode - show what would be done without making changes'
+  type: boolean
+  default: true
+
+- name: Mode
+  displayName: 'Orchestrator execution mode'
+  type: string
+  default: 'delta'
+  values:
+  - delta
+  - initial
+
+variables:
+- group: EasyPIM-EventDriven-Governance
+- name: KEYVAULT_NAME
+  ${{ if ne(parameters.keyVaultName, 'default') }}:
+    value: ${{ parameters.keyVaultName }}
+  ${{ else }}:
+    value: $(AZURE_KEY_VAULT_NAME)
+- name: SECRET_NAME
+  ${{ if ne(parameters.configSecretName, 'default') }}:
+    value: ${{ parameters.configSecretName }}
+  ${{ else }}:
+    value: $(EASYPIM_SECRET_NAME)
+- name: SERVICE_CONNECTION_NAME
+  value: ${{ parameters.serviceConnection }}
+
+pool: Default
+
+name: EasyPIM_Orchestrator_$(Date:yyyyMMdd)_$(Rev:r)
+
+jobs:
+- job: ExecuteOrchestrator
+  displayName: 'Run EasyPIM Orchestrator'
+  timeoutInMinutes: 30
+  steps:
+  - checkout: self
+    displayName: 'Checkout Repository'
+
+  - task: AzurePowerShell@5
+    displayName: 'Install Required Modules'
+    inputs:
+      azureSubscription: $(SERVICE_CONNECTION_NAME)
+      scriptType: 'inlineScript'
+      azurePowerShellVersion: 'LatestVersion'
+      pwsh: true
+      inlineScript: |
+        Write-Host "📦 Installing required modules from PowerShell Gallery..." -ForegroundColor Green
+        
+        # Set PowerShell Gallery as trusted source
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+        
+        # Install EasyPIM module
+        Install-Module -Name EasyPIM.Orchestrator -Force -Scope CurrentUser -AllowClobber -Verbose
+        
+        # Install Microsoft Graph PowerShell modules
+        Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -AllowClobber -Verbose
+        
+        # Verify installations
+        $easyPIM = Get-Module -ListAvailable -Name EasyPIM.Orchestrator
+        $graphAuth = Get-Module -ListAvailable -Name Microsoft.Graph.Authentication
+        
+        if ($easyPIM -and $graphAuth) {
+          Write-Host "✅ All modules installed successfully!" -ForegroundColor Green
+          Write-Host "   EasyPIM.Orchestrator: v$($easyPIM.Version)" -ForegroundColor Gray
+          Write-Host "   Microsoft.Graph.Authentication: v$($graphAuth.Version)" -ForegroundColor Gray
+        } else {
+          throw "Module installation failed"
+        }
+
+  - task: AzurePowerShell@5
+    displayName: 'Execute EasyPIM Policy Orchestrator'
+    inputs:
+      azureSubscription: $(SERVICE_CONNECTION_NAME)
+      scriptType: 'filePath'
+      scriptPath: 'scripts/Invoke-EasyPIMExecution.ps1'
+      scriptArguments: '-KeyVaultName "$(KEYVAULT_NAME)" -SecretName "$(SECRET_NAME)" -WhatIf $${{ parameters.WhatIf }} -Mode "${{ parameters.Mode }}"'
+      azurePowerShellVersion: 'LatestVersion'
+      pwsh: true
+      failOnStandardError: false
+
+  - task: PowerShell@2
+    displayName: 'Generate Execution Report'
+    condition: always()
+    inputs:
+      targetType: 'inline'
+      pwsh: true
+      script: |
+        Write-Host "📊 Generating execution report..." -ForegroundColor Green
+
+        $reportPath = "execution-report-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
+
+        $report = @{
+          timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
+          pipeline = "$(Build.DefinitionName)"
+          buildId = "$(Build.BuildId)"
+          mode = "${{ parameters.Mode }}"
+          whatIf = ${{ parameters.WhatIf }}
+          configSecret = "$(SECRET_NAME)"
+          keyVault = "$(KEYVAULT_NAME)"
+          description = "${{ parameters.run_description }}"
+          result = "$(Agent.JobStatus)"
+        } | ConvertTo-Json -Depth 10
+
+        $report | Out-File -FilePath $reportPath -Encoding UTF8
+        Write-Host "📋 Report generated: $reportPath" -ForegroundColor Cyan
+        Get-Content $reportPath
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Execution Report'
+    condition: always()
+    inputs:
+      pathToPublish: 'execution-report-*.json'
+      artifactName: 'EasyPIM-Execution-Report'
+      publishLocation: 'Container'

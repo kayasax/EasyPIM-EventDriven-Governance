@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourcePrefix": {
+      "value": "easypim-cicd"
+    },
+    "environment": {
+      "value": "test"
+    },
+    "githubRepository": {
+      "value": "kayasax/EasyPIM-EventDriven-Governance"
+    },
+    "azureClientId": {
+      "value": ""
+    },
+    "keyVaultAdministrators": {
+      "value": []
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "tags": {
+      "value": {
+        "Environment": "test",
+        "Purpose": "CI-CD-Automation",
+        "CreatedBy": "Bicep-Template",
+        "Repository": "kayasax/EasyPIM-EventDriven-Governance",
+        "Platform": "Both",
+        "Project": "EasyPIM-EventDriven-Governance",
+        "DeployedAt": "2025-09-09 17:47:04 UTC"
+      }
+    }
+  }
+}
