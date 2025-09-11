@@ -79,13 +79,13 @@ stages:
           # Determine secret name
           $secretName = "${{ parameters.configSecretName }}"
           if ([string]::IsNullOrEmpty($secretName) -or $secretName -eq "default") {
-            $secretName = "$(SECRET_NAME)"
+            $secretName = "$(EASYPIM_SECRET_NAME)"
           }
 
           # Determine Key Vault name
           $keyVaultName = "${{ parameters.keyVaultName }}"
           if ([string]::IsNullOrEmpty($keyVaultName) -or $keyVaultName -eq "default") {
-            $keyVaultName = "$(KEYVAULT_NAME)"
+            $keyVaultName = "$(AZURE_KEY_VAULT_NAME)"
           }
 
           Write-Host "📋 Using Key Vault: $keyVaultName" -ForegroundColor Cyan
