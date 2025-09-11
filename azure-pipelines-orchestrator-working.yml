@@ -52,7 +52,8 @@ variables:
 - name: SERVICE_CONNECTION_NAME
   value: ${{ parameters.serviceConnection }}
 
-pool: Default
+pool:
+  vmImage: 'ubuntu-latest'
 
 name: EasyPIM_Orchestrator_$(Date:yyyyMMdd)_$(Rev:r)
 
