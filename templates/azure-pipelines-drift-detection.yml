@@ -29,7 +29,8 @@ variables:
 - name: SECRET_NAME
   value: ${{ parameters.configSecretName != '' && parameters.configSecretName || variables.EASYPIM_SECRET_NAME }}
 
-pool: Default
+pool:
+  vmImage: 'windows-latest'
 
 name: EasyPIM_Drift_Detection_$(Date:yyyyMMdd)_$(Rev:r)
 
