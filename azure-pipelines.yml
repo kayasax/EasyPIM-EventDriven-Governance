@@ -1,0 +1,23 @@
+# DEAD SIMPLE TEST - Self-hosted agent
+trigger: none
+
+pool: Default
+
+jobs:
+- job: SimpleTest
+  displayName: 'Simple PowerShell Test'
+  steps:
+  - task: AzurePowerShell@5
+    displayName: 'Basic Test'
+    inputs:
+      azureSubscription: 'EasyPIM-Azure-Connection'
+      scriptType: 'inlineScript'
+      azurePowerShellVersion: 'LatestVersion'
+      pwsh: true
+      failOnStandardError: false
+      inlineScript: |
+        Write-Output "HELLO FROM AZURE DEVOPS PIPELINE!"
+        Write-Host "HELLO FROM AZURE DEVOPS PIPELINE!" -ForegroundColor Red
+        $date = Get-Date
+        Write-Output "Current date: $date"
+        Write-Host "Current date: $date" -ForegroundColor Yellow
