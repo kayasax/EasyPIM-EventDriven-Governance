@@ -130,11 +130,14 @@ jobs:
         # STEP 3: Execute EasyPIM Orchestrator
         Write-Host "🚀 Executing EasyPIM Orchestrator..." -ForegroundColor Cyan
         try {
+          # Fix boolean parameter handling
+          $whatIfMode = "${{ parameters.WhatIf }}" -eq "True"
+
           $params = @{
             KeyVaultName = "$(KEYVAULT_NAME)"
             SecretName = "$(SECRET_NAME)"
             Mode = "${{ parameters.Mode }}"
-            WhatIf = [bool]${{ parameters.WhatIf }}
+            WhatIf = $whatIfMode
             Verbose = $true
           }
 
