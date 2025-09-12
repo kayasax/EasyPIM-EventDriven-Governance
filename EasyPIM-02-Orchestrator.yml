@@ -332,3 +332,113 @@ jobs:
         Write-Host "##vso[task.complete result=Succeeded;]$summaryMessage"
 
         Write-Host "✅ EASYPIM PIPELINE COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+
+  # STEP 3: Publish Execution Logs as Artifacts
+  - task: PowerShell@2
+    displayName: '📁 Generate Log Artifacts'
+    condition: always()
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "📁 Generating log artifacts..." -ForegroundColor Cyan
+        
+        # Create logs directory
+        $logsDir = "$(Pipeline.Workspace)/easypim-logs"
+        New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+        
+        # Create summary log file
+        $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
+        $summaryFile = "$logsDir/easypim-execution-summary-$timestamp.log"
+        
+        # Generate detailed execution summary using array approach
+        $mode = "${{ parameters.Mode }}"
+        $whatif = "${{ parameters.WhatIf }}"
+        $serviceConn = "${{ parameters.serviceConnection }}"
+        $pipelineName = "$(Build.DefinitionName)"
+        $buildNumber = "$(Build.BuildNumber)"
+        $buildReason = "$(Build.Reason)"
+        $agentName = "$(Agent.Name)"
+        $sourceBranch = "$(Build.SourceBranch)"
+        $sourceVersion = "$(Build.SourceVersion)"
+        $requestedBy = "$(Build.RequestedFor)"
+        $buildUrl = "$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
+        $keyVault = "$(KEYVAULT_NAME)"
+        $secretName = "$(SECRET_NAME)"
+        $jobStatus = "$(Agent.JobStatus)"
+        $currentTime = Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC'
+        
+        # Build log content as array to avoid here-string issues
+        $logLines = @()
+        $logLines += "============================================================================="
+        $logLines += "EasyPIM Event-Driven Governance - Execution Summary"
+        $logLines += "============================================================================="
+        $logLines += "Pipeline: $pipelineName"
+        $logLines += "Build: $buildNumber"
+        $logLines += "Date: $currentTime"
+        $logLines += "Agent: $agentName"
+        $logLines += ""
+        $logLines += "PARAMETERS:"
+        $logLines += "- Mode: $mode"
+        $logLines += "- WhatIf: $whatif"
+        $logLines += "- Service Connection: $serviceConn"
+        $logLines += "- Key Vault: $keyVault"
+        $logLines += "- Secret Name: $secretName"
+        $logLines += ""
+        $logLines += "PIPELINE DETAILS:"
+        $logLines += "- Trigger: $buildReason"
+        $logLines += "- Source Branch: $sourceBranch"
+        $logLines += "- Source Version: $sourceVersion"
+        $logLines += "- Requested By: $requestedBy"
+        $logLines += "- Build URL: $buildUrl"
+        $logLines += ""
+        $logLines += "EXECUTION CONTEXT:"
+        $logLines += "- Execution Mode: $mode"
+        $logLines += "- What-If Mode: $whatif"
+        $logLines += "- Agent Status: $jobStatus"
+        $logLines += ""
+        $logLines += "ARTIFACTS GENERATED:"
+        $logLines += "- Summary Log: easypim-execution-summary-$timestamp.log"
+        $logLines += "- Metadata File: execution-metadata.json"
+        $logLines += "- Full Pipeline Logs: Available in Azure DevOps pipeline logs"
+        $logLines += "============================================================================="
+        
+        # Write summary to file
+        $logLines -join "`r`n" | Out-File -FilePath $summaryFile -Encoding UTF8
+        Write-Host "✅ Summary log created: $summaryFile" -ForegroundColor Green
+        
+        # Create a metadata file for the execution using hashtable approach
+        $metadataFile = "$logsDir/execution-metadata.json"
+        $metadata = @{
+            PipelineName = $pipelineName
+            BuildNumber = $buildNumber
+            BuildId = "$(Build.BuildId)"
+            Timestamp = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')
+            Parameters = @{
+                Mode = $mode
+                WhatIf = $whatif
+                ServiceConnection = $serviceConn
+                KeyVault = $keyVault
+                SecretName = $secretName
+            }
+            Trigger = $buildReason
+            RequestedBy = $requestedBy
+            SourceBranch = $sourceBranch
+            SourceVersion = $sourceVersion
+        } | ConvertTo-Json -Depth 3
+        
+        $metadata | Out-File -FilePath $metadataFile -Encoding UTF8
+        Write-Host "✅ Metadata file created: $metadataFile" -ForegroundColor Green
+        
+        # List all files created
+        Write-Host "📋 Artifact files created:" -ForegroundColor Yellow
+        Get-ChildItem -Path $logsDir | ForEach-Object {
+            Write-Host "   - $($_.Name)" -ForegroundColor Gray
+        }
+
+  - task: PublishBuildArtifacts@1
+    displayName: '📤 Publish EasyPIM Logs'
+    condition: always()
+    inputs:
+      pathToPublish: '$(Pipeline.Workspace)/easypim-logs'
+      artifactName: 'EasyPIM-Execution-Logs-$(Build.BuildNumber)'
+      publishLocation: 'Container'
