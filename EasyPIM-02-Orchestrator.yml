@@ -20,7 +20,7 @@ parameters:
 - name: WhatIf
   displayName: 'Preview mode - show what would be done without making changes'
   type: boolean
-  default: false
+  default: true
 
 - name: Mode
   displayName: 'Orchestrator execution mode'
@@ -138,7 +138,6 @@ jobs:
             SecretName = "$(SECRET_NAME)"
             Mode = "${{ parameters.Mode }}"
             WhatIf = $whatIfMode
-            Verbose = $true
           }
 
           Write-Host "📋 EasyPIM Parameters:" -ForegroundColor Yellow
