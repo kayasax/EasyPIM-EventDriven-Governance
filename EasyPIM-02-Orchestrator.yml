@@ -47,11 +47,11 @@ variables:
 pool:
   name: 'Default'
 
-name: EasyPIM_Orchestrator_$(Date:yyyyMMdd)_$(Rev:r)
+name: 'EasyPIM_${{ parameters.Mode }}_${{ parameters.WhatIf }}_$(Build.Reason)_$(Date:yyyyMMdd)_$(Rev:r)'
 
 jobs:
 - job: EasyPIMExecution
-  displayName: '🚀 EasyPIM Execution'
+  displayName: 'EasyPIM ${{ parameters.Mode }} ${{ parameters.WhatIf }} - $(Build.Reason)'
   steps:
 
   # STEP 1: Install and Import EasyPIM
@@ -154,6 +154,11 @@ jobs:
 
         # STEP 3: Execute EasyPIM Orchestrator
         Write-Host "🚀 Executing EasyPIM Orchestrator..." -ForegroundColor Cyan
+        
+        # Display execution context
+        $executionMode = if ("${{ parameters.WhatIf }}" -eq "True") { "PREVIEW MODE" } else { "APPLY MODE" }
+        Write-Host "🎯 Execution Mode: ${{ parameters.Mode }} ($executionMode)" -ForegroundColor Magenta
+        Write-Host "🔧 Trigger: $(Build.Reason)" -ForegroundColor Magenta
         
         # Display version information for troubleshooting
         Write-Host "📋 Component Versions:" -ForegroundColor Cyan
