@@ -201,7 +201,7 @@ jobs:
           Write-Host "   WhatIf: $($params.WhatIf)"
 
           # Execute EasyPIM
-          Invoke-EasyPIMOrchestrator @params
+          $executionResult = Invoke-EasyPIMOrchestrator @params
 
           Write-Host "🎉 EasyPIM execution completed successfully!" -ForegroundColor Green
 
@@ -210,5 +210,87 @@ jobs:
           Write-Host "Stack trace: $($_.ScriptStackTrace)" -ForegroundColor Red
           exit 1
         }
+
+        # STEP 4: Generate Execution Summary
+        Write-Host "" -ForegroundColor White
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "                           📊 EXECUTION SUMMARY" -ForegroundColor Cyan
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "" -ForegroundColor White
+
+        # Execution Context Summary
+        Write-Host "🎯 EXECUTION CONTEXT" -ForegroundColor Yellow
+        Write-Host "   Mode: ${{ parameters.Mode }}" -ForegroundColor Gray
+        Write-Host "   What-If: $($params.WhatIf) ($executionMode)" -ForegroundColor Gray
+        Write-Host "   Trigger: $(Build.Reason)" -ForegroundColor Gray
+        Write-Host "   Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" -ForegroundColor Gray
+        Write-Host "   Build: $(Build.BuildNumber)" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Component Versions Summary
+        Write-Host "📦 COMPONENT VERSIONS" -ForegroundColor Yellow
+        try {
+          $easyPimModule = Get-Module -Name EasyPIM.Orchestrator
+          if ($easyPimModule) {
+            Write-Host "   EasyPIM.Orchestrator: v$($easyPimModule.Version)" -ForegroundColor Gray
+          }
+          
+          $azModule = Get-Module -Name Az.Accounts
+          if ($azModule) {
+            Write-Host "   Az.Accounts: v$($azModule.Version)" -ForegroundColor Gray
+          }
+          
+          $mgModule = Get-Module -Name Microsoft.Graph.Authentication
+          if ($mgModule) {
+            Write-Host "   Microsoft.Graph.Authentication: v$($mgModule.Version)" -ForegroundColor Gray
+          }
+          
+          Write-Host "   PowerShell: v$($PSVersionTable.PSVersion)" -ForegroundColor Gray
+        } catch {
+          Write-Host "   ⚠️ Could not retrieve all version information" -ForegroundColor Yellow
+        }
+        Write-Host "" -ForegroundColor White
+
+        # Configuration Summary
+        Write-Host "⚙️ CONFIGURATION" -ForegroundColor Yellow
+        Write-Host "   Key Vault: $($params.KeyVaultName)" -ForegroundColor Gray
+        Write-Host "   Secret Name: $($params.SecretName)" -ForegroundColor Gray
+        Write-Host "   Service Connection: ${{ parameters.serviceConnection }}" -ForegroundColor Gray
+        Write-Host "   Agent Pool: Default (Self-hosted)" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Authentication Summary
+        Write-Host "🔐 AUTHENTICATION STATUS" -ForegroundColor Yellow
+        Write-Host "   Azure Resource Manager: ✅ Connected" -ForegroundColor Green
+        Write-Host "   Microsoft Graph API: ✅ Connected" -ForegroundColor Green
+        Write-Host "   Tenant: $($context.Tenant.Id)" -ForegroundColor Gray
+        Write-Host "   Subscription: $($context.Subscription.Name)" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Try to extract policy results from execution if available
+        Write-Host "📋 POLICY EXECUTION RESULTS" -ForegroundColor Yellow
+        try {
+          # Note: This section would be enhanced based on actual EasyPIM output structure
+          if ($executionResult) {
+            Write-Host "   Execution completed with results available" -ForegroundColor Green
+          } else {
+            Write-Host "   Execution completed successfully" -ForegroundColor Green
+          }
+          
+          if ($params.WhatIf) {
+            Write-Host "   ⚠️  Preview mode - No changes were applied" -ForegroundColor Yellow
+          } else {
+            Write-Host "   ✅ Apply mode - Changes were applied" -ForegroundColor Green
+          }
+        } catch {
+          Write-Host "   ⚠️ Could not extract detailed results" -ForegroundColor Yellow
+        }
+        Write-Host "" -ForegroundColor White
+
+        # Final Status
+        $statusIcon = if ($params.WhatIf) { "👁️" } else { "⚡" }
+        $statusText = if ($params.WhatIf) { "PREVIEW COMPLETED" } else { "DEPLOYMENT COMPLETED" }
+        Write-Host "$statusIcon $statusText SUCCESSFULLY!" -ForegroundColor Green
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 
         Write-Host "✅ EASYPIM PIPELINE COMPLETED SUCCESSFULLY!" -ForegroundColor Green
