@@ -60,19 +60,44 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
-        Write-Host "� EASYPIM WORKING SOLUTION - $(Get-Date)" -ForegroundColor Green
+        Write-Host "🚀 EASYPIM WORKING SOLUTION - $(Get-Date)" -ForegroundColor Green
 
-        # Install EasyPIM.Orchestrator if not present
-        if (-not (Get-Module -ListAvailable -Name EasyPIM.Orchestrator)) {
-          Write-Host "📦 Installing EasyPIM.Orchestrator..." -ForegroundColor Yellow
-          Install-Module -Name EasyPIM.Orchestrator -Force -AllowClobber -Scope CurrentUser
+        # Always update to the latest version of EasyPIM.Orchestrator
+        Write-Host "📦 Updating EasyPIM.Orchestrator to latest version..." -ForegroundColor Yellow
+        
+        # Uninstall any existing versions to ensure clean install
+        $existingModules = Get-Module -ListAvailable -Name EasyPIM.Orchestrator
+        if ($existingModules) {
+          Write-Host "🔄 Found existing EasyPIM.Orchestrator versions:" -ForegroundColor Cyan
+          foreach ($module in $existingModules) {
+            Write-Host "   - Version: $($module.Version) at $($module.ModuleBase)" -ForegroundColor Gray
+          }
+          Write-Host "🗑️ Removing existing versions..." -ForegroundColor Yellow
+          try {
+            Uninstall-Module -Name EasyPIM.Orchestrator -AllVersions -Force -ErrorAction SilentlyContinue
+          } catch {
+            Write-Host "⚠️ Could not uninstall some versions (may be in use): $($_.Exception.Message)" -ForegroundColor Yellow
+          }
         }
-
+        
+        # Install the latest version
+        Write-Host "⬇️ Installing latest EasyPIM.Orchestrator..." -ForegroundColor Yellow
+        Install-Module -Name EasyPIM.Orchestrator -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
+        
         # Import the module
-        Write-Host "� Importing EasyPIM.Orchestrator..." -ForegroundColor Yellow
+        Write-Host "📥 Importing EasyPIM.Orchestrator..." -ForegroundColor Yellow
         Import-Module EasyPIM.Orchestrator -Force
-
-        Write-Host "✅ EasyPIM module ready!" -ForegroundColor Green
+        
+        # Display version information
+        $module = Get-Module -Name EasyPIM.Orchestrator
+        if ($module) {
+          Write-Host "✅ EasyPIM.Orchestrator ready!" -ForegroundColor Green
+          Write-Host "📋 Module Version: $($module.Version)" -ForegroundColor Cyan
+          Write-Host "📋 Module Path: $($module.ModuleBase)" -ForegroundColor Gray
+        } else {
+          Write-Host "❌ Failed to import EasyPIM.Orchestrator!" -ForegroundColor Red
+          exit 1
+        }
 
   # STEP 2: AzurePowerShell Authentication + Graph Token + EasyPIM Execution
   - task: AzurePowerShell@5
@@ -129,6 +154,30 @@ jobs:
 
         # STEP 3: Execute EasyPIM Orchestrator
         Write-Host "🚀 Executing EasyPIM Orchestrator..." -ForegroundColor Cyan
+        
+        # Display version information for troubleshooting
+        Write-Host "📋 Component Versions:" -ForegroundColor Cyan
+        try {
+          $easyPimModule = Get-Module -Name EasyPIM.Orchestrator
+          if ($easyPimModule) {
+            Write-Host "   EasyPIM.Orchestrator: v$($easyPimModule.Version)" -ForegroundColor Gray
+          }
+          
+          $azModule = Get-Module -Name Az.Accounts
+          if ($azModule) {
+            Write-Host "   Az.Accounts: v$($azModule.Version)" -ForegroundColor Gray
+          }
+          
+          $mgModule = Get-Module -Name Microsoft.Graph.Authentication
+          if ($mgModule) {
+            Write-Host "   Microsoft.Graph.Authentication: v$($mgModule.Version)" -ForegroundColor Gray
+          }
+          
+          Write-Host "   PowerShell: v$($PSVersionTable.PSVersion)" -ForegroundColor Gray
+        } catch {
+          Write-Host "⚠️ Could not retrieve all version information" -ForegroundColor Yellow
+        }
+        
         try {
           # Fix boolean parameter handling
           $whatIfMode = "${{ parameters.WhatIf }}" -eq "True"
