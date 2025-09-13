@@ -6,9 +6,9 @@
 [![Event-Driven](https://img.shields.io/badge/Architecture-Event--Driven-green.svg)](https://docs.microsoft.com/en-us/azure/event-grid/)
 [![Zero-Trust](https://img.shields.io/badge/Security-Zero--Trust-red.svg)](https://www.microsoft.com/en-us/security/business/zero-trust)
 
-[![Authentication Test](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-authentication-test.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-authentication-test.yml)
-[![Drift Detection](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-drift-detection.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-drift-detection.yml)
-[![EasyPIM Orchestrator](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-orchestrator.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-orchestrator.yml)
+[![01 - Authentication Test](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-authentication-test.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-authentication-test.yml)
+[![02 - EasyPIM Orchestrator](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-orchestrator.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-orchestrator.yml)
+[![03 - Drift Detection](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-drift-detection.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-drift-detection.yml)
 
 ## 💡 **Transform your PIM management from reactive to proactive with intelligent, event-driven automation and enterprise-grade governance!**
 
