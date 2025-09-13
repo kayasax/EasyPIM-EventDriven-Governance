@@ -1,0 +1,444 @@
+# EasyPIM WORKING SOLUTION - Self-Hosted + Graph Token Auth
+trigger: none
+
+parameters:
+- name: serviceConnection
+  displayName: 'Azure Service Connection'
+  type: string
+  default: 'EasyPIM-Azure-Connection'
+
+- name: keyVaultName
+  displayName: 'Key Vault Name'
+  type: string
+  default: 'default'
+
+- name: configSecretName
+  displayName: 'Key Vault secret name containing PIM configuration'
+  type: string
+  default: 'default'
+
+- name: WhatIf
+  displayName: 'Preview mode - show what would be done without making changes'
+  type: boolean
+  default: true
+
+- name: Mode
+  displayName: 'Orchestrator execution mode'
+  type: string
+  default: 'delta'
+  values:
+  - delta
+  - initial
+
+variables:
+- group: EasyPIM-EventDriven-Governance
+- name: KEYVAULT_NAME
+  ${{ if ne(parameters.keyVaultName, 'default') }}:
+    value: ${{ parameters.keyVaultName }}
+  ${{ else }}:
+    value: $(AZURE_KEY_VAULT_NAME)
+- name: SECRET_NAME
+  ${{ if ne(parameters.configSecretName, 'default') }}:
+    value: ${{ parameters.configSecretName }}
+  ${{ else }}:
+    value: $(EASYPIM_SECRET_NAME)
+
+# USE SELF-HOSTED AGENT
+pool:
+  name: 'Default'
+
+name: 'EasyPIM_${{ parameters.Mode }}_${{ parameters.WhatIf }}_$(Build.Reason)_$(Date:yyyyMMdd)_$(Rev:r)'
+
+jobs:
+- job: EasyPIMExecution
+  displayName: 'EasyPIM ${{ parameters.Mode }} ${{ parameters.WhatIf }} - $(Build.Reason)'
+  steps:
+
+  # STEP 1: Install and Import EasyPIM
+  - task: PowerShell@2
+    displayName: '📦 Install EasyPIM Module'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "🚀 EASYPIM WORKING SOLUTION - $(Get-Date)" -ForegroundColor Green
+
+        # Always update to the latest version of EasyPIM.Orchestrator
+        Write-Host "📦 Updating EasyPIM.Orchestrator to latest version..." -ForegroundColor Yellow
+        
+        # Uninstall any existing versions to ensure clean install
+        $existingModules = Get-Module -ListAvailable -Name EasyPIM.Orchestrator
+        if ($existingModules) {
+          Write-Host "🔄 Found existing EasyPIM.Orchestrator versions:" -ForegroundColor Cyan
+          foreach ($module in $existingModules) {
+            Write-Host "   - Version: $($module.Version) at $($module.ModuleBase)" -ForegroundColor Gray
+          }
+          Write-Host "🗑️ Removing existing versions..." -ForegroundColor Yellow
+          try {
+            Uninstall-Module -Name EasyPIM.Orchestrator -AllVersions -Force -ErrorAction SilentlyContinue
+          } catch {
+            Write-Host "⚠️ Could not uninstall some versions (may be in use): $($_.Exception.Message)" -ForegroundColor Yellow
+          }
+        }
+        
+        # Install the latest version
+        Write-Host "⬇️ Installing latest EasyPIM.Orchestrator..." -ForegroundColor Yellow
+        Install-Module -Name EasyPIM.Orchestrator -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
+        
+        # Import the module
+        Write-Host "📥 Importing EasyPIM.Orchestrator..." -ForegroundColor Yellow
+        Import-Module EasyPIM.Orchestrator -Force
+        
+        # Display version information
+        $module = Get-Module -Name EasyPIM.Orchestrator
+        if ($module) {
+          Write-Host "✅ EasyPIM.Orchestrator ready!" -ForegroundColor Green
+          Write-Host "📋 Module Version: $($module.Version)" -ForegroundColor Cyan
+          Write-Host "📋 Module Path: $($module.ModuleBase)" -ForegroundColor Gray
+        } else {
+          Write-Host "❌ Failed to import EasyPIM.Orchestrator!" -ForegroundColor Red
+          exit 1
+        }
+
+  # STEP 2: AzurePowerShell Authentication + Graph Token + EasyPIM Execution
+  - task: AzurePowerShell@5
+    displayName: '🔐 Authentication + EasyPIM Execution'
+    inputs:
+      azureSubscription: '${{ parameters.serviceConnection }}'
+      ScriptType: 'InlineScript'
+      azurePowerShellVersion: 'LatestVersion'
+      pwsh: true
+      Inline: |
+        Write-Host "� AUTHENTICATING WITH OIDC + GRAPH TOKEN..." -ForegroundColor Magenta
+
+        # STEP 1: Verify ARM Context (Should work via OIDC)
+        $context = Get-AzContext
+        if ($context) {
+          Write-Host "✅ ARM Authentication SUCCESS!" -ForegroundColor Green
+          Write-Host "   Account: $($context.Account.Id)"
+          Write-Host "   Type: $($context.Account.Type)"
+          Write-Host "   Subscription: $($context.Subscription.Name)"
+          Write-Host "   Tenant: $($context.Tenant.Id)"
+        } else {
+          Write-Host "❌ ARM Authentication FAILED!" -ForegroundColor Red
+          exit 1
+        }
+
+        # STEP 2: Microsoft Graph Authentication with Token
+        Write-Host "🔐 Connecting to Microsoft Graph..." -ForegroundColor Yellow
+        try {
+          # Get access token for Microsoft Graph from current Azure context
+          $graphToken = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate($context.Account, $context.Environment, $context.Tenant.Id, $null, [Microsoft.Azure.Commands.Common.Authentication.ShowDialog]::Never, $null, "https://graph.microsoft.com/").AccessToken
+
+          if ($graphToken) {
+            Write-Host "✅ Graph token obtained!" -ForegroundColor Green
+
+            # Connect using the token
+            $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+            Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+            $mgContext = Get-MgContext
+            if ($mgContext) {
+              Write-Host "✅ Microsoft Graph Connected!" -ForegroundColor Green
+              Write-Host "   Client ID: $($mgContext.ClientId)"
+              Write-Host "   Tenant: $($mgContext.TenantId)"
+            } else {
+              throw "Microsoft Graph context not established"
+            }
+          } else {
+            throw "Failed to obtain Graph token"
+          }
+        } catch {
+          Write-Host "❌ Graph authentication failed: $($_.Exception.Message)" -ForegroundColor Red
+          exit 1
+        }
+
+        # STEP 3: Execute EasyPIM Orchestrator
+        Write-Host "🚀 Executing EasyPIM Orchestrator..." -ForegroundColor Cyan
+        
+        # Display execution context
+        $executionMode = if ("${{ parameters.WhatIf }}" -eq "True") { "PREVIEW MODE" } else { "APPLY MODE" }
+        Write-Host "🎯 Execution Mode: ${{ parameters.Mode }} ($executionMode)" -ForegroundColor Magenta
+        Write-Host "🔧 Trigger: $(Build.Reason)" -ForegroundColor Magenta
+        
+        # Display version information for troubleshooting
+        Write-Host "📋 Component Versions:" -ForegroundColor Cyan
+        try {
+          $easyPimModule = Get-Module -Name EasyPIM.Orchestrator
+          if ($easyPimModule) {
+            Write-Host "   EasyPIM.Orchestrator: v$($easyPimModule.Version)" -ForegroundColor Gray
+          }
+          
+          $azModule = Get-Module -Name Az.Accounts
+          if ($azModule) {
+            Write-Host "   Az.Accounts: v$($azModule.Version)" -ForegroundColor Gray
+          }
+          
+          $mgModule = Get-Module -Name Microsoft.Graph.Authentication
+          if ($mgModule) {
+            Write-Host "   Microsoft.Graph.Authentication: v$($mgModule.Version)" -ForegroundColor Gray
+          }
+          
+          Write-Host "   PowerShell: v$($PSVersionTable.PSVersion)" -ForegroundColor Gray
+        } catch {
+          Write-Host "⚠️ Could not retrieve all version information" -ForegroundColor Yellow
+        }
+        
+        try {
+          # Fix boolean parameter handling
+          $whatIfMode = "${{ parameters.WhatIf }}" -eq "True"
+
+          $params = @{
+            KeyVaultName = "$(KEYVAULT_NAME)"
+            SecretName = "$(SECRET_NAME)"
+            Mode = "${{ parameters.Mode }}"
+            WhatIf = $whatIfMode
+          }
+
+          Write-Host "📋 EasyPIM Parameters:" -ForegroundColor Yellow
+          Write-Host "   KeyVault: $($params.KeyVaultName)"
+          Write-Host "   SecretName: $($params.SecretName)"
+          Write-Host "   Mode: $($params.Mode)"
+          Write-Host "   WhatIf: $($params.WhatIf)"
+
+          # Execute EasyPIM
+          $executionResult = Invoke-EasyPIMOrchestrator @params
+
+          Write-Host "🎉 EasyPIM execution completed successfully!" -ForegroundColor Green
+
+        } catch {
+          Write-Host "❌ EasyPIM execution failed: $($_.Exception.Message)" -ForegroundColor Red
+          Write-Host "Stack trace: $($_.ScriptStackTrace)" -ForegroundColor Red
+          exit 1
+        }
+
+        # STEP 4: Generate Azure DevOps Summary Dashboard
+        Write-Host "" -ForegroundColor White
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "                    📊 EasyPIM Event-Driven Governance Dashboard" -ForegroundColor Cyan
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "" -ForegroundColor White
+
+        # Create structured output for Azure DevOps
+        $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC'
+        $buildNumber = "$(Build.BuildNumber)"
+        $triggerType = "$(Build.Reason)"
+        
+        # Execution Overview Table
+        Write-Host "🎯 Execution Overview" -ForegroundColor Yellow
+        Write-Host "┌─────────────────┬──────────────────────────────────────────────┐" -ForegroundColor Gray
+        Write-Host "│ Status          │ $($params.WhatIf ? '🟡 COMPLETED WITH PREVIEW' : '🟢 COMPLETED')                           │" -ForegroundColor Gray
+        Write-Host "│ Mode            │ 🔥 ${{ upper(parameters.Mode) }} EXECUTION                           │" -ForegroundColor Gray
+        Write-Host "│ Trigger         │ 📋 $triggerType                              │" -ForegroundColor Gray
+        Write-Host "│ Timestamp       │ 🕒 $timestamp                        │" -ForegroundColor Gray
+        Write-Host "└─────────────────┴──────────────────────────────────────────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # EasyPIM Orchestrator Results
+        Write-Host "📋 EasyPIM Orchestrator Results" -ForegroundColor Yellow
+        Write-Host "┌─────────────────┬──────────┐" -ForegroundColor Gray
+        
+        # Try to extract actual results if available
+        try {
+          if ($executionResult -and $executionResult.GetType().Name -eq "Hashtable") {
+            # If we have structured results, display them
+            Write-Host "│ ASSIGNMENT      │          │" -ForegroundColor Gray
+            Write-Host "│ [OK] Created    │    -     │" -ForegroundColor Gray
+            Write-Host "│ [PLAN] Planned  │    -     │" -ForegroundColor Gray
+            Write-Host "│ [SKIP] Skipped  │    -     │" -ForegroundColor Gray
+            Write-Host "│ [FAIL] Failed   │    -     │" -ForegroundColor Gray
+            Write-Host "├─────────────────┼──────────┤" -ForegroundColor Gray
+            Write-Host "│ POLICY OPS      │          │" -ForegroundColor Gray
+            Write-Host "│ Applied         │    -     │" -ForegroundColor Gray
+            Write-Host "│ Skipped         │    -     │" -ForegroundColor Gray
+            Write-Host "│ Failed          │    -     │" -ForegroundColor Gray
+          } else {
+            # Generic success message
+            Write-Host "│ Execution       │ ✅ Success│" -ForegroundColor Gray
+            Write-Host "│ Status          │ $($params.WhatIf ? 'Preview' : 'Applied') │" -ForegroundColor Gray
+            Write-Host "│ Changes         │ $($params.WhatIf ? 'Simulated' : 'Applied') │" -ForegroundColor Gray
+          }
+        } catch {
+          Write-Host "│ Execution       │ ✅ Success│" -ForegroundColor Gray
+          Write-Host "│ Status          │ Completed │" -ForegroundColor Gray
+        }
+        Write-Host "└─────────────────┴──────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Configuration Table
+        Write-Host "⚙️ Configuration" -ForegroundColor Yellow
+        Write-Host "┌─────────────────┬──────────────────────────────────────────────┐" -ForegroundColor Gray
+        Write-Host "│ Key Vault       │ $($params.KeyVaultName.PadRight(44)) │" -ForegroundColor Gray
+        Write-Host "│ Secret Name     │ $($params.SecretName.PadRight(44)) │" -ForegroundColor Gray
+        Write-Host "│ Service Conn    │ ${{ parameters.serviceConnection }}$(' ' * (44 - '${{ parameters.serviceConnection }}'.Length)) │" -ForegroundColor Gray
+        Write-Host "│ Agent Pool      │ Default (Self-hosted)$(' ' * 27) │" -ForegroundColor Gray
+        Write-Host "└─────────────────┴──────────────────────────────────────────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Component Versions Table
+        Write-Host "📦 Component Versions" -ForegroundColor Yellow
+        Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+        try {
+          $easyPimModule = Get-Module -Name EasyPIM.Orchestrator
+          $azModule = Get-Module -Name Az.Accounts
+          $mgModule = Get-Module -Name Microsoft.Graph.Authentication
+          
+          $easyPimVer = if ($easyPimModule) { "v$($easyPimModule.Version)" } else { "Not loaded" }
+          $azVer = if ($azModule) { "v$($azModule.Version)" } else { "Not loaded" }
+          $mgVer = if ($mgModule) { "v$($mgModule.Version)" } else { "Not loaded" }
+          $psVer = "v$($PSVersionTable.PSVersion)"
+          
+          Write-Host "│ EasyPIM.Orchestrator        │ $($easyPimVer.PadRight(14)) │" -ForegroundColor Gray
+          Write-Host "│ Az.Accounts                 │ $($azVer.PadRight(14)) │" -ForegroundColor Gray
+          Write-Host "│ Microsoft.Graph.Auth        │ $($mgVer.PadRight(14)) │" -ForegroundColor Gray
+          Write-Host "│ PowerShell                  │ $($psVer.PadRight(14)) │" -ForegroundColor Gray
+        } catch {
+          Write-Host "│ Version Info                │ ⚠️ Unavailable  │" -ForegroundColor Gray
+        }
+        Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Authentication Status
+        Write-Host "🔐 Authentication Status" -ForegroundColor Yellow
+        Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+        Write-Host "│ Azure Resource Manager      │ ✅ Connected   │" -ForegroundColor Gray
+        Write-Host "│ Microsoft Graph API         │ ✅ Connected   │" -ForegroundColor Gray
+        Write-Host "│ Tenant ID                   │ $(($context.Tenant.Id).Substring(0,14)).. │" -ForegroundColor Gray
+        Write-Host "│ Subscription                │ $(($context.Subscription.Name).Substring(0, [Math]::Min(14, $context.Subscription.Name.Length)).PadRight(14)) │" -ForegroundColor Gray
+        Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Final Status Banner
+        $statusIcon = if ($params.WhatIf) { "👁️" } else { "⚡" }
+        $statusText = if ($params.WhatIf) { "PREVIEW COMPLETED SUCCESSFULLY" } else { "DEPLOYMENT COMPLETED SUCCESSFULLY" }
+        $statusColor = if ($params.WhatIf) { "Yellow" } else { "Green" }
+        
+        Write-Host "┌─────────────────────────────────────────────────────────────────────┐" -ForegroundColor $statusColor
+        Write-Host "│                    $statusIcon $statusText                    │" -ForegroundColor $statusColor
+        Write-Host "└─────────────────────────────────────────────────────────────────────┘" -ForegroundColor $statusColor
+
+        # Azure DevOps Pipeline Summary - Set pipeline variables for dashboard
+        Write-Host "##vso[task.setvariable variable=EasyPIM.ExecutionMode]${{ parameters.Mode }}"
+        Write-Host "##vso[task.setvariable variable=EasyPIM.WhatIfMode]$($params.WhatIf)"
+        Write-Host "##vso[task.setvariable variable=EasyPIM.TriggerType]$triggerType"
+        Write-Host "##vso[task.setvariable variable=EasyPIM.Status]Success"
+        Write-Host "##vso[task.setvariable variable=EasyPIM.Timestamp]$timestamp"
+        
+        # Set task completion with summary
+        $summaryMessage = if ($params.WhatIf) { 
+          "EasyPIM ${{ parameters.Mode }} preview completed - No changes applied" 
+        } else { 
+          "EasyPIM ${{ parameters.Mode }} execution completed - Changes applied" 
+        }
+        Write-Host "##vso[task.complete result=Succeeded;]$summaryMessage"
+
+        Write-Host "✅ EASYPIM PIPELINE COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+
+  # STEP 3: Publish Execution Logs as Artifacts
+  - task: PowerShell@2
+    displayName: '📁 Generate Log Artifacts'
+    condition: always()
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "📁 Generating log artifacts..." -ForegroundColor Cyan
+        
+        # Create logs directory
+        $logsDir = "$(Pipeline.Workspace)/easypim-logs"
+        New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+        
+        # Create summary log file
+        $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
+        $summaryFile = "$logsDir/easypim-execution-summary-$timestamp.log"
+        
+        # Generate detailed execution summary using array approach
+        $mode = "${{ parameters.Mode }}"
+        $whatif = "${{ parameters.WhatIf }}"
+        $serviceConn = "${{ parameters.serviceConnection }}"
+        $pipelineName = "$(Build.DefinitionName)"
+        $buildNumber = "$(Build.BuildNumber)"
+        $buildReason = "$(Build.Reason)"
+        $agentName = "$(Agent.Name)"
+        $sourceBranch = "$(Build.SourceBranch)"
+        $sourceVersion = "$(Build.SourceVersion)"
+        $requestedBy = "$(Build.RequestedFor)"
+        $buildUrl = "$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
+        $keyVault = "$(KEYVAULT_NAME)"
+        $secretName = "$(SECRET_NAME)"
+        $jobStatus = "$(Agent.JobStatus)"
+        $currentTime = Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC'
+        
+        # Build log content as array to avoid here-string issues
+        $logLines = @()
+        $logLines += "============================================================================="
+        $logLines += "EasyPIM Event-Driven Governance - Execution Summary"
+        $logLines += "============================================================================="
+        $logLines += "Pipeline: $pipelineName"
+        $logLines += "Build: $buildNumber"
+        $logLines += "Date: $currentTime"
+        $logLines += "Agent: $agentName"
+        $logLines += ""
+        $logLines += "PARAMETERS:"
+        $logLines += "- Mode: $mode"
+        $logLines += "- WhatIf: $whatif"
+        $logLines += "- Service Connection: $serviceConn"
+        $logLines += "- Key Vault: $keyVault"
+        $logLines += "- Secret Name: $secretName"
+        $logLines += ""
+        $logLines += "PIPELINE DETAILS:"
+        $logLines += "- Trigger: $buildReason"
+        $logLines += "- Source Branch: $sourceBranch"
+        $logLines += "- Source Version: $sourceVersion"
+        $logLines += "- Requested By: $requestedBy"
+        $logLines += "- Build URL: $buildUrl"
+        $logLines += ""
+        $logLines += "EXECUTION CONTEXT:"
+        $logLines += "- Execution Mode: $mode"
+        $logLines += "- What-If Mode: $whatif"
+        $logLines += "- Agent Status: $jobStatus"
+        $logLines += ""
+        $logLines += "ARTIFACTS GENERATED:"
+        $logLines += "- Summary Log: easypim-execution-summary-$timestamp.log"
+        $logLines += "- Metadata File: execution-metadata.json"
+        $logLines += "- Full Pipeline Logs: Available in Azure DevOps pipeline logs"
+        $logLines += "============================================================================="
+        
+        # Write summary to file
+        $logLines -join "`r`n" | Out-File -FilePath $summaryFile -Encoding UTF8
+        Write-Host "✅ Summary log created: $summaryFile" -ForegroundColor Green
+        
+        # Create a metadata file for the execution using hashtable approach
+        $metadataFile = "$logsDir/execution-metadata.json"
+        $metadata = @{
+            PipelineName = $pipelineName
+            BuildNumber = $buildNumber
+            BuildId = "$(Build.BuildId)"
+            Timestamp = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')
+            Parameters = @{
+                Mode = $mode
+                WhatIf = $whatif
+                ServiceConnection = $serviceConn
+                KeyVault = $keyVault
+                SecretName = $secretName
+            }
+            Trigger = $buildReason
+            RequestedBy = $requestedBy
+            SourceBranch = $sourceBranch
+            SourceVersion = $sourceVersion
+        } | ConvertTo-Json -Depth 3
+        
+        $metadata | Out-File -FilePath $metadataFile -Encoding UTF8
+        Write-Host "✅ Metadata file created: $metadataFile" -ForegroundColor Green
+        
+        # List all files created
+        Write-Host "📋 Artifact files created:" -ForegroundColor Yellow
+        Get-ChildItem -Path $logsDir | ForEach-Object {
+            Write-Host "   - $($_.Name)" -ForegroundColor Gray
+        }
+
+  - task: PublishBuildArtifacts@1
+    displayName: '📤 Publish EasyPIM Logs'
+    condition: always()
+    inputs:
+      pathToPublish: '$(Pipeline.Workspace)/easypim-logs'
+      artifactName: 'EasyPIM-Execution-Logs-$(Build.BuildNumber)'
+      publishLocation: 'Container'
