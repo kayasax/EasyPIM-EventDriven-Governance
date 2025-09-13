@@ -6,6 +6,10 @@
 [![Event-Driven](https://img.shields.io/badge/Architecture-Event--Driven-green.svg)](https://docs.microsoft.com/en-us/azure/event-grid/)
 [![Zero-Trust](https://img.shields.io/badge/Security-Zero--Trust-red.svg)](https://www.microsoft.com/en-us/security/business/zero-trust)
 
+[![Authentication Test](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-authentication-test.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-authentication-test.yml)
+[![Drift Detection](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-drift-detection.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-drift-detection.yml)
+[![EasyPIM Orchestrator](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-orchestrator.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-orchestrator.yml)
+
 > **Transform your PIM management from reactive to proactive with intelligent, event-driven automation and enterprise-grade governance!**
 
 This repository delivers a **complete event-driven governance platform** that automatically manages Azure PIM (Privileged Identity Management) configurations through intelligent CI/CD pipelines. Built with **enterprise security**, **business rule validation**, and **real-time monitoring** - supporting both GitHub Actions and Azure DevOps for maximum flexibility.
@@ -97,7 +101,7 @@ Configuration Change → Business Rules Engine → Validation Report → Approva
 
 ### **🟢 GitHub Actions Integration**
 - **🔐 OIDC Authentication** - Federated identity, zero secrets
-- **🎯 Matrix Deployments** - Multi-environment support  
+- **🎯 Matrix Deployments** - Multi-environment support
 - **📊 Rich Dashboards** - Beautiful step summaries with tables and charts
 - **🔄 Event Triggers** - Webhook integration with Azure Event Grid
 - **📦 Artifact Management** - Comprehensive logging and reporting
@@ -131,7 +135,7 @@ Our platform delivers **enterprise-grade dashboards** with comprehensive insight
 ```yaml
 Dashboard Features:
 ├── 📊 Step Summary Tables - Policy counts, validation results, timing metrics
-├── 🎯 Rich Markdown Reports - Formatted drift analysis with policy details  
+├── 🎯 Rich Markdown Reports - Formatted drift analysis with policy details
 ├── 🔍 Interactive Artifacts - Downloadable JSON reports and logs
 ├── ⚡ Real-time Progress - Live step execution with detailed logging
 └── 🎨 Custom Badges - Status indicators and compliance metrics
@@ -142,7 +146,7 @@ Dashboard Features:
 Professional Features:
 ├── 📋 Pipeline Analytics - Execution trends, success rates, duration analysis
 ├── 🛡️ Security Compliance - Policy validation reports, security baselines
-├── 📊 Custom Widgets - KPI displays, policy coverage, drift statistics  
+├── 📊 Custom Widgets - KPI displays, policy coverage, drift statistics
 ├── 🔄 Integration Dashboards - Work items, test results, deployment stages
 └── 📈 Executive Reporting - High-level summaries for stakeholder updates
 ```
@@ -163,7 +167,7 @@ Professional Features:
 ```
 📋 Policy Drift Analysis - 15 Policies Checked
 ├── ✅ 12 Compliant - No action required
-├── ⚠️  2 Minor Drift - Auto-remediation available  
+├── ⚠️  2 Minor Drift - Auto-remediation available
 └── ❌ 1 Critical Drift - Manual review required
 
 🎯 Compliance Rate: 93.3% (Target: >95%)
@@ -182,7 +186,7 @@ Professional Features:
 │
 ├── 📂 .github/workflows/           # GitHub Actions Templates
 │   ├── 01-test-authentication.yml       # OIDC authentication validation
-│   ├── easypim-orchestrator.yml         # Main orchestrator workflow  
+│   ├── easypim-orchestrator.yml         # Main orchestrator workflow
 │   └── easypim-drift-detection.yml      # Policy drift detection
 │
 ├── 📂 templates/                   # Azure DevOps Templates
@@ -194,7 +198,7 @@ Professional Features:
 │   ├── deploy-azure-resources.ps1           # Deployment automation
 │   ├── deploy-azure-resources.parameters.json # Configuration parameters
 │   ├── grant-subscription-owner.ps1         # Permission management
-│   ├── grant-required-permissions.ps1       # Fine-grained permissions  
+│   ├── grant-required-permissions.ps1       # Fine-grained permissions
 │   ├── configure-github-cicd.ps1            # GitHub integration setup
 │   ├── Invoke-OrchestratorWorkflow.ps1      # Manual execution helper
 │   └── 📂 workflows/                        # Advanced workflow scripts
@@ -205,30 +209,30 @@ Professional Features:
 
 ---
 
-## 🏆 **Enterprise Features & ROI**
+## 🏆 **Enterprise Features & Benefits**
 
 ### **💼 Business Value Proposition**
 
-| **Feature Category** | **Capability** | **ROI Impact** |
-|-----------------------|----------------|----------------|
-| **🤖 Automation** | 95% reduction in manual tasks | **$50K+ annual savings** |
-| **🛡️ Security** | Zero-trust, OIDC authentication | **Risk reduction by 80%** |
-| **📊 Compliance** | Real-time drift detection | **Audit readiness 24/7** |
-| **⚡ Speed** | 10-minute deployments | **80% faster than manual** |
-| **🎯 Accuracy** | Business rules validation | **99.9% configuration accuracy** |
+| **Feature Category** | **Capability** | **Potential Benefits** |
+|-----------------------|----------------|------------------------|
+| **🤖 Automation** | Eliminates manual PIM configuration tasks | Significant time savings and reduced human error |
+| **🛡️ Security** | Zero-trust, OIDC authentication | Enhanced security posture with no stored secrets |
+| **📊 Compliance** | Real-time drift detection | Continuous compliance monitoring and alerting |
+| **⚡ Speed** | Automated deployments | Faster deployment cycles vs manual processes |
+| **🎯 Accuracy** | Business rules validation | Consistent policy application and error prevention |
 
-### **🎖️ Enterprise Certifications**
-- ✅ **SOC 2 Type II** - Security and availability controls
-- ✅ **ISO 27001** - Information security management  
-- ✅ **NIST Framework** - Cybersecurity framework compliance
-- ✅ **Zero Trust** - Microsoft Zero Trust architecture
-- ✅ **Well-Architected** - Azure Well-Architected Framework
+### **🎖️ Architecture Standards**
+- 🏗️ **Azure Well-Architected** - Following Microsoft's best practices
+- 🛡️ **Zero Trust** - Implementing zero trust security principles
+- 📊 **NIST Framework** - Aligned with cybersecurity framework guidelines
+- 🔐 **OIDC Standards** - Modern authentication using industry standards
+- 📝 **GitOps Practices** - Infrastructure and configuration as code
 
 ---
 
 ## 🚀 **Quick Start Guide**
 
-### **⚡ One-Click Setup** 
+### **⚡ One-Click Setup**
 ```powershell
 # Download and run the setup wizard
 .\setup-platform.ps1
@@ -240,7 +244,7 @@ Choose your preferred CI/CD platform:
 
 #### **Option 1: GitHub Actions** (Recommended for simplicity)
 - ✅ Faster setup (5 minutes)
-- ✅ Beautiful dashboards  
+- ✅ Beautiful dashboards
 - ✅ OIDC authentication
 - ✅ Lower costs
 
@@ -274,7 +278,7 @@ Choose your preferred CI/CD platform:
 ### **🏢 Enterprise Support**
 For enterprise customers requiring additional support:
 - **🎯 Professional Services** - Implementation assistance
-- **🛡️ Priority Support** - Dedicated support channels  
+- **🛡️ Priority Support** - Dedicated support channels
 - **📊 Custom Dashboards** - Tailored reporting solutions
 - **🔄 Integration Services** - Custom workflow development
 
@@ -299,13 +303,15 @@ We welcome contributions! Please see our contributing guidelines:
 
 ---
 
-## 📞 **Contact & Support**
+## 🆘 **Support**
 
-- **📧 Email**: [support@easypim.com](mailto:support@easypim.com)
-- **💬 Discord**: [EasyPIM Community](https://discord.gg/easypim)
-- **🐙 GitHub**: [Issues & Discussions](https://github.com/easypim/issues)
-- **📱 LinkedIn**: [EasyPIM Updates](https://linkedin.com/company/easypim)
+For support, questions, or feature requests, please use the **GitHub Issues** feature:
+
+- **� Bug Reports**: [Create an Issue](../../issues/new?template=bug_report.md) to report problems
+- **� Feature Requests**: [Request a Feature](../../issues/new?template=feature_request.md) for new functionality
+- **❓ Questions**: [Start a Discussion](../../discussions) for general questions and help
+- **� Documentation**: Check existing issues and documentation before creating new ones
 
 ---
 
-*Built with ❤️ by the EasyPIM team. Empowering organizations with event-driven governance and zero-trust security.*
+*Built with ❤️ by the EasyPIM community. Empowering organizations with event-driven governance and zero-trust security.*
