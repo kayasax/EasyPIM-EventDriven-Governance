@@ -1,0 +1,216 @@
+name: "01 - Authentication Test"
+
+on:
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: 'Enable verbose output'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read    # Required for repository access
+
+env:
+  # These should be configured as repository secrets or variables
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  KEYVAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME || 'kv-easypim-default' }}
+
+jobs:
+  authentication-test:
+    name: "🔐 Authentication Test"
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: "📥 Checkout Repository"
+        uses: actions/checkout@v4
+
+      - name: "🔐 Azure Login (OIDC)"
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: "📋 Verify Azure Context"
+        shell: pwsh
+        run: |
+          Write-Host "🔍 Verifying Azure authentication..." -ForegroundColor Yellow
+          
+          # Check Azure CLI context
+          $context = az account show --query '{subscriptionId:id, tenantId:tenantId, name:name}' -o json | ConvertFrom-Json
+          
+          if ($context) {
+            Write-Host "✅ Azure CLI Authentication SUCCESS!" -ForegroundColor Green
+            Write-Host "   Subscription: $($context.name)" -ForegroundColor White
+            Write-Host "   Subscription ID: $($context.subscriptionId)" -ForegroundColor White
+            Write-Host "   Tenant ID: $($context.tenantId)" -ForegroundColor White
+          } else {
+            Write-Host "❌ Azure CLI Authentication FAILED!" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: "🔑 Test Key Vault Access"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host "🔑 Testing Key Vault access..." -ForegroundColor Yellow
+          Write-Host "   Key Vault: $env:KEYVAULT_NAME" -ForegroundColor Cyan
+          
+          try {
+            # Test Key Vault access
+            $secretsJson = az keyvault secret list --vault-name $env:KEYVAULT_NAME --query '[].{Name:name}' -o json
+            
+            if ($secretsJson -and $secretsJson -ne "[]" -and $secretsJson -ne "null") {
+              $secrets = $secretsJson | ConvertFrom-Json
+              Write-Host "✅ Key Vault access SUCCESS!" -ForegroundColor Green
+              Write-Host "   Available secrets: $($secrets.Count)" -ForegroundColor White
+              
+              if ($false) {
+                Write-Host "   Secret names:" -ForegroundColor Cyan
+                $secrets | ForEach-Object { Write-Host "     - $($_.Name)" -ForegroundColor Gray }
+              }
+            } else {
+              Write-Host "⚠️ Key Vault accessible but no secrets found" -ForegroundColor Yellow
+            }
+            
+            # Explicit success
+            Write-Host "🔑 Key Vault test completed successfully" -ForegroundColor Green
+            exit 0
+          } catch {
+            Write-Host "❌ Key Vault access FAILED!" -ForegroundColor Red
+            Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: "🔐 Install PowerShell Modules"
+        shell: pwsh
+        run: |
+          Write-Host "📦 Installing required PowerShell modules..." -ForegroundColor Yellow
+          
+          $modules = @(
+            'Microsoft.Graph.Authentication',
+            'EasyPIM.Orchestrator'
+          )
+          
+          foreach ($module in $modules) {
+            Write-Host "   Installing: $module" -ForegroundColor Cyan
+            Install-Module -Name $module -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
+            Import-Module -Name $module -Force
+          }
+          
+          Write-Host "✅ PowerShell modules ready!" -ForegroundColor Green
+
+      - name: "📊 Test Microsoft Graph Authentication"
+        shell: pwsh
+        run: |
+          Write-Host "🔐 Testing Microsoft Graph authentication..." -ForegroundColor Yellow
+          
+          try {
+            # Get access token using Azure CLI (which uses OIDC)
+            $graphToken = az account get-access-token --resource "https://graph.microsoft.com/" --query "accessToken" -o tsv
+            
+            if ($graphToken) {
+              Write-Host "✅ Graph token obtained!" -ForegroundColor Green
+              
+              # Test connecting to Microsoft Graph
+              $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+              Connect-MgGraph -AccessToken $secureToken -NoWelcome
+              
+              $context = Get-MgContext
+              if ($context) {
+                Write-Host "✅ Microsoft Graph Connected!" -ForegroundColor Green
+                Write-Host "   Client ID: $($context.ClientId)" -ForegroundColor White
+                Write-Host "   Tenant ID: $($context.TenantId)" -ForegroundColor White
+                Write-Host "   Scopes: $($context.Scopes -join ', ')" -ForegroundColor White
+              } else {
+                throw "Microsoft Graph context not established"
+              }
+            } else {
+              throw "Failed to obtain Graph token"
+            }
+          } catch {
+            Write-Host "❌ Microsoft Graph authentication FAILED!" -ForegroundColor Red
+            Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: "🎯 Test EasyPIM Module"
+        shell: pwsh
+        run: |
+          Write-Host "🎯 Testing EasyPIM.Orchestrator module..." -ForegroundColor Yellow
+          
+          try {
+            # Check if EasyPIM module is properly loaded
+            $module = Get-Module -Name EasyPIM.Orchestrator
+            if ($module) {
+              Write-Host "✅ EasyPIM.Orchestrator loaded!" -ForegroundColor Green
+              Write-Host "   Version: $($module.Version)" -ForegroundColor White
+              Write-Host "   Module Path: $($module.ModuleBase)" -ForegroundColor Gray
+              
+              # List available commands
+              $commands = Get-Command -Module EasyPIM.Orchestrator
+              Write-Host "   Available commands: $($commands.Count)" -ForegroundColor White
+              
+              if ($false) {
+                Write-Host "   Command list:" -ForegroundColor Cyan
+                $commands | ForEach-Object { Write-Host "     - $($_.Name)" -ForegroundColor Gray }
+              }
+              
+              # Check for key commands
+              $keyCommands = @('Invoke-EasyPIMOrchestrator', 'Test-PIMPolicyDrift')
+              foreach ($cmd in $keyCommands) {
+                if (Get-Command -Name $cmd -ErrorAction SilentlyContinue) {
+                  Write-Host "   ✅ $cmd available" -ForegroundColor Green
+                } else {
+                  Write-Host "   ⚠️ $cmd not found" -ForegroundColor Yellow
+                }
+              }
+            } else {
+              throw "EasyPIM.Orchestrator module not loaded"
+            }
+          } catch {
+            Write-Host "❌ EasyPIM module test FAILED!" -ForegroundColor Red
+            Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: "📋 Authentication Summary"
+        shell: pwsh
+        run: |
+          Write-Host "" -ForegroundColor White
+          Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+          Write-Host "                    🔐 EasyPIM Authentication Test Results" -ForegroundColor Cyan
+          Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+          Write-Host "" -ForegroundColor White
+          
+          Write-Host "🎯 Test Summary" -ForegroundColor Yellow
+          Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+          Write-Host "│ Azure OIDC Authentication   │ ✅ PASSED      │" -ForegroundColor Gray
+          Write-Host "│ Key Vault Access            │ ✅ PASSED      │" -ForegroundColor Gray
+          Write-Host "│ Microsoft Graph Token       │ ✅ PASSED      │" -ForegroundColor Gray
+          Write-Host "│ EasyPIM Module              │ ✅ PASSED      │" -ForegroundColor Gray
+          Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+          Write-Host "" -ForegroundColor White
+          
+          Write-Host "⚙️ Configuration" -ForegroundColor Yellow
+          Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+          Write-Host "│ Repository                  │ ${{ github.repository }}" -ForegroundColor Gray
+          Write-Host "│ Key Vault                   │ $env:KEYVAULT_NAME" -ForegroundColor Gray
+          Write-Host "│ Tenant ID                   │ $env:AZURE_TENANT_ID" -ForegroundColor Gray
+          Write-Host "│ Subscription ID             │ $env:AZURE_SUBSCRIPTION_ID" -ForegroundColor Gray
+          Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+          Write-Host "" -ForegroundColor White
+          
+          Write-Host "🎉 SUCCESS: Your EasyPIM authentication is properly configured!" -ForegroundColor Green
+          Write-Host "   You can now run the main EasyPIM workflows with confidence." -ForegroundColor White
+          Write-Host "" -ForegroundColor White
+          
+          Write-Host "🚀 Next Steps:" -ForegroundColor Yellow
+          Write-Host "• Run 'EasyPIM Orchestrator' workflow for PIM management" -ForegroundColor White
+          Write-Host "• Run 'EasyPIM Drift Detection' workflow for compliance monitoring" -ForegroundColor White
+          Write-Host "• Configure scheduled runs for automated governance" -ForegroundColor White
