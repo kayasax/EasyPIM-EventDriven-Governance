@@ -10,7 +10,7 @@
 [![Drift Detection](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-drift-detection.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-drift-detection.yml)
 [![EasyPIM Orchestrator](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-orchestrator.yml/badge.svg)](https://github.com/kayasax/EasyPIM-EventDriven-Governance/actions/workflows/easypim-orchestrator.yml)
 
-> **Transform your PIM management from reactive to proactive with intelligent, event-driven automation and enterprise-grade governance!**
+## 💡 **Transform your PIM management from reactive to proactive with intelligent, event-driven automation and enterprise-grade governance!**
 
 This repository delivers a **complete event-driven governance platform** that automatically manages Azure PIM (Privileged Identity Management) configurations through intelligent CI/CD pipelines. Built with **enterprise security**, **business rule validation**, and **real-time monitoring** - supporting both GitHub Actions and Azure DevOps for maximum flexibility.
 
