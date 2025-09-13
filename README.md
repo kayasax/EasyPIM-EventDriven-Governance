@@ -275,13 +275,6 @@ Choose your preferred CI/CD platform:
 - **Enterprise Integration** - SIEM, monitoring, alerting
 - **API Extensions** - Custom workflows and integrations
 
-### **🏢 Enterprise Support**
-For enterprise customers requiring additional support:
-- **🎯 Professional Services** - Implementation assistance
-- **🛡️ Priority Support** - Dedicated support channels
-- **📊 Custom Dashboards** - Tailored reporting solutions
-- **🔄 Integration Services** - Custom workflow development
-
 ---
 
 ## 📄 **License & Contributing**
@@ -314,4 +307,5 @@ For support, questions, or feature requests, please use the **GitHub Issues** fe
 
 ---
 
-*Built with ❤️ by the EasyPIM community. Empowering organizations with event-driven governance and zero-trust security.*
+*Built with ❤️ for Azure asdministrators community.  
+Loïc*
