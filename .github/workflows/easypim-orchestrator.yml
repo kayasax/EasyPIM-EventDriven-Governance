@@ -195,6 +195,8 @@ jobs:
 
           # Try to create a summary JSON for the dashboard (this will depend on EasyPIM's output capabilities)
           try {
+            # TODO: These counters should be populated by parsing EasyPIM output logs
+            # For now, providing placeholder structure until EasyPIM module provides structured output
             $summaryData = @{
               "Status" = "Success"
               "ExecutionTime" = $executionTime
@@ -202,6 +204,28 @@ jobs:
               "EndTime" = $endTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
               "Parameters" = $params
               "Mode" = if ($params.WhatIf) { "Preview" } else { "Applied" }
+              "TotalProcessed" = "N/A"
+              "Policies" = @{
+                "Processed" = "N/A"
+                "Created" = "N/A" 
+                "Updated" = "N/A"
+                "Removed" = "N/A"
+                "Errors" = "N/A"
+              }
+              "Assignments" = @{
+                "Processed" = "N/A"
+                "Created" = "N/A"
+                "Updated" = "N/A" 
+                "Removed" = "N/A"
+                "Errors" = "N/A"
+              }
+              "Groups" = @{
+                "Processed" = "N/A"
+                "Created" = "N/A"
+                "Updated" = "N/A"
+                "Removed" = "N/A" 
+                "Errors" = "N/A"
+              }
             }
 
             $summaryData | ConvertTo-Json -Depth 3 | Out-File -FilePath "./easypim-summary.json" -Encoding utf8
