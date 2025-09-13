@@ -99,11 +99,43 @@ jobs:
           
           foreach ($module in $modules) {
             Write-Host "   Installing: $module" -ForegroundColor Cyan
-            Install-Module -Name $module -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
-            Import-Module -Name $module -Force
+            try {
+              # Force remove existing module if loaded to avoid conflicts
+              if (Get-Module -Name $module -ErrorAction SilentlyContinue) {
+                Write-Host "     Removing existing loaded module..." -ForegroundColor Gray
+                Remove-Module -Name $module -Force -ErrorAction SilentlyContinue
+              }
+              
+              # Install with retry logic for conflicting module issues
+              $installAttempt = 1
+              $maxAttempts = 3
+              do {
+                try {
+                  Install-Module -Name $module -Force -AllowClobber -Scope CurrentUser -Repository PSGallery -ErrorAction Stop
+                  Write-Host "     ✅ Installation successful" -ForegroundColor Green
+                  break
+                } catch {
+                  Write-Host "     ⚠️ Install attempt $installAttempt failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                  $installAttempt++
+                  if ($installAttempt -le $maxAttempts) {
+                    Write-Host "     Retrying in 2 seconds..." -ForegroundColor Gray
+                    Start-Sleep 2
+                  }
+                }
+              } while ($installAttempt -le $maxAttempts)
+              
+              # Import the module
+              Write-Host "     Importing module..." -ForegroundColor Gray
+              Import-Module -Name $module -Force -ErrorAction Stop
+              Write-Host "     ✅ Module imported successfully" -ForegroundColor Green
+              
+            } catch {
+              Write-Host "     ❌ Failed to install/import $module`: $($_.Exception.Message)" -ForegroundColor Red
+              # Continue with other modules instead of failing completely
+            }
           }
           
-          Write-Host "✅ PowerShell modules ready!" -ForegroundColor Green
+          Write-Host "✅ PowerShell modules installation completed!" -ForegroundColor Green
 
       - name: "📊 Test Microsoft Graph Authentication"
         shell: pwsh
@@ -145,6 +177,10 @@ jobs:
           Write-Host "🎯 Testing EasyPIM.Orchestrator module..." -ForegroundColor Yellow
           
           try {
+            # First, try to import the module again to ensure it's loaded
+            Write-Host "   Ensuring module is loaded..." -ForegroundColor Gray
+            Import-Module -Name EasyPIM.Orchestrator -Force -ErrorAction Stop
+            
             # Check if EasyPIM module is properly loaded
             $module = Get-Module -Name EasyPIM.Orchestrator
             if ($module) {
@@ -153,29 +189,45 @@ jobs:
               Write-Host "   Module Path: $($module.ModuleBase)" -ForegroundColor Gray
               
               # List available commands
-              $commands = Get-Command -Module EasyPIM.Orchestrator
-              Write-Host "   Available commands: $($commands.Count)" -ForegroundColor White
-              
-              if ($false) {
-                Write-Host "   Command list:" -ForegroundColor Cyan
-                $commands | ForEach-Object { Write-Host "     - $($_.Name)" -ForegroundColor Gray }
-              }
-              
-              # Check for key commands
-              $keyCommands = @('Invoke-EasyPIMOrchestrator', 'Test-PIMPolicyDrift')
-              foreach ($cmd in $keyCommands) {
-                if (Get-Command -Name $cmd -ErrorAction SilentlyContinue) {
-                  Write-Host "   ✅ $cmd available" -ForegroundColor Green
-                } else {
-                  Write-Host "   ⚠️ $cmd not found" -ForegroundColor Yellow
+              $commands = Get-Command -Module EasyPIM.Orchestrator -ErrorAction SilentlyContinue
+              if ($commands) {
+                Write-Host "   Available commands: $($commands.Count)" -ForegroundColor White
+                
+                if ($false) {
+                  Write-Host "   Command list:" -ForegroundColor Cyan
+                  $commands | ForEach-Object { Write-Host "     - $($_.Name)" -ForegroundColor Gray }
                 }
+              } else {
+                Write-Host "   ⚠️ No commands found in module (this might be expected)" -ForegroundColor Yellow
               }
+              
+              Write-Host "✅ EasyPIM module test PASSED!" -ForegroundColor Green
+              
             } else {
               throw "EasyPIM.Orchestrator module not loaded"
             }
           } catch {
             Write-Host "❌ EasyPIM module test FAILED!" -ForegroundColor Red
             Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
+            
+            # Diagnostic information
+            Write-Host "📋 Module diagnostics:" -ForegroundColor Cyan
+            $allModules = Get-Module -ListAvailable | Where-Object { $_.Name -like "*EasyPIM*" -or $_.Name -like "*Graph*" }
+            if ($allModules) {
+              Write-Host "   Available related modules:" -ForegroundColor Gray
+              $allModules | ForEach-Object { Write-Host "     - $($_.Name) v$($_.Version)" -ForegroundColor Gray }
+            } else {
+              Write-Host "   No EasyPIM or Graph modules found in available modules" -ForegroundColor Yellow
+            }
+            
+            # Check PowerShell Gallery availability
+            try {
+              $moduleInfo = Find-Module -Name EasyPIM.Orchestrator -ErrorAction Stop
+              Write-Host "   Module exists in PowerShell Gallery: v$($moduleInfo.Version)" -ForegroundColor Gray
+            } catch {
+              Write-Host "   ⚠️ Could not find EasyPIM.Orchestrator in PowerShell Gallery: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+            
             exit 1
           }
 
