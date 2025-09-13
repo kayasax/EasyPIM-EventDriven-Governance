@@ -156,7 +156,7 @@ jobs:
               $commands = Get-Command -Module EasyPIM.Orchestrator
               Write-Host "   Available commands: $($commands.Count)" -ForegroundColor White
               
-              if (${{ inputs.verbose }}) {
+              if ($false) {
                 Write-Host "   Command list:" -ForegroundColor Cyan
                 $commands | ForEach-Object { Write-Host "     - $($_.Name)" -ForegroundColor Gray }
               }
