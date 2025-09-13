@@ -62,9 +62,10 @@ jobs:
           
           try {
             # Test Key Vault access
-            $secrets = az keyvault secret list --vault-name $env:KEYVAULT_NAME --query '[].{Name:name}' -o json | ConvertFrom-Json
+            $secretsJson = az keyvault secret list --vault-name $env:KEYVAULT_NAME --query '[].{Name:name}' -o json
             
-            if ($secrets) {
+            if ($secretsJson -and $secretsJson -ne "[]" -and $secretsJson -ne "null") {
+              $secrets = $secretsJson | ConvertFrom-Json
               Write-Host "✅ Key Vault access SUCCESS!" -ForegroundColor Green
               Write-Host "   Available secrets: $($secrets.Count)" -ForegroundColor White
               
@@ -75,6 +76,9 @@ jobs:
             } else {
               Write-Host "⚠️ Key Vault accessible but no secrets found" -ForegroundColor Yellow
             }
+            
+            # Explicit success
+            Write-Host "🔑 Key Vault test completed successfully" -ForegroundColor Green
           } catch {
             Write-Host "❌ Key Vault access FAILED!" -ForegroundColor Red
             Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
