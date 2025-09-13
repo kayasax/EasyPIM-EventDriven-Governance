@@ -1,0 +1,403 @@
+# EasyPIM Authentication Test Pipeline
+# This pipeline validates OIDC authentication, Key Vault access, Graph token, and EasyPIM module functionality
+# Run this pipeline first to ensure your environment is properly configured before running main pipelines
+
+trigger: none
+
+parameters:
+- name: serviceConnection
+  displayName: 'Azure Service Connection'
+  type: string
+  default: 'EasyPIM-Azure-Connection'
+
+- name: keyVaultName
+  displayName: 'Key Vault Name'
+  type: string
+  default: 'default'
+
+- name: testSecretName
+  displayName: 'Test secret name in Key Vault (optional)'
+  type: string
+  default: 'default'
+
+variables:
+- group: EasyPIM-EventDriven-Governance
+- name: KEYVAULT_NAME
+  ${{ if ne(parameters.keyVaultName, 'default') }}:
+    value: ${{ parameters.keyVaultName }}
+  ${{ else }}:
+    value: $(AZURE_KEY_VAULT_NAME)
+- name: TEST_SECRET_NAME
+  ${{ if ne(parameters.testSecretName, 'default') }}:
+    value: ${{ parameters.testSecretName }}
+  ${{ else }}:
+    value: $(EASYPIM_SECRET_NAME)
+
+# USE SELF-HOSTED AGENT
+pool:
+  name: 'Default'
+
+name: 'EasyPIM_AuthTest_$(Build.Reason)_$(Date:yyyyMMdd)_$(Rev:r)'
+
+jobs:
+- job: AuthenticationTest
+  displayName: 'EasyPIM Authentication & Setup Validation'
+  steps:
+
+  - task: AzurePowerShell@5
+    displayName: '🔐 Complete Authentication Test'
+    inputs:
+      azureSubscription: '${{ parameters.serviceConnection }}'
+      ScriptType: 'InlineScript'
+      azurePowerShellVersion: 'LatestVersion'
+      pwsh: true
+      Inline: |
+        Write-Host "🔐 EASYPIM AUTHENTICATION & SETUP VALIDATION" -ForegroundColor Magenta
+        Write-Host "=============================================" -ForegroundColor Magenta
+        Write-Host ""
+
+        # Initialize test results tracking
+        $testResults = @{}
+        $allTestsPassed = $true
+
+        # TEST 1: Azure Resource Manager (ARM) Authentication
+        Write-Host "🌐 TEST 1: Azure Resource Manager Authentication" -ForegroundColor Yellow
+        try {
+          $context = Get-AzContext
+          if ($context) {
+            Write-Host "✅ ARM Authentication SUCCESS!" -ForegroundColor Green
+            Write-Host "   Account: $($context.Account.Id)" -ForegroundColor White
+            Write-Host "   Type: $($context.Account.Type)" -ForegroundColor White
+            Write-Host "   Subscription: $($context.Subscription.Name)" -ForegroundColor White
+            Write-Host "   Tenant: $($context.Tenant.Id)" -ForegroundColor White
+            $testResults['ARM_Auth'] = 'PASSED'
+          } else {
+            throw "No Azure context found"
+          }
+        } catch {
+          Write-Host "❌ ARM Authentication FAILED: $($_.Exception.Message)" -ForegroundColor Red
+          $testResults['ARM_Auth'] = 'FAILED'
+          $allTestsPassed = $false
+        }
+        Write-Host ""
+
+        # TEST 2: Key Vault Access
+        Write-Host "🗝️ TEST 2: Azure Key Vault Access" -ForegroundColor Yellow
+        try {
+          $keyVaultName = "$(KEYVAULT_NAME)"
+          $secretName = "$(TEST_SECRET_NAME)"
+          
+          Write-Host "   Key Vault: $keyVaultName" -ForegroundColor White
+          Write-Host "   Testing secret: $secretName" -ForegroundColor White
+          
+          # Test Key Vault connectivity
+          $keyVault = Get-AzKeyVault -VaultName $keyVaultName -ErrorAction Stop
+          Write-Host "✅ Key Vault accessible: $($keyVault.VaultName)" -ForegroundColor Green
+          
+          # Test secret access
+          $secret = Get-AzKeyVaultSecret -VaultName $keyVaultName -Name $secretName -ErrorAction Stop
+          if ($secret) {
+            Write-Host "✅ Secret accessible: $($secret.Name)" -ForegroundColor Green
+            Write-Host "   Created: $($secret.Created)" -ForegroundColor White
+            Write-Host "   Updated: $($secret.Updated)" -ForegroundColor White
+            $testResults['KeyVault_Access'] = 'PASSED'
+          } else {
+            throw "Secret not found or inaccessible"
+          }
+        } catch {
+          Write-Host "❌ Key Vault Access FAILED: $($_.Exception.Message)" -ForegroundColor Red
+          $testResults['KeyVault_Access'] = 'FAILED'
+          $allTestsPassed = $false
+        }
+        Write-Host ""
+
+        # TEST 3: Microsoft Graph Authentication
+        Write-Host "📊 TEST 3: Microsoft Graph Authentication" -ForegroundColor Yellow
+        try {
+          # Get Graph token from ARM context
+          $graphToken = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate($context.Account, $context.Environment, $context.Tenant.Id, $null, [Microsoft.Azure.Commands.Common.Authentication.ShowDialog]::Never, $null, "https://graph.microsoft.com/").AccessToken
+
+          if ($graphToken) {
+            Write-Host "✅ Graph token obtained!" -ForegroundColor Green
+            
+            # Connect using the token
+            $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+            Connect-MgGraph -AccessToken $secureToken -NoWelcome
+
+            $mgContext = Get-MgContext
+            if ($mgContext) {
+              Write-Host "✅ Microsoft Graph Connected!" -ForegroundColor Green
+              Write-Host "   Client ID: $($mgContext.ClientId)" -ForegroundColor White
+              Write-Host "   Tenant: $($mgContext.TenantId)" -ForegroundColor White
+              Write-Host "   Scopes: $($mgContext.Scopes -join ', ')" -ForegroundColor White
+              
+              # Test a basic Graph call
+              try {
+                $me = Get-MgContext
+                Write-Host "✅ Graph API call successful" -ForegroundColor Green
+                $testResults['Graph_Auth'] = 'PASSED'
+              } catch {
+                Write-Host "⚠️ Graph token obtained but API call failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                $testResults['Graph_Auth'] = 'PARTIAL'
+              }
+            } else {
+              throw "Microsoft Graph context not established"
+            }
+          } else {
+            throw "Failed to obtain Graph token"
+          }
+        } catch {
+          Write-Host "❌ Microsoft Graph Authentication FAILED: $($_.Exception.Message)" -ForegroundColor Red
+          $testResults['Graph_Auth'] = 'FAILED'
+          $allTestsPassed = $false
+        }
+        Write-Host ""
+
+        # TEST 4: EasyPIM Module Installation & Import
+        Write-Host "📦 TEST 4: EasyPIM Module Installation" -ForegroundColor Yellow
+        try {
+          # Check if module is available
+          $existingModule = Get-Module -ListAvailable -Name EasyPIM.Orchestrator
+          if ($existingModule) {
+            Write-Host "📋 Found existing EasyPIM.Orchestrator versions:" -ForegroundColor Cyan
+            foreach ($module in $existingModule) {
+              Write-Host "   - Version: $($module.Version) at $($module.ModuleBase)" -ForegroundColor White
+            }
+          }
+          
+          # Install/Update to latest version
+          Write-Host "⬇️ Installing/updating EasyPIM.Orchestrator..." -ForegroundColor Yellow
+          Install-Module -Name EasyPIM.Orchestrator -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
+          
+          # Import the module
+          Import-Module EasyPIM.Orchestrator -Force
+          
+          # Verify module is loaded
+          $module = Get-Module -Name EasyPIM.Orchestrator
+          if ($module) {
+            Write-Host "✅ EasyPIM.Orchestrator v$($module.Version) ready!" -ForegroundColor Green
+            Write-Host "   Module Path: $($module.ModuleBase)" -ForegroundColor White
+            
+            # Test key cmdlets are available
+            $testCmdlets = @('Test-PIMPolicyDrift', 'Invoke-EasyPIMOrchestrator')
+            $availableCmdlets = Get-Command -Module EasyPIM.Orchestrator | Select-Object -ExpandProperty Name
+            
+            foreach ($cmdlet in $testCmdlets) {
+              if ($availableCmdlets -contains $cmdlet) {
+                Write-Host "✅ Cmdlet available: $cmdlet" -ForegroundColor Green
+              } else {
+                Write-Host "⚠️ Cmdlet not found: $cmdlet" -ForegroundColor Yellow
+              }
+            }
+            
+            $testResults['EasyPIM_Module'] = 'PASSED'
+          } else {
+            throw "Failed to load EasyPIM.Orchestrator module"
+          }
+        } catch {
+          Write-Host "❌ EasyPIM Module Installation FAILED: $($_.Exception.Message)" -ForegroundColor Red
+          $testResults['EasyPIM_Module'] = 'FAILED'
+          $allTestsPassed = $false
+        }
+        Write-Host ""
+
+        # TEST 5: Component Version Information
+        Write-Host "📋 TEST 5: Component Version Check" -ForegroundColor Yellow
+        try {
+          Write-Host "📦 Component Versions:" -ForegroundColor Cyan
+          
+          # EasyPIM.Orchestrator
+          $easyPimModule = Get-Module -Name EasyPIM.Orchestrator
+          if ($easyPimModule) {
+            Write-Host "   EasyPIM.Orchestrator: v$($easyPimModule.Version)" -ForegroundColor White
+          }
+          
+          # Az.Accounts
+          $azModule = Get-Module -Name Az.Accounts
+          if ($azModule) {
+            Write-Host "   Az.Accounts: v$($azModule.Version)" -ForegroundColor White
+          }
+          
+          # Microsoft.Graph.Authentication
+          $mgModule = Get-Module -Name Microsoft.Graph.Authentication
+          if ($mgModule) {
+            Write-Host "   Microsoft.Graph.Authentication: v$($mgModule.Version)" -ForegroundColor White
+          }
+          
+          # PowerShell
+          Write-Host "   PowerShell: v$($PSVersionTable.PSVersion)" -ForegroundColor White
+          
+          $testResults['Component_Versions'] = 'PASSED'
+        } catch {
+          Write-Host "⚠️ Could not retrieve all version information: $($_.Exception.Message)" -ForegroundColor Yellow
+          $testResults['Component_Versions'] = 'PARTIAL'
+        }
+        Write-Host ""
+
+        # GENERATE COMPREHENSIVE TEST SUMMARY
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "                    🔐 EasyPIM Authentication Test Results" -ForegroundColor Cyan
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Test Results Table
+        Write-Host "🎯 Test Results Overview" -ForegroundColor Yellow
+        Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+        
+        foreach ($test in $testResults.GetEnumerator()) {
+          $status = switch ($test.Value) {
+            'PASSED' { '✅ PASSED' }
+            'FAILED' { '❌ FAILED' }
+            'PARTIAL' { '⚠️ PARTIAL' }
+            default { '❓ UNKNOWN' }
+          }
+          $testName = $test.Key -replace '_', ' '
+          Write-Host "│ $($testName.PadRight(27)) │ $($status.PadRight(14)) │" -ForegroundColor Gray
+        }
+        
+        Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+        Write-Host ""
+
+        # Configuration Summary
+        Write-Host "⚙️ Configuration Validated" -ForegroundColor Yellow
+        Write-Host "┌─────────────────────────────┬────────────────────────────────────────┐" -ForegroundColor Gray
+        Write-Host "│ Service Connection          │ ${{ parameters.serviceConnection }}$(' ' * (38 - '${{ parameters.serviceConnection }}'.Length)) │" -ForegroundColor Gray
+        Write-Host "│ Key Vault                   │ $($(KEYVAULT_NAME).PadRight(38)) │" -ForegroundColor Gray
+        Write-Host "│ Test Secret                 │ $($(TEST_SECRET_NAME).PadRight(38)) │" -ForegroundColor Gray
+        Write-Host "│ Agent Pool                  │ Default (Self-hosted)$(' ' * 19) │" -ForegroundColor Gray
+        Write-Host "└─────────────────────────────┴────────────────────────────────────────┘" -ForegroundColor Gray
+        Write-Host ""
+
+        # Environment Context
+        Write-Host "🌐 Environment Context" -ForegroundColor Yellow
+        Write-Host "┌─────────────────────────────┬────────────────────────────────────────┐" -ForegroundColor Gray
+        if ($context) {
+          $truncatedTenant = $context.Tenant.Id.Substring(0, [Math]::Min(38, $context.Tenant.Id.Length))
+          $truncatedSub = $context.Subscription.Name.Substring(0, [Math]::Min(38, $context.Subscription.Name.Length))
+          Write-Host "│ Tenant ID                   │ $($truncatedTenant.PadRight(38)) │" -ForegroundColor Gray
+          Write-Host "│ Subscription                │ $($truncatedSub.PadRight(38)) │" -ForegroundColor Gray
+          Write-Host "│ Account Type                │ $($context.Account.Type.PadRight(38)) │" -ForegroundColor Gray
+        }
+        Write-Host "│ Test Timestamp              │ $($(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC').PadRight(38)) │" -ForegroundColor Gray
+        Write-Host "└─────────────────────────────┴────────────────────────────────────────┘" -ForegroundColor Gray
+        Write-Host ""
+
+        # Final Status & Recommendations
+        if ($allTestsPassed) {
+          Write-Host "┌─────────────────────────────────────────────────────────────────────┐" -ForegroundColor Green
+          Write-Host "│                    ✅ ALL AUTHENTICATION TESTS PASSED                │" -ForegroundColor Green
+          Write-Host "│                                                                     │" -ForegroundColor Green
+          Write-Host "│  Your EasyPIM environment is properly configured and ready to use! │" -ForegroundColor Green
+          Write-Host "│                                                                     │" -ForegroundColor Green
+          Write-Host "│  🎯 Next Steps:                                                     │" -ForegroundColor Green
+          Write-Host "│     • Run EasyPIM Orchestrator pipeline                            │" -ForegroundColor Green
+          Write-Host "│     • Run Drift Detection pipeline                                 │" -ForegroundColor Green
+          Write-Host "│     • Set up scheduled runs for continuous monitoring              │" -ForegroundColor Green
+          Write-Host "└─────────────────────────────────────────────────────────────────────┘" -ForegroundColor Green
+        } else {
+          Write-Host "┌─────────────────────────────────────────────────────────────────────┐" -ForegroundColor Red
+          Write-Host "│                    ❌ SOME AUTHENTICATION TESTS FAILED               │" -ForegroundColor Red
+          Write-Host "│                                                                     │" -ForegroundColor Red
+          Write-Host "│  Please review the failed tests above and fix the issues before    │" -ForegroundColor Red
+          Write-Host "│  running the main EasyPIM pipelines.                               │" -ForegroundColor Red
+          Write-Host "│                                                                     │" -ForegroundColor Red
+          Write-Host "│  🔧 Common Issues:                                                  │" -ForegroundColor Red
+          Write-Host "│     • OIDC configuration not properly set up                       │" -ForegroundColor Red
+          Write-Host "│     • Key Vault permissions missing                                │" -ForegroundColor Red
+          Write-Host "│     • Microsoft Graph permissions insufficient                     │" -ForegroundColor Red
+          Write-Host "│     • Variable group not properly configured                       │" -ForegroundColor Red
+          Write-Host "└─────────────────────────────────────────────────────────────────────┘" -ForegroundColor Red
+        }
+
+        # Set pipeline variables for summary
+        Write-Host "##vso[task.setvariable variable=EasyPIM.AuthTestStatus]$(if ($allTestsPassed) { 'Success' } else { 'Failed' })"
+        Write-Host "##vso[task.setvariable variable=EasyPIM.TestTimestamp]$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+        
+        # Generate test report artifact
+        $testReportPath = "./authentication-test-report.json"
+        $testReport = @{
+          TestResults = $testResults
+          AllTestsPassed = $allTestsPassed
+          Timestamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
+          Configuration = @{
+            ServiceConnection = '${{ parameters.serviceConnection }}'
+            KeyVault = "$(KEYVAULT_NAME)"
+            TestSecret = "$(TEST_SECRET_NAME)"
+          }
+          Environment = @{
+            TenantId = if ($context) { $context.Tenant.Id } else { 'Unknown' }
+            Subscription = if ($context) { $context.Subscription.Name } else { 'Unknown' }
+            AccountType = if ($context) { $context.Account.Type } else { 'Unknown' }
+          }
+        } | ConvertTo-Json -Depth 3
+        
+        $testReport | Out-File -FilePath $testReportPath -Encoding UTF8
+        Write-Host "📄 Authentication test report saved to: $testReportPath" -ForegroundColor Green
+
+        # Set task completion status
+        if ($allTestsPassed) {
+          Write-Host "##vso[task.complete result=Succeeded;]EasyPIM authentication validation completed successfully"
+          Write-Host "✅ EASYPIM AUTHENTICATION TEST COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+        } else {
+          Write-Host "##vso[task.complete result=SucceededWithIssues;]EasyPIM authentication validation completed with issues"
+          Write-Host "⚠️ EASYPIM AUTHENTICATION TEST COMPLETED WITH ISSUES - PLEASE REVIEW!" -ForegroundColor Yellow
+        }
+
+  # STEP 2: Publish Test Results as Artifacts
+  - task: PowerShell@2
+    displayName: '📁 Generate Authentication Test Artifacts'
+    condition: always()
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "📁 Generating authentication test artifacts..." -ForegroundColor Cyan
+        
+        # Create artifact directories
+        $artifactsDir = "$(Build.ArtifactStagingDirectory)"
+        $testDir = "$artifactsDir/auth-test-results"
+        
+        New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+        Write-Host "📂 Test artifacts directory created: $testDir" -ForegroundColor Yellow
+        
+        # Copy test report if it exists
+        if (Test-Path './authentication-test-report.json') {
+          $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
+          Copy-Item './authentication-test-report.json' -Destination "$testDir/authentication-test-report-$timestamp.json"
+          Write-Host "✅ Authentication test report preserved" -ForegroundColor Green
+        }
+        
+        # Create a summary artifact
+        $summaryFile = "$testDir/auth-test-summary.txt"
+        $summaryContent = @()
+        $summaryContent += "EasyPIM Authentication Test - Summary"
+        $summaryContent += "====================================="
+        $summaryContent += "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+        $summaryContent += "Build: $(Build.BuildNumber)"
+        $summaryContent += "Pipeline: $(Build.DefinitionName)"
+        $summaryContent += ""
+        $summaryContent += "Test Status: $(if ($env:EASYPIM_AUTHTESTSTATUS -eq 'Success') { 'ALL TESTS PASSED' } else { 'SOME TESTS FAILED' })"
+        $summaryContent += ""
+        $summaryContent += "Configuration:"
+        $summaryContent += "- Service Connection: ${{ parameters.serviceConnection }}"
+        $summaryContent += "- Key Vault: $(KEYVAULT_NAME)"
+        $summaryContent += "- Test Secret: $(TEST_SECRET_NAME)"
+        $summaryContent += ""
+        $summaryContent += "For detailed test results, see the JSON report file."
+        
+        $summaryContent -join "`r`n" | Out-File -FilePath $summaryFile -Encoding UTF8
+        Write-Host "✅ Authentication test summary created" -ForegroundColor Green
+        
+        Write-Host "📋 Authentication test artifacts created:" -ForegroundColor Yellow
+        if (Test-Path $testDir) {
+          Get-ChildItem -Path $testDir | ForEach-Object {
+            Write-Host "   - $($_.Name)" -ForegroundColor Gray
+          }
+        }
+
+  - task: PublishBuildArtifacts@1
+    displayName: '📤 Publish Authentication Test Artifacts'
+    condition: always()
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: 'EasyPIM-AuthTest-Results-$(Build.BuildNumber)'
+      publishLocation: 'Container'

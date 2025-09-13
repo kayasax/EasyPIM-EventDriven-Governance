@@ -21,7 +21,7 @@ try {
     Write-Host "   🔄 Importing EasyPIM.Orchestrator..." -ForegroundColor Gray
     Import-Module EasyPIM.Orchestrator -Force -Verbose
     Write-Host "   ✅ EasyPIM.Orchestrator imported successfully" -ForegroundColor Green
-    
+
     Write-Host "   🔄 Importing Microsoft.Graph.Authentication..." -ForegroundColor Gray
     Import-Module Microsoft.Graph.Authentication -Force -Verbose
     Write-Host "   ✅ Microsoft.Graph.Authentication imported successfully" -ForegroundColor Green
@@ -52,17 +52,17 @@ Write-Host "🔐 Authenticating to Microsoft Graph..." -ForegroundColor Cyan
 try {
     # Method 1: Try using Azure CLI method (which we know works)
     Write-Host "   🔄 Getting Graph token via Azure CLI..." -ForegroundColor Gray
-    
+
     # Use Azure CLI to get Graph token (this works with our service principal)
     $graphToken = az account get-access-token --resource https://graph.microsoft.com --query "accessToken" -o tsv
-    
+
     if ($graphToken) {
         Write-Host "   ✅ Microsoft Graph token acquired via Azure CLI" -ForegroundColor Green
-        
+
         # Connect to Microsoft Graph using the token
         $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
         Connect-MgGraph -AccessToken $secureToken -NoWelcome
-        
+
         $mgContext = Get-MgContext
         if ($mgContext) {
             Write-Host "   ✅ Microsoft Graph authenticated successfully" -ForegroundColor Green
@@ -76,12 +76,12 @@ try {
     }
 } catch {
     Write-Host "   ⚠️ Azure CLI Graph authentication failed: $_" -ForegroundColor Yellow
-    
+
     # Method 2: Fallback to direct authentication
     Write-Host "   🔄 Trying direct Microsoft Graph authentication..." -ForegroundColor Cyan
     try {
         Connect-MgGraph -Scopes "RoleManagement.ReadWrite.Directory" -NoWelcome
-        
+
         $mgContext = Get-MgContext
         if ($mgContext) {
             Write-Host "   ✅ Microsoft Graph authenticated via direct connection" -ForegroundColor Green
@@ -108,7 +108,7 @@ try {
     Write-Host "🎯 Converted parameters:" -ForegroundColor Cyan
     Write-Host "   WhatIf parameter: $WhatIf" -ForegroundColor Gray
     Write-Host "   Mode parameter: '$Mode'" -ForegroundColor Gray
-    
+
     # Verify EasyPIM module commands are available
     Write-Host "🔍 Verifying EasyPIM commands..." -ForegroundColor Cyan
     $easyPIMCommand = Get-Command -Name "Invoke-EasyPIMOrchestrator" -ErrorAction SilentlyContinue
@@ -122,11 +122,11 @@ try {
         Get-Command -Module EasyPIM.Orchestrator | ForEach-Object { Write-Host "      - $($_.Name)" -ForegroundColor Gray }
         throw "EasyPIM Orchestrator command not available"
     }
-    
+
     # Execute EasyPIM with verbose output
     Write-Host "🚀 Executing Invoke-EasyPIMOrchestrator..." -ForegroundColor Green
     Write-Host "   Command: Invoke-EasyPIMOrchestrator -KeyVaultName '$KeyVaultName' -SecretName '$SecretName' -WhatIf:`$$WhatIf -Mode '$Mode' -Verbose" -ForegroundColor Gray
-    
+
     Invoke-EasyPIMOrchestrator -KeyVaultName $KeyVaultName -SecretName $SecretName -WhatIf:$WhatIf -Mode $Mode -Verbose
 
     Write-Host "✅ EasyPIM execution completed successfully!" -ForegroundColor Green
@@ -135,12 +135,12 @@ try {
     Write-Host "❌ Error during EasyPIM execution: $_" -ForegroundColor Red
     Write-Host "Error details: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host "Stack trace: $($_.ScriptStackTrace)" -ForegroundColor Red
-    
+
     # Additional debugging information
     Write-Host "🔍 Debugging information:" -ForegroundColor Yellow
     Write-Host "   PowerShell Version: $($PSVersionTable.PSVersion)" -ForegroundColor Gray
     Write-Host "   Execution Policy: $(Get-ExecutionPolicy)" -ForegroundColor Gray
     Write-Host "   Current Location: $(Get-Location)" -ForegroundColor Gray
-    
+
     throw $_
 }

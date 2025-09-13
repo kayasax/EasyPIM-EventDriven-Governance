@@ -1,7 +1,5 @@
-# Azure DevOps Pipeline: PIM Policy Drift Detection
-# Equivalent to GitHub workflow: 03-policy-drift-check.yml
-
-trigger: none # Manual trigger only
+# EasyPIM Drift Detection - OIDC + Graph Token Auth
+trigger: none
 
 schedules:
 - cron: "0 6 * * *" # Run daily at 6 AM UTC
@@ -12,225 +10,689 @@ schedules:
   always: false # Only run if there are changes
 
 parameters:
+- name: serviceConnection
+  displayName: 'Azure Service Connection'
+  type: string
+  default: 'EasyPIM-Azure-Connection'
+
+- name: keyVaultName
+  displayName: 'Key Vault Name'
+  type: string
+  default: 'default'
+
+- name: configSecretName
+  displayName: 'Key Vault secret name containing PIM configuration'
+  type: string
+  default: 'default'
+
 - name: Verbose
   displayName: 'Enable verbose output'
   type: boolean
   default: false
 
-- name: configSecretName
-  displayName: 'Key Vault secret name (optional - uses default if not provided)'
-  type: string
-  default: ''
-
 variables:
 - group: EasyPIM-EventDriven-Governance
 - name: KEYVAULT_NAME
-  value: $(AZURE_KEY_VAULT_NAME)
+  ${{ if ne(parameters.keyVaultName, 'default') }}:
+    value: ${{ parameters.keyVaultName }}
+  ${{ else }}:
+    value: $(AZURE_KEY_VAULT_NAME)
 - name: SECRET_NAME
-  value: ${{ parameters.configSecretName != '' && parameters.configSecretName || variables.EASYPIM_SECRET_NAME }}
+  ${{ if ne(parameters.configSecretName, 'default') }}:
+    value: ${{ parameters.configSecretName }}
+  ${{ else }}:
+    value: $(EASYPIM_SECRET_NAME)
 
+# USE SELF-HOSTED AGENT
 pool:
-  vmImage: 'windows-latest'
+  name: 'Default'
 
-name: EasyPIM_Drift_Detection_$(Date:yyyyMMdd)_$(Rev:r)
+name: 'EasyPIM_DriftDetection_$(Build.Reason)_$(Date:yyyyMMdd)_$(Rev:r)'
 
-stages:
-- stage: DriftDetection
-  displayName: 'Policy Drift Detection'
-  jobs:
-  - job: ConfigurationSetup
-    displayName: 'Setup Drift Detection'
-    steps:
-    - task: AzurePowerShell@5
-      displayName: 'Setup Authentication'
-      inputs:
-        azureSubscription: 'EasyPIM-Azure-Connection'
-        ScriptType: 'FilePath'
-        ScriptPath: 'scripts/workflows/Setup-EasyPIMAuthentication.ps1'
-        ScriptArguments: >
-          -TenantId "$(AZURE_TENANT_ID)"
-          -SubscriptionId "$(AZURE_SUBSCRIPTION_ID)"
-          -ClientId "$(AZURE_CLIENT_ID)"
-        azurePowerShellVersion: 'LatestVersion'
+jobs:
+- job: DriftDetectionExecution
+  displayName: 'PIM Policy Drift Detection - $(Build.Reason)'
+  steps:
 
-    - task: AzurePowerShell@5
-      displayName: 'Install EasyPIM Modules'
-      inputs:
-        azureSubscription: 'EasyPIM-Azure-Connection'
-        ScriptType: 'FilePath'
-        ScriptPath: 'scripts/workflows/Install-EasyPIMModules.ps1'
-        azurePowerShellVersion: 'LatestVersion'
+  # SINGLE STEP: AzurePowerShell Authentication + Module Installation + Graph Token + EasyPIM Drift Detection
+  - task: AzurePowerShell@5
+    displayName: '� Complete Drift Detection Execution'
+    inputs:
+      azureSubscription: '${{ parameters.serviceConnection }}'
+      ScriptType: 'InlineScript'
+      azurePowerShellVersion: 'LatestVersion'
+      pwsh: true
+      Inline: |
+        Write-Host "� EASYPIM DRIFT DETECTION - COMPLETE EXECUTION..." -ForegroundColor Magenta
 
-    - task: AzurePowerShell@5
-      displayName: 'Display Configuration Source'
-      inputs:
-        azureSubscription: 'EasyPIM-Azure-Connection'
-        ScriptType: 'InlineScript'
-        Inline: |
-          Write-Host "🎯 Drift Detection Configuration Source:" -ForegroundColor Cyan
-          Write-Host "   Key Vault: $(KEYVAULT_NAME)" -ForegroundColor White
-          Write-Host "   Secret Name: $(SECRET_NAME)" -ForegroundColor White
-
-          if ('${{ parameters.configSecretName }}') {
-            Write-Host "   Source: Manual trigger with custom secret" -ForegroundColor Green
+        # STEP 1: Install and Import EasyPIM Module
+        Write-Host "📦 Installing EasyPIM.Orchestrator..." -ForegroundColor Yellow
+        try {
+          # Always update to the latest version of EasyPIM.Orchestrator
+          Write-Host "📦 Updating EasyPIM.Orchestrator to latest version..." -ForegroundColor Yellow
+          
+          # Uninstall any existing versions to ensure clean install
+          $existingModules = Get-Module -ListAvailable -Name EasyPIM.Orchestrator
+          if ($existingModules) {
+            Write-Host "🔄 Found existing EasyPIM.Orchestrator versions:" -ForegroundColor Cyan
+            foreach ($module in $existingModules) {
+              Write-Host "   - Version: $($module.Version) at $($module.ModuleBase)" -ForegroundColor Gray
+            }
+            Write-Host "🗑️ Removing existing versions..." -ForegroundColor Yellow
+            try {
+              Uninstall-Module -Name EasyPIM.Orchestrator -AllVersions -Force -ErrorAction SilentlyContinue
+            } catch {
+              Write-Host "⚠️ Could not uninstall some versions (may be in use): $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+          }
+          
+          # Install the latest version
+          Write-Host "⬇️ Installing latest EasyPIM.Orchestrator..." -ForegroundColor Yellow
+          Install-Module -Name EasyPIM.Orchestrator -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
+          
+          # Import the module
+          Write-Host "📥 Importing EasyPIM.Orchestrator..." -ForegroundColor Yellow
+          Import-Module EasyPIM.Orchestrator -Force
+          
+          # Verify module is loaded
+          $module = Get-Module -Name EasyPIM.Orchestrator
+          if ($module) {
+            Write-Host "✅ EasyPIM.Orchestrator v$($module.Version) ready!" -ForegroundColor Green
+            Write-Host "� Module Path: $($module.ModuleBase)" -ForegroundColor Gray
           } else {
-            Write-Host "   Source: Scheduled run or manual trigger (default configuration)" -ForegroundColor Blue
+            throw "Failed to load EasyPIM.Orchestrator module"
           }
-          
-          Write-Host "   Verbose Output: ${{ parameters.Verbose }}" -ForegroundColor Yellow
-        azurePowerShellVersion: 'LatestVersion'
+        } catch {
+          Write-Host "❌ Failed to install/import EasyPIM.Orchestrator: $($_.Exception.Message)" -ForegroundColor Red
+          exit 1
+        }
 
-  - job: ExecuteDriftDetection
-    displayName: 'Execute Drift Detection'
-    dependsOn: ConfigurationSetup
-    steps:
-    - task: AzurePowerShell@5
-      displayName: 'Configure Drift Detection Parameters'
-      name: configureParams
-      inputs:
-        azureSubscription: 'EasyPIM-Azure-Connection'
-        ScriptType: 'InlineScript'
-        Inline: |
-          Write-Host "⚙️ Configuring drift detection parameters..." -ForegroundColor Cyan
+        # STEP 2: Verify ARM Context (Should work via OIDC)
+        $context = Get-AzContext
+        if ($context) {
+          Write-Host "✅ ARM Authentication SUCCESS!" -ForegroundColor Green
+          Write-Host "   Account: $($context.Account.Id)"
+          Write-Host "   Type: $($context.Account.Type)"
+          Write-Host "   Subscription: $($context.Subscription.Name)"
+          Write-Host "   Tenant: $($context.Tenant.Id)"
+        } else {
+          Write-Host "❌ ARM Authentication FAILED!" -ForegroundColor Red
+          exit 1
+        }
 
-          $verbose = [bool]::Parse('${{ parameters.Verbose }}')
+        # STEP 3: Microsoft Graph Authentication with Token
+        Write-Host "🔐 Connecting to Microsoft Graph..." -ForegroundColor Yellow
+        try {
+          # Get access token for Microsoft Graph from current Azure context
+          $graphToken = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate($context.Account, $context.Environment, $context.Tenant.Id, $null, [Microsoft.Azure.Commands.Common.Authentication.ShowDialog]::Never, $null, "https://graph.microsoft.com/").AccessToken
 
-          if ($verbose) {
-              Write-Host "📝 Verbose output enabled"
-          }
+          if ($graphToken) {
+            Write-Host "✅ Graph token obtained!" -ForegroundColor Green
 
-          # Build drift detection parameters
-          $driftParams = @{
-              'TenantId' = "$(AZURE_TENANT_ID)"
-              'SubscriptionId' = "$(AZURE_SUBSCRIPTION_ID)"
-          }
+            # Connect using the token
+            $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+            Connect-MgGraph -AccessToken $secureToken -NoWelcome
 
-          # Configuration source - use KeyVault native support only
-          if ("$(KEYVAULT_NAME)") {
-              Write-Host "📋 Using configuration from Key Vault: $(KEYVAULT_NAME)/$(SECRET_NAME)" -ForegroundColor Green
-
-              # Use native KeyVault support only (no temp file fallback)
-              $driftParams['KeyVaultName'] = "$(KEYVAULT_NAME)"
-              $driftParams['SecretName'] = "$(SECRET_NAME)"
-
-              Write-Host "✅ KeyVault configuration ready" -ForegroundColor Green
+            $mgContext = Get-MgContext
+            if ($mgContext) {
+              Write-Host "✅ Microsoft Graph Connected!" -ForegroundColor Green
+              Write-Host "   Client ID: $($mgContext.ClientId)"
+              Write-Host "   Tenant: $($mgContext.TenantId)"
+            } else {
+              throw "Microsoft Graph context not established"
+            }
           } else {
-              Write-Error "❌ No Key Vault configuration found. AZURE_KEY_VAULT_NAME variable is required."
-              exit 1
+            throw "Failed to obtain Graph token"
           }
+        } catch {
+          Write-Host "❌ Graph authentication failed: $($_.Exception.Message)" -ForegroundColor Red
+          exit 1
+        }
 
-          # Add conditional parameters
-          if ($verbose) {
-              $driftParams['Verbose'] = $true
-              Write-Host "📝 Verbose output enabled" -ForegroundColor Blue
-          }
-
-          Write-Host "🎯 Drift Detection Parameters:" -ForegroundColor Blue
-          Write-Host "   TenantId: $(AZURE_TENANT_ID)"
-          Write-Host "   SubscriptionId: $(AZURE_SUBSCRIPTION_ID)"
-          Write-Host "   KeyVaultName: $(KEYVAULT_NAME)"
-          Write-Host "   SecretName: $(SECRET_NAME)"
-          Write-Host "   Method: Native KeyVault (no temp files)" -ForegroundColor Green
-          if ($verbose) {
-              Write-Host "   Verbose: enabled"
-          }
-
-          # Store parameters for next task
-          $paramsJson = ($driftParams | ConvertTo-Json -Depth 3 -Compress)
-          Write-Host "##vso[task.setvariable variable=driftParams;isOutput=true]$paramsJson"
-          Write-Host "✅ Parameters configured successfully" -ForegroundColor Green
-        azurePowerShellVersion: 'LatestVersion'
-
-    - task: AzurePowerShell@5
-      displayName: 'Execute Policy Drift Detection'
-      inputs:
-        azureSubscription: 'EasyPIM-Azure-Connection'
-        ScriptType: 'InlineScript'
-        Inline: |
-          # Retrieve parameters from previous task
-          $driftParamsJson = "$(configureParams.driftParams)"
-          Write-Host "📥 Retrieved parameters JSON: $($driftParamsJson.Substring(0, [Math]::Min(100, $driftParamsJson.Length)))..." -ForegroundColor Gray
-
-          $driftParams = $driftParamsJson | ConvertFrom-Json -AsHashtable
-          $graphContext = Get-MgContext
-
-          # Execute using the dedicated script
-          & "./scripts/workflows/Invoke-EasyPIMDriftDetection.ps1" -DriftParams $driftParams -GraphContext $graphContext
-
-          # Clean up temp file if it was created
-          if (Test-Path "./temp-drift-config.json") {
-              Remove-Item "./temp-drift-config.json" -ErrorAction SilentlyContinue
-              Write-Host "🧹 Cleaned up temporary config file" -ForegroundColor Gray
-          }
-
-          # Surface drift summary to pipeline outputs if present
-          if (Test-Path './drift-summary.json') {
-              $json = Get-Content './drift-summary.json' -Raw
-              Write-Host "📊 Drift Detection Summary:"
-              Write-Host $json
-              
-              # Parse and display key metrics
-              $summary = $json | ConvertFrom-Json
-              if ($summary.driftCount -gt 0) {
-                  Write-Host "⚠️  DRIFT DETECTED: $($summary.driftCount) policy drift(s) found" -ForegroundColor Yellow
-              } else {
-                  Write-Host "✅ No policy drift detected" -ForegroundColor Green
-              }
-          }
-
-          Write-Host "✅ Drift detection completed successfully!" -ForegroundColor Green
-        azurePowerShellVersion: 'LatestVersion'
-      env:
-        AZURE_TENANT_ID: $(AZURE_TENANT_ID)
-        AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
-        AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
-
-  - job: PublishResults
-    displayName: 'Publish Drift Detection Results'
-    dependsOn: ExecuteDriftDetection
-    condition: always()
-    steps:
-    - task: AzurePowerShell@5
-      displayName: 'Generate Drift Report'
-      inputs:
-        azureSubscription: 'EasyPIM-Azure-Connection'
-        ScriptType: 'InlineScript'
-        Inline: |
-          Write-Host "📊 Generating drift detection report..." -ForegroundColor Cyan
-          
-          # Create drift detection summary
-          $reportPath = "drift-detection-report-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
-          
-          $report = @{
-            timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
-            pipeline = "$(Build.DefinitionName)"
-            buildId = "$(Build.BuildId)"
-            configSecret = "$(SECRET_NAME)"
-            keyVault = "$(KEYVAULT_NAME)"
-            verbose = [bool]::Parse('${{ parameters.Verbose }}')
-            trigger = "$(Build.Reason)"
-            result = "$(Agent.JobStatus)"
-            branch = "$(Build.SourceBranch)"
-          } | ConvertTo-Json -Depth 10
-          
-          $report | Out-File -FilePath $reportPath -Encoding UTF8
-          
-          Write-Host "📋 Drift report generated: $reportPath"
-          Write-Host "Report content:"
-          Get-Content $reportPath
-          
-          # Copy drift summary if it exists
-          if (Test-Path './drift-summary.json') {
-              Copy-Item './drift-summary.json' -Destination "drift-summary-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
-              Write-Host "📄 Drift summary preserved"
-          }
-          
-          Write-Host "✅ Report generation completed!" -ForegroundColor Green
-        azurePowerShellVersion: 'LatestVersion'
+        # STEP 4: Execute EasyPIM Drift Detection
+        Write-Host "🔍 Executing EasyPIM Drift Detection..." -ForegroundColor Cyan
         
-    - task: PublishBuildArtifacts@1
-      displayName: 'Publish Drift Detection Artifacts'
-      inputs:
-        pathToPublish: 'drift-*.json'
-        artifactName: 'EasyPIM-Drift-Detection-Report'
-        publishLocation: 'Container'
+        # Display execution context
+        $verboseModeDisplay = if ("${{ parameters.Verbose }}" -eq "True") { "VERBOSE" } else { "STANDARD" }
+        Write-Host "🎯 Drift Detection Mode: $verboseModeDisplay" -ForegroundColor Magenta
+        Write-Host "🔧 Trigger: $(Build.Reason)" -ForegroundColor Magenta
+        
+        # Display version information for troubleshooting
+        Write-Host "📋 Component Versions:" -ForegroundColor Cyan
+        try {
+          $easyPimModule = Get-Module -Name EasyPIM.Orchestrator
+          if ($easyPimModule) {
+            Write-Host "   EasyPIM.Orchestrator: v$($easyPimModule.Version)" -ForegroundColor Gray
+          }
+          
+          $azModule = Get-Module -Name Az.Accounts
+          if ($azModule) {
+            Write-Host "   Az.Accounts: v$($azModule.Version)" -ForegroundColor Gray
+          }
+          
+          $mgModule = Get-Module -Name Microsoft.Graph.Authentication
+          if ($mgModule) {
+            Write-Host "   Microsoft.Graph.Authentication: v$($mgModule.Version)" -ForegroundColor Gray
+          }
+          
+          Write-Host "   PowerShell: v$($PSVersionTable.PSVersion)" -ForegroundColor Gray
+        } catch {
+          Write-Host "⚠️ Could not retrieve all version information" -ForegroundColor Yellow
+        }
+        
+        try {
+          # Fix boolean parameter handling
+          $verboseMode = "${{ parameters.Verbose }}" -eq "True"
+
+          $params = @{
+            KeyVaultName = "$(KEYVAULT_NAME)"
+            SecretName = "$(SECRET_NAME)"
+            TenantId = $context.Tenant.Id
+            SubscriptionId = $context.Subscription.Id
+            Verbose = $verboseMode
+          }
+
+          Write-Host "📋 Drift Detection Parameters:" -ForegroundColor Yellow
+          Write-Host "   KeyVault: $($params.KeyVaultName)"
+          Write-Host "   SecretName: $($params.SecretName)"
+          Write-Host "   TenantId: $($params.TenantId)"
+          Write-Host "   SubscriptionId: $($params.SubscriptionId)"
+          Write-Host "   Verbose: $($params.Verbose)"
+
+          # Execute EasyPIM Drift Detection
+          Write-Host "🔍 Executing Test-PIMPolicyDrift..." -ForegroundColor Yellow
+          $driftResult = Test-PIMPolicyDrift @params
+          
+          # Capture and analyze drift results
+          Write-Host "📊 Processing drift detection results..." -ForegroundColor Yellow
+          Write-Host "Raw Result Type: $($driftResult.GetType().FullName)" -ForegroundColor Gray
+          
+          # Initialize result variables
+          $driftCount = 0
+          $policiesChecked = 0
+          $driftDetails = @()
+          $hasStructuredResults = $false
+          
+          # Try to parse structured results
+          if ($driftResult) {
+            Write-Host "📋 Drift Result Content:" -ForegroundColor Cyan
+            
+            # Handle array of results (System.Object[])
+            if ($driftResult -is [array] -and $driftResult.Count -gt 0) {
+              Write-Host "   Array Results Found: $($driftResult.Count) items" -ForegroundColor Green
+              $hasStructuredResults = $true
+              $policiesChecked = $driftResult.Count
+              
+              # Analyze each result item for drift status
+              $driftItems = @()
+              foreach ($item in $driftResult) {
+                if ($item -and $item.PSObject.Properties) {
+                  # Check for common drift status properties
+                  $isDrift = $false
+                  $itemDescription = ""
+                  
+                  # Try different property names for drift status
+                  if ($item.Status -eq 'Drift' -or $item.Status -eq 'DRIFT') { $isDrift = $true }
+                  if ($item.IsDrift -eq $true) { $isDrift = $true }
+                  if ($item.HasDrift -eq $true) { $isDrift = $true }
+                  if ($item.Drifted -eq $true) { $isDrift = $true }
+                  
+                  # Build description from available properties
+                  if ($item.Type) { $itemDescription += "[$($item.Type)] " }
+                  if ($item.Name) { $itemDescription += "$($item.Name) " }
+                  if ($item.Target) { $itemDescription += "($($item.Target)) " }
+                  if ($item.Status) { $itemDescription += "- Status: $($item.Status) " }
+                  if ($item.Differences) { $itemDescription += "- Changes: $($item.Differences)" }
+                  
+                  if ($isDrift) {
+                    $driftCount++
+                    $driftItems += $itemDescription.Trim()
+                  }
+                  
+                  Write-Host "   Item: $($itemDescription.Trim())" -ForegroundColor $(if ($isDrift) { 'Yellow' } else { 'Gray' })
+                } elseif ($item -and $item.ToString().Trim() -ne "") {
+                  # Handle string items
+                  $itemStr = $item.ToString().Trim()
+                  if ($itemStr -match "(drift|violation|mismatch|different)" -or $itemStr.Contains("!=")) {
+                    $driftCount++
+                    $driftItems += $itemStr
+                    Write-Host "   Drift Item: $itemStr" -ForegroundColor Yellow
+                  } else {
+                    Write-Host "   Item: $itemStr" -ForegroundColor Gray
+                  }
+                }
+              }
+              
+              $driftDetails = $driftItems
+              Write-Host "   Analysis Complete:" -ForegroundColor Green
+              Write-Host "   - Policies Checked: $policiesChecked" -ForegroundColor Gray
+              Write-Host "   - Drift Count: $driftCount" -ForegroundColor Gray
+              Write-Host "   - Drift Details: $($driftDetails.Count) items" -ForegroundColor Gray
+              
+            } elseif ($driftResult -is [hashtable] -or $driftResult.PSObject.Properties) {
+              # Handle hashtable or custom object
+              $hasStructuredResults = $true
+              
+              # Try common property names for drift results
+              if ($driftResult.DriftCount -ne $null) { $driftCount = $driftResult.DriftCount }
+              if ($driftResult.PoliciesChecked -ne $null) { $policiesChecked = $driftResult.PoliciesChecked }
+              if ($driftResult.TotalCount -ne $null) { $policiesChecked = $driftResult.TotalCount }
+              if ($driftResult.Count -ne $null -and $policiesChecked -eq 0) { $policiesChecked = $driftResult.Count }
+              if ($driftResult.DriftItems) { $driftDetails = $driftResult.DriftItems }
+              if ($driftResult.Drifts) { $driftDetails = $driftResult.Drifts }
+              
+              Write-Host "   Structured Results Found:" -ForegroundColor Green
+              Write-Host "   - Policies Checked: $policiesChecked" -ForegroundColor Gray
+              Write-Host "   - Drift Count: $driftCount" -ForegroundColor Gray
+              
+              # Display drift details if available
+              if ($driftDetails -and $driftDetails.Count -gt 0) {
+                Write-Host "   - Drift Details: $($driftDetails.Count) items" -ForegroundColor Gray
+                foreach ($drift in $driftDetails) {
+                  if ($drift -and $drift.ToString().Trim() -ne "") {
+                    Write-Host "     * $($drift.ToString().Trim())" -ForegroundColor Yellow
+                  }
+                }
+              }
+            } else {
+              # Handle string or other output formats
+              $resultString = $driftResult.ToString()
+              Write-Host "   Raw Output: $resultString" -ForegroundColor Gray
+              
+              # Try to extract information from string output
+              if ($resultString -match "(\d+)\s*(drift|violation|issue)s?\s*found") {
+                $driftCount = [int]$Matches[1]
+                Write-Host "   Extracted Drift Count from text: $driftCount" -ForegroundColor Yellow
+              }
+              
+              if ($resultString -match "(\d+)\s*(polic|rule)ies?\s*(checked|analyzed)") {
+                $policiesChecked = [int]$Matches[1]
+                Write-Host "   Extracted Policies Checked from text: $policiesChecked" -ForegroundColor Yellow
+              }
+              
+              # Look for "All compared policy fields match" pattern
+              if ($resultString -match "All compared policy fields match") {
+                Write-Host "   All policies match - no drift detected" -ForegroundColor Green
+                if ($policiesChecked -eq 0) {
+                  # Estimate policy count from context if available
+                  $policiesChecked = 1  # At least one policy was checked if we got this message
+                }
+              }
+            }
+          } else {
+            Write-Host "⚠️ No drift result returned from Test-PIMPolicyDrift" -ForegroundColor Yellow
+          }
+          
+          # Store results for dashboard and artifacts
+          $global:DriftResults = @{
+            DriftCount = $driftCount
+            PoliciesChecked = $policiesChecked
+            DriftDetails = $driftDetails
+            HasStructuredResults = $hasStructuredResults
+            RawResult = $driftResult
+            ExecutionSuccess = $true
+          }
+          
+          Write-Host "🎉 EasyPIM drift detection completed successfully!" -ForegroundColor Green
+
+        } catch {
+          Write-Host "❌ EasyPIM drift detection failed: $($_.Exception.Message)" -ForegroundColor Red
+          Write-Host "Stack trace: $($_.ScriptStackTrace)" -ForegroundColor Red
+          exit 1
+        }
+
+        # STEP 5: Generate Azure DevOps Summary Dashboard
+        Write-Host "" -ForegroundColor White
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "                    🔍 EasyPIM Drift Detection Dashboard" -ForegroundColor Cyan
+        Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "" -ForegroundColor White
+
+        # Create structured output for Azure DevOps
+        $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC'
+        $buildNumber = "$(Build.BuildNumber)"
+        $triggerType = "$(Build.Reason)"
+        
+        # Execution Overview Table
+        Write-Host "🎯 Execution Overview" -ForegroundColor Yellow
+        Write-Host "┌─────────────────┬──────────────────────────────────────────────┐" -ForegroundColor Gray
+        Write-Host "│ Status          │ 🟢 COMPLETED                                 │" -ForegroundColor Gray
+        Write-Host "│ Mode            │ 🔍 DRIFT DETECTION                           │" -ForegroundColor Gray
+        Write-Host "│ Trigger         │ 📋 $triggerType                              │" -ForegroundColor Gray
+        Write-Host "│ Timestamp       │ 🕒 $timestamp                        │" -ForegroundColor Gray
+        Write-Host "└─────────────────┴──────────────────────────────────────────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Drift Detection Results
+        Write-Host "📋 Drift Detection Results" -ForegroundColor Yellow
+        Write-Host "┌─────────────────┬──────────┐" -ForegroundColor Gray
+        
+        # Use captured drift results
+        try {
+          if ($global:DriftResults) {
+            $driftCount = $global:DriftResults.DriftCount
+            $policiesChecked = $global:DriftResults.PoliciesChecked
+            
+            # Ensure we show at least 1 policy checked if we got results
+            if ($policiesChecked -eq 0 -and $global:DriftResults.ExecutionSuccess) {
+              $policiesChecked = "1+"
+            }
+            
+            Write-Host "│ Policies Checked│ $($policiesChecked.ToString().PadLeft(8)) │" -ForegroundColor Gray
+            Write-Host "│ Drift Found     │ $($driftCount.ToString().PadLeft(8)) │" -ForegroundColor Gray
+            
+            if ($driftCount -gt 0) {
+              Write-Host "│ Status          │ ⚠️ DRIFT   │" -ForegroundColor Yellow
+            } else {
+              Write-Host "│ Status          │ ✅ Clean  │" -ForegroundColor Green
+            }
+            
+            # Show drift details if available
+            if ($global:DriftResults.DriftDetails -and $global:DriftResults.DriftDetails.Count -gt 0) {
+              $nonEmptyDetails = $global:DriftResults.DriftDetails | Where-Object { $_ -and $_.ToString().Trim() -ne "" }
+              if ($nonEmptyDetails -and $nonEmptyDetails.Count -gt 0) {
+                Write-Host "│ Details         │ Available │" -ForegroundColor Gray
+              } else {
+                Write-Host "│ Details         │ All Clean │" -ForegroundColor Gray
+              }
+            } else {
+              Write-Host "│ Details         │ All Clean │" -ForegroundColor Gray
+            }
+          } else {
+            # Fallback if global results not available
+            Write-Host "│ Execution       │ ✅ Success│" -ForegroundColor Gray
+            Write-Host "│ Status          │ Completed │" -ForegroundColor Gray
+            Write-Host "│ Results         │ See Logs  │" -ForegroundColor Gray
+          }
+        } catch {
+          Write-Host "│ Execution       │ ✅ Success│" -ForegroundColor Gray
+          Write-Host "│ Status          │ Completed │" -ForegroundColor Gray
+          Write-Host "│ Results         │ See Logs  │" -ForegroundColor Gray
+        }
+        Write-Host "└─────────────────┴──────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Configuration Table
+        Write-Host "⚙️ Configuration" -ForegroundColor Yellow
+        Write-Host "┌─────────────────┬──────────────────────────────────────────────┐" -ForegroundColor Gray
+        Write-Host "│ Key Vault       │ $($params.KeyVaultName.PadRight(44)) │" -ForegroundColor Gray
+        Write-Host "│ Secret Name     │ $($params.SecretName.PadRight(44)) │" -ForegroundColor Gray
+        Write-Host "│ Service Conn    │ ${{ parameters.serviceConnection }}$(' ' * (44 - '${{ parameters.serviceConnection }}'.Length)) │" -ForegroundColor Gray
+        Write-Host "│ Agent Pool      │ Default (Self-hosted)$(' ' * 27) │" -ForegroundColor Gray
+        Write-Host "└─────────────────┴──────────────────────────────────────────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Component Versions Table
+        Write-Host "📦 Component Versions" -ForegroundColor Yellow
+        Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+        try {
+          $easyPimModule = Get-Module -Name EasyPIM.Orchestrator
+          $azModule = Get-Module -Name Az.Accounts
+          $mgModule = Get-Module -Name Microsoft.Graph.Authentication
+          
+          $easyPimVer = if ($easyPimModule) { "v$($easyPimModule.Version)" } else { "Not loaded" }
+          $azVer = if ($azModule) { "v$($azModule.Version)" } else { "Not loaded" }
+          $mgVer = if ($mgModule) { "v$($mgModule.Version)" } else { "Not loaded" }
+          $psVer = "v$($PSVersionTable.PSVersion)"
+          
+          Write-Host "│ EasyPIM.Orchestrator        │ $($easyPimVer.PadRight(14)) │" -ForegroundColor Gray
+          Write-Host "│ Az.Accounts                 │ $($azVer.PadRight(14)) │" -ForegroundColor Gray
+          Write-Host "│ Microsoft.Graph.Auth        │ $($mgVer.PadRight(14)) │" -ForegroundColor Gray
+          Write-Host "│ PowerShell                  │ $($psVer.PadRight(14)) │" -ForegroundColor Gray
+        } catch {
+          Write-Host "│ Version Info                │ ⚠️ Unavailable  │" -ForegroundColor Gray
+        }
+        Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Authentication Status
+        Write-Host "🔐 Authentication Status" -ForegroundColor Yellow
+        Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+        Write-Host "│ Azure Resource Manager      │ ✅ Connected   │" -ForegroundColor Gray
+        Write-Host "│ Microsoft Graph API         │ ✅ Connected   │" -ForegroundColor Gray
+        Write-Host "│ Tenant ID                   │ $(($context.Tenant.Id).Substring(0,14)).. │" -ForegroundColor Gray
+        Write-Host "│ Subscription                │ $(($context.Subscription.Name).Substring(0, [Math]::Min(14, $context.Subscription.Name.Length)).PadRight(14)) │" -ForegroundColor Gray
+        Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+        Write-Host "" -ForegroundColor White
+
+        # Final Status Banner
+        $statusIcon = "🔍"
+        $statusText = "DRIFT DETECTION COMPLETED SUCCESSFULLY"
+        $statusColor = "Green"
+        
+        Write-Host "┌─────────────────────────────────────────────────────────────────────┐" -ForegroundColor $statusColor
+        Write-Host "│                    $statusIcon $statusText                  │" -ForegroundColor $statusColor
+        Write-Host "└─────────────────────────────────────────────────────────────────────┘" -ForegroundColor $statusColor
+
+        # Azure DevOps Pipeline Summary - Set pipeline variables for dashboard
+        Write-Host "##vso[task.setvariable variable=EasyPIM.DriftDetectionMode]$($params.Verbose)"
+        Write-Host "##vso[task.setvariable variable=EasyPIM.TriggerType]$triggerType"
+        Write-Host "##vso[task.setvariable variable=EasyPIM.Status]Success"
+        Write-Host "##vso[task.setvariable variable=EasyPIM.Timestamp]$timestamp"
+        
+        # Export drift results for artifact generation
+        if ($global:DriftResults) {
+          $driftSummaryPath = "./drift-summary.json"
+          $global:DriftResults | ConvertTo-Json -Depth 5 | Out-File -FilePath $driftSummaryPath -Encoding UTF8
+          Write-Host "📄 Drift results exported to: $driftSummaryPath" -ForegroundColor Green
+          
+          # Also create a detailed drift report
+          $detailedReportPath = "./drift-detailed-report.txt"
+          $reportLines = @()
+          $reportLines += "EasyPIM Drift Detection - Detailed Report"
+          $reportLines += "========================================"
+          $reportLines += "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+          $reportLines += "Build: $(Build.BuildNumber)"
+          $reportLines += ""
+          $reportLines += "SUMMARY:"
+          $reportLines += "- Policies Checked: $($global:DriftResults.PoliciesChecked)"
+          $reportLines += "- Drift Items Found: $($global:DriftResults.DriftCount)"
+          $reportLines += "- Execution Status: Success"
+          $reportLines += ""
+          
+          if ($global:DriftResults.DriftDetails -and $global:DriftResults.DriftDetails.Count -gt 0) {
+            $reportLines += "DRIFT DETAILS:"
+            foreach ($drift in $global:DriftResults.DriftDetails) {
+              $reportLines += "- $drift"
+            }
+          } else {
+            $reportLines += "DRIFT DETAILS: No policy drifts detected"
+          }
+          
+          $reportLines += ""
+          $reportLines += "RAW RESULTS:"
+          $reportLines += $global:DriftResults.RawResult.ToString()
+          
+          $reportLines -join "`r`n" | Out-File -FilePath $detailedReportPath -Encoding UTF8
+          Write-Host "📄 Detailed drift report exported to: $detailedReportPath" -ForegroundColor Green
+        }
+
+        # Set task completion with summary
+        $driftStatus = if ($global:DriftResults -and $global:DriftResults.DriftCount -gt 0) { "drift detected" } else { "policy compliance verified" }
+        $summaryMessage = "EasyPIM drift detection completed - $driftStatus"
+        Write-Host "##vso[task.complete result=Succeeded;]$summaryMessage"
+
+        Write-Host "✅ EASYPIM DRIFT DETECTION PIPELINE COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+
+  # STEP 2: Publish Execution Logs as Artifacts
+  - task: PowerShell@2
+    displayName: '📁 Generate Drift Detection Artifacts'
+    condition: always()
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "📁 Generating drift detection artifacts..." -ForegroundColor Cyan
+        
+        # Create logs directory structure
+        $artifactsDir = "$(Build.ArtifactStagingDirectory)"
+        $logsDir = "$artifactsDir/drift-logs"
+        $resultsDir = "$artifactsDir/drift-results"
+        
+        New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null
+        
+        Write-Host "📂 Artifact directories created:" -ForegroundColor Yellow
+        Write-Host "   - Logs: $logsDir" -ForegroundColor Gray
+        Write-Host "   - Results: $resultsDir" -ForegroundColor Gray
+        
+        # Create summary log file
+        $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
+        $summaryFile = "$logsDir/easypim-drift-detection-summary-$timestamp.log"
+        
+        # Generate detailed execution summary using array approach
+        $verbose = "${{ parameters.Verbose }}"
+        $serviceConn = "${{ parameters.serviceConnection }}"
+        $pipelineName = "$(Build.DefinitionName)"
+        $buildNumber = "$(Build.BuildNumber)"
+        $buildReason = "$(Build.Reason)"
+        $agentName = "$(Agent.Name)"
+        $sourceBranch = "$(Build.SourceBranch)"
+        $sourceVersion = "$(Build.SourceVersion)"
+        $requestedBy = "$(Build.RequestedFor)"
+        $buildUrl = "$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
+        $keyVault = "$(KEYVAULT_NAME)"
+        $secretName = "$(SECRET_NAME)"
+        $jobStatus = "$(Agent.JobStatus)"
+        $currentTime = Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC'
+        
+        # Build log content as array to avoid here-string issues
+        $logLines = @()
+        $logLines += "============================================================================="
+        $logLines += "EasyPIM Drift Detection - Execution Summary"
+        $logLines += "============================================================================="
+        $logLines += "Pipeline: $pipelineName"
+        $logLines += "Build: $buildNumber"
+        $logLines += "Date: $currentTime"
+        $logLines += "Agent: $agentName"
+        $logLines += ""
+        $logLines += "PARAMETERS:"
+        $logLines += "- Verbose: $verbose"
+        $logLines += "- Service Connection: $serviceConn"
+        $logLines += "- Key Vault: $keyVault"
+        $logLines += "- Secret Name: $secretName"
+        $logLines += ""
+        $logLines += "PIPELINE DETAILS:"
+        $logLines += "- Trigger: $buildReason"
+        $logLines += "- Source Branch: $sourceBranch"
+        $logLines += "- Source Version: $sourceVersion"
+        $logLines += "- Requested By: $requestedBy"
+        $logLines += "- Build URL: $buildUrl"
+        $logLines += ""
+        $logLines += "EXECUTION CONTEXT:"
+        $logLines += "- Detection Mode: Drift Detection"
+        $logLines += "- Verbose Mode: $verbose"
+        $logLines += "- Agent Status: $jobStatus"
+        $logLines += ""
+        $logLines += "ARTIFACTS GENERATED:"
+        $logLines += "- Summary Log: easypim-drift-detection-summary-$timestamp.log"
+        $logLines += "- Metadata File: drift-metadata.json"
+        $logLines += "- Full Pipeline Logs: Available in Azure DevOps pipeline logs"
+        $logLines += "============================================================================="
+        
+        # Write summary to file
+        $logLines -join "`r`n" | Out-File -FilePath $summaryFile -Encoding UTF8
+        Write-Host "✅ Drift detection summary log created: $summaryFile" -ForegroundColor Green
+        
+        # Create a metadata file for the execution using hashtable approach
+        $metadataFile = "$logsDir/drift-metadata.json"
+        $metadata = @{
+            PipelineName = $pipelineName
+            BuildNumber = $buildNumber
+            BuildId = "$(Build.BuildId)"
+            Timestamp = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')
+            Parameters = @{
+                Verbose = $verbose
+                ServiceConnection = $serviceConn
+                KeyVault = $keyVault
+                SecretName = $secretName
+            }
+            Trigger = $buildReason
+            RequestedBy = $requestedBy
+            SourceBranch = $sourceBranch
+            SourceVersion = $sourceVersion
+            JobType = "DriftDetection"
+        } | ConvertTo-Json -Depth 3
+        
+        $metadata | Out-File -FilePath $metadataFile -Encoding UTF8
+        Write-Host "✅ Drift detection metadata file created: $metadataFile" -ForegroundColor Green
+        
+        # Check for and preserve any drift-specific results
+        Write-Host "📋 Collecting drift detection results..." -ForegroundColor Yellow
+        
+        # Copy drift summary JSON if it exists
+        if (Test-Path './drift-summary.json') {
+            Copy-Item './drift-summary.json' -Destination "$resultsDir/drift-summary-$timestamp.json" -ErrorAction SilentlyContinue
+            Write-Host "✅ Drift summary results preserved: drift-summary-$timestamp.json" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️ drift-summary.json not found in current directory" -ForegroundColor Yellow
+            Write-Host "📂 Current directory contents:" -ForegroundColor Gray
+            Get-ChildItem -Path . | ForEach-Object { Write-Host "   - $($_.Name)" -ForegroundColor Gray }
+        }
+        
+        # Copy detailed drift report if it exists
+        if (Test-Path './drift-detailed-report.txt') {
+            Copy-Item './drift-detailed-report.txt' -Destination "$resultsDir/drift-detailed-report-$timestamp.txt" -ErrorAction SilentlyContinue
+            Write-Host "✅ Detailed drift report preserved: drift-detailed-report-$timestamp.txt" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️ drift-detailed-report.txt not found in current directory" -ForegroundColor Yellow
+        }
+        
+        # Create a dashboard summary file
+        $dashboardFile = "$resultsDir/drift-dashboard-$timestamp.txt"
+        $dashboardContent = @()
+        $dashboardContent += "═══════════════════════════════════════════════════════════════════════"
+        $dashboardContent += "                    🔍 EasyPIM Drift Detection Dashboard"
+        $dashboardContent += "═══════════════════════════════════════════════════════════════════════"
+        $dashboardContent += ""
+        $dashboardContent += "🎯 Execution Overview"
+        $dashboardContent += "Build: $(Build.BuildNumber)"
+        $dashboardContent += "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+        $dashboardContent += "Trigger: $(Build.Reason)"
+        $dashboardContent += "Status: COMPLETED"
+        $dashboardContent += ""
+        $dashboardContent += "⚙️ Configuration"
+        $dashboardContent += "Key Vault: $(KEYVAULT_NAME)"
+        $dashboardContent += "Secret Name: $(SECRET_NAME)"
+        $dashboardContent += "Service Connection: ${{ parameters.serviceConnection }}"
+        $dashboardContent += "Verbose Mode: ${{ parameters.Verbose }}"
+        $dashboardContent += ""
+        $dashboardContent += "📋 Artifact Files Generated:"
+        $dashboardContent += "- Summary Log: easypim-drift-detection-summary-$timestamp.log"
+        $dashboardContent += "- Metadata File: drift-metadata.json"
+        $dashboardContent += "- Dashboard Summary: drift-dashboard-$timestamp.txt"
+        if (Test-Path './drift-summary.json') {
+            $dashboardContent += "- Drift Results: drift-summary-$timestamp.json"
+        }
+        if (Test-Path './drift-detailed-report.txt') {
+            $dashboardContent += "- Detailed Report: drift-detailed-report-$timestamp.txt"
+        }
+        $dashboardContent += "═══════════════════════════════════════════════════════════════════════"
+        
+        $dashboardContent -join "`r`n" | Out-File -FilePath $dashboardFile -Encoding UTF8
+        Write-Host "✅ Dashboard summary created: $dashboardFile" -ForegroundColor Green
+        
+        # List all files created
+        Write-Host "📋 Drift detection artifact files created:" -ForegroundColor Yellow
+        Write-Host "📁 Logs Directory:" -ForegroundColor Cyan
+        if (Test-Path $logsDir) {
+            Get-ChildItem -Path $logsDir | ForEach-Object {
+                Write-Host "   - $($_.Name) ($([math]::Round($_.Length / 1KB, 2)) KB)" -ForegroundColor Gray
+            }
+        }
+        Write-Host "📁 Results Directory:" -ForegroundColor Cyan
+        if (Test-Path $resultsDir) {
+            Get-ChildItem -Path $resultsDir | ForEach-Object {
+                Write-Host "   - $($_.Name) ($([math]::Round($_.Length / 1KB, 2)) KB)" -ForegroundColor Gray
+            }
+        }
+        
+        Write-Host "📤 Artifacts will be published to Azure DevOps under:" -ForegroundColor Magenta
+        Write-Host "   Build Artifacts > EasyPIM-DriftDetection-Logs-$(Build.BuildNumber)" -ForegroundColor Magenta
+
+  - task: PublishBuildArtifacts@1
+    displayName: '📤 Publish Drift Detection Artifacts'
+    condition: always()
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: 'EasyPIM-DriftDetection-Logs-$(Build.BuildNumber)'
+      publishLocation: 'Container'

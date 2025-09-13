@@ -120,7 +120,7 @@ cd EasyPIM-EventDriven-Governance
 ### **Phase 1: Azure Infrastructure** ⚡
 - **Azure Resource Group** with platform-optimized settings
 - **Key Vault** for secure configuration storage
-- **Azure Function** for event processing  
+- **Azure Function** for event processing
 - **Event Grid** for real-time triggering
 - **Service Principal** with OIDC federation
 - **Application Insights** for monitoring
@@ -161,7 +161,7 @@ cd EasyPIM-EventDriven-Governance
 
 **→ [Complete GitHub Actions Guide](GitHub-Actions-Guide.md)**
 
-### 🔵 **Azure DevOps** 
+### 🔵 **Azure DevOps**
 **Best for:** Enterprise environments, complex workflows, Microsoft ecosystem
 
 **Features:**
@@ -194,7 +194,7 @@ cd EasyPIM-EventDriven-Governance
 # Development environment
 .\scripts\setup-platform.ps1 -Platform GitHub -ResourceGroupName "rg-easypim-dev"
 
-# Production environment  
+# Production environment
 .\scripts\setup-platform.ps1 -Platform Both -ResourceGroupName "rg-easypim-prod"
 ```
 

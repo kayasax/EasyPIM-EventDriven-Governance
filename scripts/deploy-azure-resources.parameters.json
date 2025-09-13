@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourcePrefix": {
+      "value": "easypim"
+    },
+    "environment": {
+      "value": "prod"
+    },
+    "gitHubRepo": {
+      "value": "YourGitHubUsername/YourRepoName"
+    },
+    "gitHubBranch": {
+      "value": "main"
+    },
+    "adminObjectId": {
+      "value": "YOUR_AZURE_AD_OBJECT_ID"
+    },
+    "clientId": {
+      "value": ""
+    }
+  }
+}

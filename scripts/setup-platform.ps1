@@ -60,42 +60,42 @@ USAGE:
 PARAMETERS:
   -Platform              CI/CD platform to configure
                          Options: GitHub, AzureDevOps, Both
-  
+
   -Interactive           Enable interactive mode (default: true)
                          Use -Interactive:`$false for non-interactive setup
-  
+
   -GitHubRepository      GitHub repository in format 'owner/repo'
                          Required when Platform is GitHub or Both
-  
+
   -AzureDevOpsOrganization  Azure DevOps organization name
                            Required when Platform is AzureDevOps or Both
-  
+
   -AzureDevOpsProject    Azure DevOps project name
                          Required when Platform is AzureDevOps or Both
-  
+
   -ResourceGroupName     Azure resource group name (default: rg-easypim-cicd-test)
-  
+
   -Location              Azure location (default: East US)
-  
+
   -WhatIf                Preview deployment without making changes
-  
+
   -Force                 Skip confirmation prompts
-  
+
   -Help                  Show this help message
 
 EXAMPLES:
   # Interactive setup (recommended)
   .\setup-platform.ps1
-  
+
   # Preview deployment
   .\setup-platform.ps1 -WhatIf
-  
+
   # Non-interactive GitHub setup
   .\setup-platform.ps1 -Interactive:`$false -Platform GitHub -GitHubRepository "contoso/easypim"
-  
+
   # Non-interactive Azure DevOps setup
   .\setup-platform.ps1 -Interactive:`$false -Platform AzureDevOps -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
-  
+
   # Setup both platforms
   .\setup-platform.ps1 -Platform Both -GitHubRepository "contoso/easypim" -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
 
@@ -129,8 +129,8 @@ function Select-Platform {
             "1" { return "GitHub" }
             "2" { return "AzureDevOps" }
             "3" { return "Both" }
-            default { 
-                Write-Host "❌ Invalid choice. Please enter 1, 2, or 3." -ForegroundColor Red 
+            default {
+                Write-Host "❌ Invalid choice. Please enter 1, 2, or 3." -ForegroundColor Red
             }
         }
     } while ($true)
@@ -142,7 +142,7 @@ function Get-GitHubInfo {
 
     if ($ExistingRepo) {
         Write-Host "✅ GitHub repository pre-configured: $ExistingRepo" -ForegroundColor Green
-        
+
         # Validate repository exists and is accessible
         try {
             Write-Host "🔍 Validating GitHub repository access..." -ForegroundColor Gray
@@ -156,7 +156,7 @@ function Get-GitHubInfo {
         } catch {
             Write-Host "⚠️ GitHub CLI not available for validation. Repository will be validated during setup." -ForegroundColor Yellow
         }
-        
+
         return $ExistingRepo
     }
 
@@ -174,10 +174,10 @@ function Get-GitHubInfo {
     Write-Host "   • Go to: https://github.com/kayasax/EasyPIM-EventDriven-Governance" -ForegroundColor White
     Write-Host "   • Click 'Fork' to create your own copy" -ForegroundColor White
     Write-Host ""
-    
+
     do {
         $repo = Read-Host "GitHub Repository (format: owner/repo)"
-        
+
         if (-not $repo -or $repo.Length -eq 0) {
             Write-Host ""
             Write-Host "❌ Repository name cannot be empty." -ForegroundColor Red
@@ -198,11 +198,11 @@ function Get-GitHubInfo {
             }
             continue
         }
-        
+
         if ($repo -match "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$") {
             # Try to validate repository exists and is accessible
             Write-Host "🔍 Validating GitHub repository..." -ForegroundColor Gray
-            
+
             # Use Start-Process to properly capture output and errors
             $processInfo = New-Object System.Diagnostics.ProcessStartInfo
             $processInfo.FileName = "gh"
@@ -211,24 +211,24 @@ function Get-GitHubInfo {
             $processInfo.RedirectStandardOutput = $true
             $processInfo.RedirectStandardError = $true
             $processInfo.CreateNoWindow = $true
-            
+
             $process = New-Object System.Diagnostics.Process
             $process.StartInfo = $processInfo
-            
+
             try {
                 $process.Start() | Out-Null
                 $output = $process.StandardOutput.ReadToEnd()
                 $errorOutput = $process.StandardError.ReadToEnd()
                 $process.WaitForExit()
-                
+
                 if ($process.ExitCode -eq 0 -and $output.Trim()) {
                     $repoInfo = $output | ConvertFrom-Json
                     $visibility = if ($repoInfo.isPrivate) { "Private" } else { "Public" }
                     Write-Host "✅ Repository found: $($repoInfo.owner.login)/$($repoInfo.name) ($visibility)" -ForegroundColor Green
-                    
+
                     # Simple permission check - if we can view it, we likely have some access
                     Write-Host "✅ Repository access confirmed" -ForegroundColor Green
-                    
+
                     return $repo
                 } else {
                     Write-Host ""
@@ -240,7 +240,7 @@ function Get-GitHubInfo {
                     Write-Host "   • Verify GitHub CLI authentication: gh auth status" -ForegroundColor White
                     Write-Host "   • Create the repository if it doesn't exist" -ForegroundColor White
                     Write-Host ""
-                    
+
                     $retry = Read-Host "Try again? (y/N)"
                     if ($retry -notmatch "^[Yy]") {
                         Write-Host "🛑 Setup cancelled. Please create or check your GitHub repository, then re-run this script." -ForegroundColor Yellow
@@ -280,11 +280,11 @@ function Get-AzureDevOpsInfo {
         Write-Host "`n📋 Azure DevOps Configuration" -ForegroundColor Yellow
         Write-Host "✅ Organization pre-configured: $org" -ForegroundColor Green
         Write-Host "✅ Project pre-configured: $project" -ForegroundColor Green
-        
+
         # Quick validation of the organization
         try {
             Write-Host "🔍 Verifying Azure DevOps organization..." -ForegroundColor Gray
-            
+
             # Check if Azure DevOps extension is installed
             $extensionCheck = az extension list --query "[?name=='azure-devops'].name" -o tsv 2>$null
             if (-not $extensionCheck) {
@@ -300,7 +300,7 @@ function Get-AzureDevOpsInfo {
                 }
                 Write-Host "   ✅ Azure DevOps CLI extension installed" -ForegroundColor Green
             }
-            
+
             # Now try to validate the organization
             $orgCheck = az devops project list --organization "https://dev.azure.com/$org" --query "value[?name=='$project'].name" -o tsv 2>$null
             if ($LASTEXITCODE -eq 0 -and $orgCheck) {
@@ -314,7 +314,7 @@ function Get-AzureDevOpsInfo {
             Write-Host "⚠️ Could not verify Azure DevOps configuration" -ForegroundColor Yellow
             Write-Host "   Continuing anyway - will be validated during deployment" -ForegroundColor Gray
         }
-        
+
         return @{
             Organization = $org
             Project = $project
@@ -328,15 +328,15 @@ function Get-AzureDevOpsInfo {
         Write-Host ""
         Write-Host "💡 Don't have an Azure DevOps organization yet?" -ForegroundColor Cyan
         Write-Host "   1. Visit: https://dev.azure.com" -ForegroundColor White
-        Write-Host "   2. Sign in with your Microsoft/Azure account" -ForegroundColor White  
+        Write-Host "   2. Sign in with your Microsoft/Azure account" -ForegroundColor White
         Write-Host "   3. Click 'Create new organization'" -ForegroundColor White
         Write-Host "   4. Choose a name (e.g., 'your-company-easypim')" -ForegroundColor White
         Write-Host "   5. Come back and enter the organization name below" -ForegroundColor White
         Write-Host ""
-        
+
         do {
             $org = Read-Host "Azure DevOps Organization (or press Ctrl+C to exit and create one first)"
-            
+
             if (-not $org -or $org.Length -eq 0) {
                 Write-Host ""
                 Write-Host "❌ Organization name cannot be empty." -ForegroundColor Red
@@ -353,7 +353,7 @@ function Get-AzureDevOpsInfo {
                 }
                 continue
             }
-            
+
             # Validate organization name format (basic check)
             if ($org -match "^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$" -or $org -match "^[a-zA-Z0-9]$") {
                 break
@@ -362,7 +362,7 @@ function Get-AzureDevOpsInfo {
                 Write-Host "   Examples: 'contoso', 'my-company', 'team_easypim'" -ForegroundColor Gray
             }
         } while ($true)
-        
+
         # Test if organization exists (basic connectivity check)
         Write-Host "🔍 Verifying Azure DevOps organization..." -ForegroundColor Yellow
         try {
@@ -384,7 +384,7 @@ function Get-AzureDevOpsInfo {
             Write-Host "   2. If it doesn't exist, you'll be prompted to create it" -ForegroundColor White
             Write-Host "   3. Make sure you're signed in with the correct account" -ForegroundColor White
             Write-Host ""
-            
+
             $proceed = Read-Host "Continue anyway? The setup will proceed but may fail later if the organization is invalid (y/N)"
             if ($proceed -notmatch "^[yY]") {
                 Write-Host "🛑 Setup cancelled. Please verify your Azure DevOps organization and try again." -ForegroundColor Yellow
@@ -407,10 +407,10 @@ function Get-AzureDevOpsInfo {
         Write-Host "   4. Set visibility to 'Private' (recommended)" -ForegroundColor White
         Write-Host "   5. Click 'Create'" -ForegroundColor White
         Write-Host ""
-        
+
         do {
             $project = Read-Host "Azure DevOps Project (or press Ctrl+C to exit and create one first)"
-            
+
             if (-not $project -or $project.Length -eq 0) {
                 Write-Host ""
                 Write-Host "❌ Project name cannot be empty." -ForegroundColor Red
@@ -427,7 +427,7 @@ function Get-AzureDevOpsInfo {
                 }
                 continue
             }
-            
+
             # Validate project name format (basic check)
             if ($project -match "^[a-zA-Z0-9][a-zA-Z0-9\s._-]*[a-zA-Z0-9]$" -or $project -match "^[a-zA-Z0-9]$") {
                 break
@@ -439,7 +439,7 @@ function Get-AzureDevOpsInfo {
     } else {
         Write-Host "✅ Azure DevOps project pre-configured: $project" -ForegroundColor Green
     }
-    
+
     Write-Host ""
     Write-Host "✅ Azure DevOps Configuration Complete!" -ForegroundColor Green
     Write-Host "   Organization: $org" -ForegroundColor Gray
@@ -463,12 +463,12 @@ function Get-AzureConfig {
     $loc = if ($ExistingLocation) { $ExistingLocation } else { "East US" }
 
     Write-Host "`n📋 Azure Configuration" -ForegroundColor Yellow
-    
+
     # If resource group is pre-configured, just validate and use it
     if ($ExistingRG) {
         Write-Host "✅ Resource group pre-configured: $rg" -ForegroundColor Green
         Write-Host "✅ Location pre-configured: $loc" -ForegroundColor Green
-        
+
         # Check if the pre-configured RG exists and is in our list
         try {
             $existingRGs = az group list --query "[?contains(name, 'easypim')].{name:name,location:location}" --output json 2>$null
@@ -487,13 +487,13 @@ function Get-AzureConfig {
         } catch {
             Write-Host "   ⚠️ Could not verify resource group (will be created if missing)" -ForegroundColor Yellow
         }
-        
+
         return @{
             ResourceGroup = $rg
             Location = $loc
         }
     }
-    
+
     # Check for existing EasyPIM resource groups
     Write-Host "🔍 Checking for existing EasyPIM resource groups..." -ForegroundColor Gray
     try {
@@ -505,11 +505,11 @@ function Get-AzureConfig {
                 for ($i = 0; $i -lt $rgList.Count; $i++) {
                     Write-Host "   $($i + 1). $($rgList[$i].name) (Location: $($rgList[$i].location))" -ForegroundColor Cyan
                 }
-                
+
                 if ($Interactive) {
                     Write-Host "   0. Create new resource group: $rg" -ForegroundColor White
                     Write-Host ""
-                    
+
                     do {
                         $choice = Read-Host "Select a resource group to reuse, or 0 for new (0-$($rgList.Count))"
                         if ($choice -match "^\d+$" -and [int]$choice -ge 0 -and [int]$choice -le $rgList.Count) {
@@ -537,7 +537,7 @@ function Get-AzureConfig {
     } catch {
         Write-Host "   ⚠️ Could not check existing resource groups: $($_.Exception.Message)" -ForegroundColor Yellow
     }
-    
+
     Write-Host "`nCurrent configuration:" -ForegroundColor White
     Write-Host "• Resource Group: $rg" -ForegroundColor Gray
     Write-Host "• Location: $loc" -ForegroundColor Gray
@@ -571,15 +571,15 @@ function Show-ConfigSummary {
     Write-Host "`n📋 Configuration Summary" -ForegroundColor Yellow
     Write-Host "═══════════════════════════════════════" -ForegroundColor Yellow
     Write-Host "Platform: $Platform" -ForegroundColor White
-    
+
     if ($GitHubRepo) {
         Write-Host "GitHub Repository: $GitHubRepo" -ForegroundColor White
     }
-    
+
     if ($AdoInfo) {
         Write-Host "Azure DevOps: $($AdoInfo.Organization)/$($AdoInfo.Project)" -ForegroundColor White
     }
-    
+
     Write-Host "Resource Group: $($AzureConfig.ResourceGroup)" -ForegroundColor White
     Write-Host "Location: $($AzureConfig.Location)" -ForegroundColor White
     Write-Host "What-If Mode: $($WhatIf.IsPresent)" -ForegroundColor White
@@ -622,7 +622,7 @@ function Invoke-DeploymentPhase {
     foreach ($param in $deployParams.GetEnumerator()) {
         Write-Host "   -$($param.Key): $($param.Value)" -ForegroundColor Gray
     }
-    
+
     try {
         & ".\scripts\deploy-azure-resources-enhanced.ps1" @deployParams
         if ($LASTEXITCODE -eq 0) {
@@ -683,7 +683,7 @@ function Invoke-ConfigurationPhase {
     foreach ($param in $configParams.GetEnumerator()) {
         Write-Host "   -$($param.Key): $($param.Value)" -ForegroundColor Gray
     }
-    
+
     try {
         & ".\scripts\configure-cicd.ps1" @configParams
         if ($LASTEXITCODE -eq 0) {
