@@ -57,6 +57,7 @@ jobs:
       - name: "🔑 Test Key Vault Access"
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           Write-Host "🔑 Testing Key Vault access..." -ForegroundColor Yellow
           Write-Host "   Key Vault: $env:KEYVAULT_NAME" -ForegroundColor Cyan
           
@@ -69,7 +70,7 @@ jobs:
               Write-Host "✅ Key Vault access SUCCESS!" -ForegroundColor Green
               Write-Host "   Available secrets: $($secrets.Count)" -ForegroundColor White
               
-              if (${{ inputs.verbose }}) {
+              if ($false) {
                 Write-Host "   Secret names:" -ForegroundColor Cyan
                 $secrets | ForEach-Object { Write-Host "     - $($_.Name)" -ForegroundColor Gray }
               }
@@ -79,10 +80,12 @@ jobs:
             
             # Explicit success
             Write-Host "🔑 Key Vault test completed successfully" -ForegroundColor Green
+            exit 0
           } catch {
             Write-Host "❌ Key Vault access FAILED!" -ForegroundColor Red
             Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
             exit 1
+          }
           }
 
       - name: "🔐 Install PowerShell Modules"
