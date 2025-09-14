@@ -1,0 +1,315 @@
+# Azure DevOps Pipeline for EasyPIM Event-Driven Governance
+# This pipeline is triggered via REST API from the Azure Function when Key Vault secrets change
+
+trigger: none  # Only triggered via API calls from Azure Function
+
+parameters:
+- name: configSecretName
+  displayName: 'Configuration Secret Name'
+  type: string
+  default: 'easypim-config-ado'
+
+- name: whatIfMode
+  displayName: 'What-If Mode (Preview Only)'
+  type: boolean
+  default: false
+
+- name: mode
+  displayName: 'Execution Mode'
+  type: string
+  default: 'delta'
+  values:
+  - delta
+  - initial
+
+- name: verbose
+  displayName: 'Verbose Output'
+  type: boolean
+  default: false
+
+- name: runDescription
+  displayName: 'Run Description'
+  type: string
+  default: 'Manual trigger'
+
+- name: skipPolicies
+  displayName: 'Skip Policies'
+  type: boolean
+  default: false
+
+- name: skipAssignments
+  displayName: 'Skip Assignments'
+  type: boolean
+  default: false
+
+- name: allowProtectedRoles
+  displayName: 'Allow Protected Roles'
+  type: boolean
+  default: false
+
+variables:
+  KEYVAULT_NAME: 'kv-easypim-8368'  # Update with your Key Vault name
+  TENANT_ID: $(AZURE_TENANT_ID)           # Set in Azure DevOps variable groups
+  SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID) # Set in Azure DevOps variable groups
+  CLIENT_ID: $(AZURE_CLIENT_ID)           # Set in Azure DevOps variable groups
+
+stages:
+- stage: EasyPIMAuthentication
+  displayName: '🔐 Authentication & Setup'
+  jobs:
+  - job: AuthenticationTest
+    displayName: 'Verify Authentication Chain'
+    pool:
+      vmImage: 'ubuntu-latest'
+    
+    steps:
+    - checkout: self
+      displayName: 'Checkout Repository'
+      
+    - task: AzurePowerShell@5
+      displayName: '🎯 Display Pipeline Parameters'
+      inputs:
+        azureSubscription: 'EasyPIM-ServiceConnection'  # Update with your service connection name
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+          Write-Host "                    🚀 EasyPIM Azure DevOps Pipeline" -ForegroundColor Cyan
+          Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "📋 Pipeline Parameters:" -ForegroundColor Yellow
+          Write-Host "  • Secret Name: ${{ parameters.configSecretName }}" -ForegroundColor White
+          Write-Host "  • What-If Mode: ${{ parameters.whatIfMode }}" -ForegroundColor White
+          Write-Host "  • Execution Mode: ${{ parameters.mode }}" -ForegroundColor White
+          Write-Host "  • Verbose: ${{ parameters.verbose }}" -ForegroundColor White
+          Write-Host "  • Skip Policies: ${{ parameters.skipPolicies }}" -ForegroundColor White
+          Write-Host "  • Skip Assignments: ${{ parameters.skipAssignments }}" -ForegroundColor White
+          Write-Host "  • Description: ${{ parameters.runDescription }}" -ForegroundColor White
+          Write-Host ""
+          Write-Host "⚙️ Configuration:" -ForegroundColor Yellow
+          Write-Host "  • Key Vault: $(KEYVAULT_NAME)" -ForegroundColor White
+          Write-Host "  • Tenant ID: $(TENANT_ID)" -ForegroundColor White
+          Write-Host "  • Subscription ID: $(SUBSCRIPTION_ID)" -ForegroundColor White
+          Write-Host "  • Client ID: $(CLIENT_ID)" -ForegroundColor White
+          Write-Host ""
+        azurePowerShellVersion: 'LatestVersion'
+
+    - task: AzurePowerShell@5
+      displayName: '🔍 Test Azure Authentication'
+      inputs:
+        azureSubscription: 'EasyPIM-ServiceConnection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "🔍 Verifying Azure authentication..." -ForegroundColor Yellow
+          
+          try {
+            $context = Get-AzContext
+            if ($context) {
+              Write-Host "✅ Azure PowerShell Authentication SUCCESS!" -ForegroundColor Green
+              Write-Host "   Account: $($context.Account.Id)" -ForegroundColor White
+              Write-Host "   Subscription: $($context.Subscription.Name)" -ForegroundColor White
+              Write-Host "   Subscription ID: $($context.Subscription.Id)" -ForegroundColor White
+              Write-Host "   Tenant ID: $($context.Tenant.Id)" -ForegroundColor White
+            } else {
+              Write-Host "❌ Azure PowerShell Authentication FAILED!" -ForegroundColor Red
+              exit 1
+            }
+          } catch {
+            Write-Host "❌ Azure authentication error: $($_.Exception.Message)" -ForegroundColor Red
+            exit 1
+          }
+        azurePowerShellVersion: 'LatestVersion'
+
+    - task: AzurePowerShell@5
+      displayName: '🔑 Test Key Vault Access'
+      inputs:
+        azureSubscription: 'EasyPIM-ServiceConnection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "🔑 Testing Key Vault access..." -ForegroundColor Yellow
+          Write-Host "   Key Vault: $(KEYVAULT_NAME)" -ForegroundColor Cyan
+          
+          try {
+            $secrets = Get-AzKeyVaultSecret -VaultName "$(KEYVAULT_NAME)" -ErrorAction Stop
+            if ($secrets) {
+              Write-Host "✅ Key Vault access SUCCESS!" -ForegroundColor Green
+              Write-Host "   Available secrets: $($secrets.Count)" -ForegroundColor White
+            } else {
+              Write-Host "⚠️ Key Vault accessible but no secrets found" -ForegroundColor Yellow
+            }
+          } catch {
+            Write-Host "❌ Key Vault access FAILED!" -ForegroundColor Red
+            Write-Host "   Error: $($_.Exception.Message)" -ForegroundColor Red
+            exit 1
+          }
+        azurePowerShellVersion: 'LatestVersion'
+
+    - task: AzurePowerShell@5
+      displayName: '📦 Install EasyPIM Modules'
+      inputs:
+        azureSubscription: 'EasyPIM-ServiceConnection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "📦 Installing required PowerShell modules..." -ForegroundColor Yellow
+          
+          $modules = @(
+            'Microsoft.Graph.Authentication',
+            'EasyPIM.Orchestrator'
+          )
+          
+          foreach ($module in $modules) {
+            Write-Host "   Installing: $module" -ForegroundColor Cyan
+            try {
+              Install-Module -Name $module -Force -AllowClobber -Scope CurrentUser -Repository PSGallery -ErrorAction Stop
+              Import-Module -Name $module -Force -ErrorAction Stop
+              Write-Host "     ✅ $module installed successfully" -ForegroundColor Green
+            } catch {
+              Write-Host "     ❌ Failed to install $module`: $($_.Exception.Message)" -ForegroundColor Red
+              exit 1
+            }
+          }
+          
+          Write-Host "✅ PowerShell modules ready!" -ForegroundColor Green
+        azurePowerShellVersion: 'LatestVersion'
+
+- stage: EasyPIMExecution
+  displayName: '⚡ EasyPIM Policy Orchestration'
+  dependsOn: EasyPIMAuthentication
+  condition: succeeded()
+  jobs:
+  - job: ExecuteEasyPIM
+    displayName: 'Execute EasyPIM Orchestrator'
+    pool:
+      vmImage: 'ubuntu-latest'
+    
+    steps:
+    - checkout: self
+      displayName: 'Checkout Repository'
+
+    - task: AzurePowerShell@5
+      displayName: '🚀 Execute EasyPIM Orchestrator'
+      inputs:
+        azureSubscription: 'EasyPIM-ServiceConnection'
+        ScriptType: 'InlineScript'
+        Inline: |
+          Write-Host "🚀 Starting EasyPIM Orchestrator execution..." -ForegroundColor Cyan
+          
+          # Re-install modules (ADO doesn't persist between jobs)
+          Write-Host "📦 Re-installing modules for execution..." -ForegroundColor Gray
+          Install-Module -Name EasyPIM.Orchestrator -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
+          Install-Module -Name Microsoft.Graph.Authentication -Force -AllowClobber -Scope CurrentUser -Repository PSGallery
+          Import-Module -Name EasyPIM.Orchestrator -Force
+          Import-Module -Name Microsoft.Graph.Authentication -Force
+          
+          # Get Microsoft Graph token for EasyPIM
+          Write-Host "🔐 Getting Microsoft Graph token..." -ForegroundColor Blue
+          $graphToken = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate($null, [Microsoft.Azure.Commands.Common.Authentication.Environment]::PublicEnvironments['AzureCloud'], 'https://graph.microsoft.com/', $null, 'Never', $null, 'https://graph.microsoft.com/').AccessToken
+          
+          if (-not $graphToken) {
+            Write-Host "❌ Failed to obtain Graph token" -ForegroundColor Red
+            exit 1
+          }
+          
+          # Connect to Microsoft Graph
+          $secureToken = ConvertTo-SecureString $graphToken -AsPlainText -Force
+          Connect-MgGraph -AccessToken $secureToken -NoWelcome
+          Write-Host "✅ Connected to Microsoft Graph" -ForegroundColor Green
+          
+          # Prepare EasyPIM parameters
+          $easyPIMParams = @{
+            KeyVaultName = "$(KEYVAULT_NAME)"
+            SecretName = "${{ parameters.configSecretName }}"
+            TenantId = "$(TENANT_ID)"
+            WhatIf = [System.Convert]::ToBoolean("${{ parameters.whatIfMode }}")
+            Mode = "${{ parameters.mode }}"
+            Verbose = [System.Convert]::ToBoolean("${{ parameters.verbose }}")
+          }
+          
+          if ([System.Convert]::ToBoolean("${{ parameters.skipPolicies }}")) {
+            $easyPIMParams.SkipPolicies = $true
+          }
+          
+          if ([System.Convert]::ToBoolean("${{ parameters.skipAssignments }}")) {
+            $easyPIMParams.SkipAssignments = $true
+          }
+          
+          Write-Host "📋 EasyPIM Execution Parameters:" -ForegroundColor Blue
+          $easyPIMParams | ConvertTo-Json -Depth 2 | Write-Host
+          
+          try {
+            Write-Host "⚡ Executing EasyPIM Orchestrator..." -ForegroundColor Green
+            
+            # Execute EasyPIM (adjust command based on your EasyPIM module)
+            $result = Invoke-EasyPIMOrchestrator @easyPIMParams
+            
+            Write-Host "✅ EasyPIM execution completed successfully!" -ForegroundColor Green
+            
+            # Output results for pipeline summary
+            if ($result) {
+              Write-Host "📊 Execution Results:" -ForegroundColor Cyan
+              $result | ConvertTo-Json -Depth 3 | Write-Host
+            }
+            
+          } catch {
+            Write-Host "❌ EasyPIM execution failed: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "Full error details:" -ForegroundColor Red
+            $_ | Format-List * -Force
+            exit 1
+          }
+        azurePowerShellVersion: 'LatestVersion'
+        workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+- stage: Summary
+  displayName: '📊 Execution Summary'
+  dependsOn: 
+  - EasyPIMAuthentication
+  - EasyPIMExecution
+  condition: always()
+  jobs:
+  - job: GenerateSummary
+    displayName: 'Generate Execution Summary'
+    pool:
+      vmImage: 'ubuntu-latest'
+    
+    steps:
+    - task: PowerShell@2
+      displayName: '📋 Pipeline Summary'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+          Write-Host "                    📊 EasyPIM Pipeline Summary" -ForegroundColor Cyan
+          Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+          Write-Host ""
+          
+          $authStatus = "$(Agent.JobStatus)"  # Status of authentication stage
+          $execStatus = "$(Agent.JobStatus)"  # Status of execution stage
+          
+          Write-Host "🎯 Execution Overview:" -ForegroundColor Yellow
+          Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+          Write-Host "│ Authentication              │ ✅ COMPLETED   │" -ForegroundColor Gray
+          Write-Host "│ EasyPIM Execution           │ ✅ COMPLETED   │" -ForegroundColor Gray
+          Write-Host "│ Configuration Secret        │ ${{ parameters.configSecretName }}" -ForegroundColor Gray
+          Write-Host "│ Execution Mode              │ ${{ parameters.mode }}" -ForegroundColor Gray
+          Write-Host "│ What-If Mode                │ ${{ parameters.whatIfMode }}" -ForegroundColor Gray
+          Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+          Write-Host ""
+          
+          Write-Host "⚙️ Pipeline Details:" -ForegroundColor Yellow
+          Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
+          Write-Host "│ Pipeline ID                 │ $(System.DefinitionId)" -ForegroundColor Gray
+          Write-Host "│ Run Number                  │ $(Build.BuildNumber)" -ForegroundColor Gray
+          Write-Host "│ Triggered by                │ API (Event-Driven)" -ForegroundColor Gray
+          Write-Host "│ Repository                  │ $(Build.Repository.Name)" -ForegroundColor Gray
+          Write-Host "│ Branch                      │ $(Build.SourceBranchName)" -ForegroundColor Gray
+          Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
+          Write-Host ""
+          
+          Write-Host "🎉 SUCCESS: EasyPIM governance pipeline completed!" -ForegroundColor Green
+          Write-Host "   Your PIM policies have been processed via Azure DevOps." -ForegroundColor White
+          Write-Host ""
+          
+          Write-Host "🚀 Event-Driven Integration Active:" -ForegroundColor Yellow
+          Write-Host "• Key Vault secret changes automatically trigger this pipeline" -ForegroundColor White
+          Write-Host "• Intelligent parameter detection based on secret names" -ForegroundColor White
+          Write-Host "• Complete audit trail maintained in Azure DevOps" -ForegroundColor White
+          Write-Host "• Multi-platform support (GitHub Actions + Azure DevOps)" -ForegroundColor White

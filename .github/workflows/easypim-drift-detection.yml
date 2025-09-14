@@ -136,7 +136,11 @@ jobs:
           $driftParams = $driftParamsJson | ConvertFrom-Json -AsHashtable
           $graphContext = Get-MgContext
 
-          # Execute using the dedicated script
+          # Apply telemetry hotpatch first for PostHog statistics
+          Write-Host "📊 Applying EasyPIM telemetry hotpatch..." -ForegroundColor Cyan
+          & "./scripts/workflows/Apply-EasyPIMTelemetryHotpatch.ps1"
+
+          # Execute using the dedicated script WITH telemetry enabled
           & "./scripts/workflows/Invoke-EasyPIMDriftDetection.ps1" -DriftParams $driftParams -GraphContext $graphContext
 
           # Clean up temp file if it was created
