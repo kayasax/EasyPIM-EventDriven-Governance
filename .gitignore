@@ -10,3 +10,6 @@ host.json
 local.settings.json
 requirements.psd1
 profile.ps1
+
+# Archive folder for cleanup
+archive/
