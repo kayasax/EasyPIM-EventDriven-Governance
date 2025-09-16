@@ -325,5 +325,5 @@ For support, questions, or feature requests, please use the **GitHub Issues** fe
 
 ---
 
-*Built with ❤️ for Azure asdministrators community.
+*Built with ❤️ for Azure asdministrators community.  
 Loïc*
