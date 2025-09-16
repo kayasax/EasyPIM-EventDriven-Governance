@@ -5,7 +5,7 @@ This repository is a comprehensive **demonstration and tutorial** for implementi
 ## 🎯 **What You'll Build**
 
 A complete **intelligent event-driven governance platform** that:
-- **🔄 Automatically responds** to Key Vault configuration changes  
+- **🔄 Automatically responds** to Key Vault configuration changes
 - **🧠 Smart routing** between GitHub Actions and Azure DevOps based on secret names
 - **📊 Real-time monitoring** and compliance validation
 - **🛡️ Enterprise-grade security** with zero stored secrets
@@ -40,7 +40,7 @@ A complete **intelligent event-driven governance platform** that:
 
 **What this creates:**
 - ✅ **Azure Function App** (PowerShell runtime) with smart routing logic
-- ✅ **Event Grid Subscription** for Key Vault change detection  
+- ✅ **Event Grid Subscription** for Key Vault change detection
 - ✅ **Key Vault** for secure configuration storage
 - ✅ **Storage Account** with proper authentication
 - ✅ **Application Insights** for monitoring and logging
@@ -61,7 +61,7 @@ A complete **intelligent event-driven governance platform** that:
 .\scripts\setup-platform.ps1 -Platform Both
 ```
 
-**📘 Option B: GitHub Actions Only**  
+**📘 Option B: GitHub Actions Only**
 ```powershell
 .\scripts\setup-platform.ps1 -Platform GitHub
 ```
@@ -73,7 +73,7 @@ A complete **intelligent event-driven governance platform** that:
 
 The setup script will **interactively guide you through:**
 - 🔑 Personal Access Token collection
-- 🏢 Organization/Repository configuration  
+- 🏢 Organization/Repository configuration
 - ⚙️ Function App environment variable setup
 - 🧪 Testing and validation instructions
 
@@ -85,7 +85,7 @@ Your Azure Function now **automatically chooses** the CI/CD platform based on se
 
 **📘 GitHub Actions Routes (Default Behavior)**
 - `easypim-config` → GitHub Actions (Production)
-- `easypim-prod` → GitHub Actions (Production)  
+- `easypim-prod` → GitHub Actions (Production)
 - `easypim-test` → GitHub Actions (WhatIf Mode)
 - `any-other-name` → GitHub Actions (Default)
 
@@ -105,7 +105,7 @@ az keyvault secret set --vault-name "kv-easypim-demo" --name "easypim-test" --va
 
 **Test Azure DevOps Path:**
 ```powershell
-# This will route to Azure DevOps (WhatIf mode)  
+# This will route to Azure DevOps (WhatIf mode)
 az keyvault secret set --vault-name "kv-easypim-demo" --name "easypim-test-ado" --value "test-config"
 ```
 
@@ -131,7 +131,7 @@ az keyvault secret set --vault-name "kv-easypim-demo" --name "easypim-prod-ado" 
 
 **Real-time Monitoring:**
 - ✅ **Function App Logs** show routing decisions
-- ✅ **GitHub Actions** workflows trigger automatically  
+- ✅ **GitHub Actions** workflows trigger automatically
 - ✅ **Azure DevOps** pipelines execute with parameters
 - ✅ **EasyPIM** applies PIM policies based on configuration
 - ✅ **Application Insights** provides detailed telemetry
@@ -144,7 +144,7 @@ Control Function behavior with these environment variables:
 
 ```bash
 EASYPIM_WHATIF=true          # Force WhatIf mode for all executions
-EASYPIM_MODE=initial         # Force initial mode for all executions  
+EASYPIM_MODE=initial         # Force initial mode for all executions
 EASYPIM_VERBOSE=true         # Enable verbose logging for all executions
 ```
 
@@ -157,7 +157,7 @@ easypim-dev-config          # Development (GitHub Actions, WhatIf)
 easypim-staging-config      # Staging (GitHub Actions, Normal)
 easypim-prod-config         # Production (GitHub Actions, Normal)
 
-easypim-dev-ado             # Development (Azure DevOps, WhatIf)  
+easypim-dev-ado             # Development (Azure DevOps, WhatIf)
 easypim-staging-azdo        # Staging (Azure DevOps, Normal)
 easypim-prod-devops         # Production (Azure DevOps, Normal)
 ```
@@ -180,7 +180,7 @@ if ($secretName -match "ado|azdo|devops|enterprise") {
 **Expected Log Patterns:**
 ```
 ✅ GitHub Actions: "🎯 Using default GitHub Actions routing for secret: easypim-prod"
-✅ Azure DevOps: "🎯 Detected Azure DevOps pattern - routing to Azure DevOps pipeline"  
+✅ Azure DevOps: "🎯 Detected Azure DevOps pattern - routing to Azure DevOps pipeline"
 ✅ Parameters: "⚙️ Detected test/debug mode - enabling WhatIf parameter"
 ```
 
@@ -216,7 +216,7 @@ if ($secretName -match "ado|azdo|devops|enterprise") {
 # Check Function App settings
 az functionapp config appsettings list --name "your-function-app" --resource-group "your-rg"
 
-# View Function App logs  
+# View Function App logs
 az functionapp log tail --name "your-function-app" --resource-group "your-rg"
 
 # Test Key Vault connectivity
@@ -231,7 +231,7 @@ az eventgrid event-subscription list --source-resource-id "/subscriptions/.../re
 You've successfully implemented EasyPIM dual-platform governance when:
 
 - ✅ **Smart Routing Works** - Different secret names trigger different platforms
-- ✅ **Parameters Flow Correctly** - WhatIf mode activates for test secrets  
+- ✅ **Parameters Flow Correctly** - WhatIf mode activates for test secrets
 - ✅ **Both Platforms Respond** - GitHub Actions AND Azure DevOps both work
 - ✅ **Real-time Updates** - Key Vault changes trigger instant pipeline execution
 - ✅ **Monitoring Active** - Function App logs show routing decisions clearly
@@ -241,7 +241,7 @@ You've successfully implemented EasyPIM dual-platform governance when:
 
 1. **📖 Read Advanced Documentation** - [Dual-Platform-Setup-Guide.md](Dual-Platform-Setup-Guide.md)
 2. **🔧 Customize Routing Logic** - Modify patterns for your organization
-3. **📊 Set up Alerting** - Configure Azure Monitor alerts for failures  
+3. **📊 Set up Alerting** - Configure Azure Monitor alerts for failures
 4. **🏢 Scale to Production** - Deploy across multiple environments
 5. **👥 Train Your Team** - Share knowledge of intelligent routing capabilities
 

@@ -69,13 +69,13 @@ Write-Host "🔍 Processing Key Vault event for secret: $secretName in vault: $v
 # 🚀 Platform routing based on secret name
 if ($secretName -match "ado|azdo|devops") {
     Write-Host "🎯 Detected Azure DevOps pattern - routing to Azure DevOps pipeline"
-    
+
     # Azure DevOps configuration
     $adoOrganization = $env:ADO_ORGANIZATION
-    $adoProject = $env:ADO_PROJECT  
+    $adoProject = $env:ADO_PROJECT
     $adoPipelineId = $env:ADO_PIPELINE_ID
     $adoToken = $env:ADO_PAT
-    
+
     if (-not $adoToken -or -not $adoOrganization -or -not $adoProject -or -not $adoPipelineId) {
         Write-Error "❌ Azure DevOps configuration missing. Required: ADO_ORGANIZATION, ADO_PROJECT, ADO_PIPELINE_ID, ADO_PAT"
         Push-OutputBinding -Name res -Value ([HttpResponseContext]@{
@@ -85,7 +85,7 @@ if ($secretName -match "ado|azdo|devops") {
         })
         return
     }
-    
+
     # Build Azure DevOps pipeline parameters (same logic as GitHub Actions)
     $pipelineParameters = @{
         "configSecretName" = $secretName
@@ -94,7 +94,7 @@ if ($secretName -match "ado|azdo|devops") {
         "verbose" = ($secretName -match "verbose|debug").ToString().ToLower()
         "runDescription" = "Triggered by Key Vault secret change: $secretName in $vaultName"
     }
-    
+
     # Apply smart parameter detection
     if ($secretName -match "test|debug") {
         $pipelineParameters.runDescription += " (Test Mode - Preview Only)"
@@ -102,18 +102,18 @@ if ($secretName -match "ado|azdo|devops") {
     if ($secretName -match "initial|setup|bootstrap") {
         $pipelineParameters.runDescription += " (Initial Setup Mode)"
     }
-    
+
     # Environment variable overrides (same as GitHub Actions logic)
     if ($env:EASYPIM_WHATIF) { $pipelineParameters.whatIfMode = $env:EASYPIM_WHATIF.ToLower() }
     if ($env:EASYPIM_MODE) { $pipelineParameters.mode = $env:EASYPIM_MODE }
     if ($env:EASYPIM_VERBOSE) { $pipelineParameters.verbose = $env:EASYPIM_VERBOSE.ToLower() }
-    
-    Write-Host "📋 Azure DevOps Parameters:" 
+
+    Write-Host "📋 Azure DevOps Parameters:"
     $pipelineParameters | Format-Table | Out-String | Write-Host
-    
+
     # Azure DevOps REST API call
     $apiUrl = "https://dev.azure.com/$adoOrganization/$adoProject/_apis/pipelines/$adoPipelineId/runs?api-version=7.0"
-    
+
     $bodyObj = @{
         resources = @{
             repositories = @{
@@ -124,16 +124,16 @@ if ($secretName -match "ado|azdo|devops") {
         }
         templateParameters = $pipelineParameters
     }
-    
+
     $adoHeaders = @{
         "Authorization" = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$adoToken"))
         "Content-Type" = "application/json"
     }
-    
+
     Write-Host "🚀 Triggering Azure DevOps pipeline..."
     Write-Host "URI: $apiUrl"
     Write-Host "Pipeline ID: $adoPipelineId in $adoOrganization/$adoProject"
-    
+
     try {
         $response = Invoke-RestMethod -Uri $apiUrl -Method POST -Headers $adoHeaders -Body ($bodyObj | ConvertTo-Json -Depth 4)
         Write-Host "✅ Azure DevOps pipeline triggered successfully!"
@@ -141,7 +141,7 @@ if ($secretName -match "ado|azdo|devops") {
         if ($response._links -and $response._links.web -and $response._links.web.href) {
             Write-Host "Pipeline URL: $($response._links.web.href)"
         }
-        
+
         # Return success response
         Push-OutputBinding -Name res -Value ([HttpResponseContext]@{
             StatusCode = 200
@@ -149,7 +149,7 @@ if ($secretName -match "ado|azdo|devops") {
             Body = "Azure DevOps pipeline triggered successfully"
         })
         return
-        
+
     } catch {
         Write-Error "❌ Failed to trigger Azure DevOps pipeline: $($_.Exception.Message)"
         if ($_.ErrorDetails.Message) {
@@ -162,7 +162,7 @@ if ($secretName -match "ado|azdo|devops") {
         })
         return
     }
-    
+
 } else {
     # 🎯 Default: Route to GitHub Actions (existing logic)
     Write-Host "🎯 Using default GitHub Actions routing for secret: $secretName"

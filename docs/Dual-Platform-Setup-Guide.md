@@ -9,7 +9,7 @@ The EasyPIM platform now features **intelligent dual-platform routing** that aut
 ### **🔧 One-Command Setup**
 
 ```powershell
-# Setup both platforms automatically  
+# Setup both platforms automatically
 .\scripts\setup-platform.ps1 -Platform Both -GitHubRepository "owner/repo" -AzureDevOpsOrganization "contoso" -AzureDevOpsProject "EasyPIM"
 
 # Interactive setup (recommended for first-time users)
@@ -169,7 +169,7 @@ Use descriptive secret names for different environments:
 
 ```bash
 easypim-dev-config          # GitHub Actions, WhatIf mode
-easypim-staging-config      # GitHub Actions, normal mode  
+easypim-staging-config      # GitHub Actions, normal mode
 easypim-prod-config         # GitHub Actions, normal mode
 easypim-dev-ado             # Azure DevOps, WhatIf mode
 easypim-staging-azdo        # Azure DevOps, normal mode

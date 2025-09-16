@@ -56,15 +56,15 @@ Write-Host "Resource Group: $ResourceGroupName" -ForegroundColor White
 # Configure GitHub Actions integration (always needed as fallback)
 function Set-GitHubIntegration {
     Write-Host "`n🐙 Configuring GitHub Actions Integration..." -ForegroundColor Green
-    
+
     if (-not $GitHubRepository -and $Platform -ne "AzureDevOps") {
         Write-Host "📝 Please enter your GitHub repository (owner/repo):" -ForegroundColor Yellow
         $GitHubRepository = Read-Host
     }
-    
+
     if ($GitHubRepository) {
         Write-Host "Setting GitHub repository to: $GitHubRepository" -ForegroundColor White
-        
+
         # GitHub token will be configured in Azure Portal manually or via environment
         Write-Host "✅ GitHub Actions routing configured (default fallback)" -ForegroundColor Green
         Write-Host "📝 Remember to set GITHUB_TOKEN in Function App configuration" -ForegroundColor Yellow
@@ -74,37 +74,37 @@ function Set-GitHubIntegration {
 # Configure Azure DevOps integration
 function Set-AzureDevOpsIntegration {
     Write-Host "`n🔷 Configuring Azure DevOps Integration..." -ForegroundColor Blue
-    
+
     # Collect Azure DevOps information if not provided
     if (-not $AzureDevOpsOrganization) {
         Write-Host "📝 Please enter your Azure DevOps organization:" -ForegroundColor Yellow
         $AzureDevOpsOrganization = Read-Host
     }
-    
+
     if (-not $AzureDevOpsProject) {
         Write-Host "📝 Please enter your Azure DevOps project name:" -ForegroundColor Yellow
         $AzureDevOpsProject = Read-Host
     }
-    
+
     # Get pipeline ID
     Write-Host "📝 Please enter your EasyPIM pipeline ID:" -ForegroundColor Yellow
     $PipelineId = Read-Host
-    
+
     # Get Personal Access Token
     Write-Host "📝 Please enter your Azure DevOps Personal Access Token:" -ForegroundColor Yellow
     $AdoPat = Read-Host -AsSecureString
     $AdoPatText = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdoPat))
-    
+
     # Configure Function App with ADO variables
     Write-Host "🔧 Setting Azure DevOps environment variables..." -ForegroundColor Cyan
-    
+
     $adoSettings = @(
         "ADO_ORGANIZATION=$AzureDevOpsOrganization",
-        "ADO_PROJECT=$AzureDevOpsProject", 
+        "ADO_PROJECT=$AzureDevOpsProject",
         "ADO_PIPELINE_ID=$PipelineId",
         "ADO_PAT=$AdoPatText"
     )
-    
+
     try {
         if (-not $WhatIf) {
             az functionapp config appsettings set --name $FunctionAppName --resource-group $ResourceGroupName --settings $adoSettings
@@ -116,27 +116,27 @@ function Set-AzureDevOpsIntegration {
         Write-Error "❌ Failed to configure Azure DevOps settings: $_"
         return $false
     }
-    
+
     return $true
 }
 
 # Configure GitHub token (always needed)
 function Set-GitHubToken {
     Write-Host "`n🔑 Configuring GitHub Token..." -ForegroundColor Green
-    
+
     # Check if GitHub token is already configured
     $existingToken = az functionapp config appsettings list --name $FunctionAppName --resource-group $ResourceGroupName --query "[?name=='GITHUB_TOKEN'].value" --output tsv 2>$null
-    
+
     if ($existingToken -and -not $Force) {
         Write-Host "✅ GitHub token already configured" -ForegroundColor Green
         return $true
     }
-    
+
     Write-Host "📝 Please enter your GitHub Personal Access Token:" -ForegroundColor Yellow
     Write-Host "   (Required for GitHub Actions workflow dispatch)" -ForegroundColor Gray
     $GitHubToken = Read-Host -AsSecureString
     $GitHubTokenText = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($GitHubToken))
-    
+
     try {
         if (-not $WhatIf) {
             az functionapp config appsettings set --name $FunctionAppName --resource-group $ResourceGroupName --settings "GITHUB_TOKEN=$GitHubTokenText"
@@ -179,7 +179,7 @@ Write-Host @"
 │                                                                                 │
 │  📘 GitHub Actions (Default):                                                  │
 │     • easypim-config                    → GitHub Actions                       │
-│     • easypim-prod                      → GitHub Actions                       │  
+│     • easypim-prod                      → GitHub Actions                       │
 │     • easypim-test                      → GitHub Actions (WhatIf mode)         │
 │     • Any other pattern                 → GitHub Actions                       │
 │                                                                                 │
