@@ -14,25 +14,43 @@
 
 This repository delivers a **complete event-driven governance platform** that automatically manages Azure PIM (Privileged Identity Management) configurations through intelligent CI/CD pipelines. Built with **enterprise security**, **business rule validation**, and **real-time monitoring** - supporting both GitHub Actions and Azure DevOps for maximum flexibility.
 
-## 🌟 **Event-Driven Intelligence**
+## 🌟 **Intelligent Dual-Platform Architecture**
 
-### **⚡ Real-Time Automation Flow**
+### **⚡ Smart Routing & Real-Time Automation**
 ```mermaid
 graph TD
     A[Key Vault Change] --> B[Event Grid Trigger]
-    B --> C[Azure Function]
-    C --> D[CI/CD Pipeline]
-    D --> E[EasyPIM Orchestrator]
-    E --> F[PIM Policy Updates]
-    F --> G[Compliance Dashboard]
-    G --> H[Audit Logs]
+    B --> C[Azure Function Smart Router]
+    C --> D{Secret Name Pattern}
+    D -->|Default| E[GitHub Actions]
+    D -->|ado/azdo/devops| F[Azure DevOps]
+    E --> G[EasyPIM Orchestrator]
+    F --> G
+    G --> H[PIM Policy Updates]
+    H --> I[Compliance Dashboard]
+    I --> J[Audit Logs]
 ```
 
-**Transform manual PIM management into intelligent automation:**
+**🚀 Next-Generation Features:**
+- 🧠 **Intelligent Routing** - Automatic platform selection based on secret naming patterns
 - 🔄 **Instant Response** - Configuration changes trigger immediate policy updates
-- 🎯 **Smart Orchestration** - Automated workflow execution based on business rules
+- 🎯 **Dual Platform Support** - Seamlessly integrates GitHub Actions AND Azure DevOps
 - 📊 **Real-time Dashboards** - Live compliance monitoring and drift detection
 - 🛡️ **Proactive Security** - Continuous validation and automatic remediation
+
+### **🎯 Quick Start - Dual Platform Setup**
+```powershell
+# 🚀 One-command setup for both platforms
+.\scripts\setup-platform.ps1 -Platform Both
+
+# 📘 GitHub Actions only
+.\scripts\setup-platform.ps1 -Platform GitHub
+
+# 🔷 Azure DevOps only
+.\scripts\setup-platform.ps1 -Platform AzureDevOps
+```
+
+**📖 [Complete Dual Platform Setup Guide](docs/Dual-Platform-Setup-Guide.md)** - Comprehensive documentation with smart routing examples and advanced configuration options.
 
 ---
 
@@ -307,5 +325,5 @@ For support, questions, or feature requests, please use the **GitHub Issues** fe
 
 ---
 
-*Built with ❤️ for Azure asdministrators community.  
+*Built with ❤️ for Azure asdministrators community.
 Loïc*
