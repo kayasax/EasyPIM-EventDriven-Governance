@@ -75,7 +75,9 @@ $orchestratorSummary = ""
 $summaryPaths = @(
     "./workflow-artifacts/orchestrator-summary.json",
     "./orchestrator-summary.json",
-    "orchestrator-summary.json"
+    "orchestrator-summary.json",
+    "./workflow-artifacts/easypim-summary.json",
+    "./easypim-summary.json"
 )
 
 $summaryFile = $null
@@ -91,39 +93,71 @@ if ($summaryFile) {
     try {
         $results = Get-Content $summaryFile | ConvertFrom-Json
 
-        # Extract metrics with defaults
-        $assignmentsCreated = $results.AssignmentsCreated ?? 0
-        $assignmentsPlanned = $results.AssignmentsPlanned ?? 0
-        $policiesApplied = $results.PoliciesApplied ?? 0
-        $policiesSkipped = $results.PoliciesSkipped ?? 0
-        $assignmentsAnalyzed = $results.AssignmentsAnalyzed ?? 0
-        $assignmentsRemoved = $results.AssignmentsRemoved ?? 0
-        $assignmentsFailed = $results.AssignmentsFailed ?? 0
-        $policiesFailed = $results.PoliciesFailed ?? 0
+        # Check if this is a simplified execution summary (easypim-summary.json format)
+        # rather than the structured orchestrator summary (orchestrator-summary.json format)
+        $isSimpleSummary = ($null -ne $results.ExecutionTime) -and
+                           ($null -eq $results.AssignmentsCreated) -and
+                           ($null -eq $results.FormattedSummary)
 
-        # Check for failures and update status if needed
-        $hasFailures = ($assignmentsFailed -gt 0) -or ($policiesFailed -gt 0)
-        
-        # If we don't have failure counts from the summary object, try to extract from formatted summary
-        if (-not $hasFailures -and $results.FormattedSummary) {
-            if ($results.FormattedSummary -match '\[FAIL\] Failed\s*:\s*(\d+)') {
-                $totalFailures = [int]$Matches[1]
-                if ($totalFailures -gt 0) {
-                    $hasFailures = $true
+        if ($isSimpleSummary) {
+            # Simple execution summary - show timing and status info
+            $execTime = $results.ExecutionTime ?? 'N/A'
+            $execMode = $results.Mode ?? 'Unknown'
+            $execStatus = $results.Status ?? 'Unknown'
+
+            if ($execStatus -eq 'Failed' -and $JobStatus -eq 'success') {
+                $actualStatus = 'completed-with-errors'
+                $statusIcon = '⚠️'
+                $statusColor = '🟡'
+                $statusText = 'COMPLETED WITH ERRORS'
+            }
+
+            $easypimResults = @"
+
+### 📊 **EasyPIM Orchestrator Results**
+
+| Metric | Value |
+|--------|-------|
+| **Status** | $execStatus |
+| **Execution Mode** | $execMode |
+| **Execution Time** | $execTime |
+
+> 📋 **Note:** Detailed operation results are available in the execution logs above.
+"@
+        } else {
+            # Extract structured metrics with defaults
+            $assignmentsCreated = $results.AssignmentsCreated ?? 0
+            $assignmentsPlanned = $results.AssignmentsPlanned ?? 0
+            $policiesApplied = $results.PoliciesApplied ?? 0
+            $policiesSkipped = $results.PoliciesSkipped ?? 0
+            $assignmentsAnalyzed = $results.AssignmentsAnalyzed ?? 0
+            $assignmentsRemoved = $results.AssignmentsRemoved ?? 0
+            $assignmentsFailed = $results.AssignmentsFailed ?? 0
+            $policiesFailed = $results.PoliciesFailed ?? 0
+
+            # Check for failures and update status if needed
+            $hasFailures = ($assignmentsFailed -gt 0) -or ($policiesFailed -gt 0)
+
+            # If we don't have failure counts from the summary object, try to extract from formatted summary
+            if (-not $hasFailures -and $results.FormattedSummary) {
+                if ($results.FormattedSummary -match '\[FAIL\] Failed\s*:\s*(\d+)') {
+                    $totalFailures = [int]$Matches[1]
+                    if ($totalFailures -gt 0) {
+                        $hasFailures = $true
+                    }
                 }
             }
-        }
-        
-        if ($hasFailures -and $JobStatus -eq 'success') {
-            $actualStatus = 'completed-with-errors'
-            $statusIcon = '⚠️'
-            $statusColor = '🟡'
-            $statusText = 'COMPLETED WITH ERRORS'
-        }
 
-        # Build results with formatted summary only (execution logs remain in step output)
-        if ($results.FormattedSummary) {
-            $easypimResults = @"
+            if ($hasFailures -and $JobStatus -eq 'success') {
+                $actualStatus = 'completed-with-errors'
+                $statusIcon = '⚠️'
+                $statusColor = '🟡'
+                $statusText = 'COMPLETED WITH ERRORS'
+            }
+
+            # Build results with formatted summary only (execution logs remain in step output)
+            if ($results.FormattedSummary) {
+                $easypimResults = @"
 
 ### 📊 **EasyPIM Orchestrator Results**
 
@@ -131,9 +165,9 @@ if ($summaryFile) {
 $($results.FormattedSummary)
 ``````
 "@
-        } else {
-            # Create a summary table from extracted metrics
-            $easypimResults = @"
+            } else {
+                # Create a summary table from extracted metrics
+                $easypimResults = @"
 
 ### 📊 **EasyPIM Orchestrator Results**
 
@@ -153,6 +187,7 @@ $($results.FormattedSummary)
 - **Status:** $($results.Status)
 - **Timestamp:** $($results.Timestamp)
 "@
+            }
         }
 
     } catch {

@@ -1,1 +1,404 @@
-﻿
+name: 'Phase 3: PIM Policy Drift Detection'
+
+on:
+  workflow_dispatch:
+    inputs:
+      Verbose:
+        description: "Enable verbose output"
+        required: false
+        default: false
+        type: boolean
+      configSecretName:
+        description: "Name of the Key Vault secret containing the configuration (optional - uses default if not provided)"
+        required: false
+        type: string
+  schedule:
+    # Run daily at 6 AM UTC (optional automated drift detection)
+    - cron: '0 6 * * *'
+
+env:
+  KEYVAULT_NAME: ${{ vars.AZURE_KEYVAULT_NAME }}
+  SECRET_NAME: ${{ github.event.inputs.configSecretName || vars.AZURE_KEYVAULT_SECRET_NAME }}
+  TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+
+permissions:
+  id-token: write   # for OIDC
+  contents: read
+
+jobs:
+  policy-drift-check:
+    name: 'Policy Drift Detection'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Azure OIDC Login'
+        uses: azure/login@v2
+        with:
+          tenant-id: ${{ env.TENANT_ID }}
+          subscription-id: ${{ env.SUBSCRIPTION_ID }}
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          enable-AzPSSession: true
+
+      - name: 'Setup Authentication'
+        shell: pwsh
+        run: |
+          $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" -TenantId "$env:TENANT_ID" -SubscriptionId "$env:SUBSCRIPTION_ID" -ClientId "$env:AZURE_CLIENT_ID"
+          if (-not $authResult) {
+            Write-Error "❌ Authentication setup failed"
+            exit 1
+          }
+
+      - name: 'Install EasyPIM Modules'
+        shell: pwsh
+        run: |
+          & "./scripts/workflows/Install-EasyPIMModules.ps1"
+
+      - name: 'Display Configuration Source'
+        shell: pwsh
+        run: |
+          Write-Host "🎯 Drift Detection Configuration Source:" -ForegroundColor Cyan
+          Write-Host "   Key Vault: $env:KEYVAULT_NAME" -ForegroundColor White
+          Write-Host "   Secret Name: $env:SECRET_NAME" -ForegroundColor White
+
+          if ('${{ github.event.inputs.configSecretName }}') {
+            Write-Host "   Source: Event Grid trigger (configSecretName parameter)" -ForegroundColor Green
+            Write-Host "   Environment: Detected from secret name" -ForegroundColor Yellow
+          } else {
+            Write-Host "   Source: Manual trigger or scheduled run (repository variables)" -ForegroundColor Blue
+            Write-Host "   Environment: Default configuration" -ForegroundColor Yellow
+          }
+
+      - name: 'Configure Drift Detection Parameters'
+        id: config
+        shell: pwsh
+        run: |
+          Write-Host "⚙️ Configuring drift detection parameters..." -ForegroundColor Cyan
+
+          $verbose = '${{ github.event.inputs.Verbose }}' -eq 'true'
+
+          if ($verbose) {
+              Write-Host "📝 Verbose output enabled"
+          }
+
+          # Build drift detection parameters
+          $driftParams = @{
+              'TenantId' = $env:TENANT_ID
+              'SubscriptionId' = $env:SUBSCRIPTION_ID
+          }
+
+          # Configuration source - use KeyVault native support only
+          if ($env:KEYVAULT_NAME) {
+              Write-Host "📋 Using configuration from Key Vault: $env:KEYVAULT_NAME/$env:SECRET_NAME" -ForegroundColor Green
+
+              # Use native KeyVault support only (no temp file fallback)
+              $driftParams['KeyVaultName'] = $env:KEYVAULT_NAME
+              $driftParams['SecretName'] = $env:SECRET_NAME
+
+              Write-Host "✅ KeyVault configuration ready" -ForegroundColor Green
+          } else {
+              Write-Error "❌ No Key Vault configuration found. AZURE_KEYVAULT_NAME variable is required."
+              exit 1
+          }
+
+          # Add conditional parameters
+          if ($verbose) {
+              $driftParams['Verbose'] = $true
+              Write-Host "📝 Verbose output enabled" -ForegroundColor Blue
+          }
+
+          Write-Host "🎯 Drift Detection Parameters:" -ForegroundColor Blue
+          Write-Host "   TenantId: $env:TENANT_ID"
+          Write-Host "   SubscriptionId: $env:SUBSCRIPTION_ID"
+          Write-Host "   KeyVaultName: $env:KEYVAULT_NAME"
+          Write-Host "   SecretName: $env:SECRET_NAME"
+          Write-Host "   Method: Native KeyVault (no temp files)" -ForegroundColor Green
+          if ($verbose) {
+              Write-Host "   Verbose: enabled"
+          }
+
+          # Store parameters as step output instead of environment variable
+          $paramsJson = ($driftParams | ConvertTo-Json -Depth 3 -Compress)
+          "drift-params=$paramsJson" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "✅ Parameters configured successfully" -ForegroundColor Green
+
+      - name: 'Execute Policy Drift Detection'
+        id: drift_exec
+        shell: pwsh
+        run: |
+          # Retrieve parameters from step output
+          $driftParamsJson = '${{ steps.config.outputs.drift-params }}'
+          Write-Host "📥 Retrieved parameters JSON: $($driftParamsJson.Substring(0, [Math]::Min(100, $driftParamsJson.Length)))..." -ForegroundColor Gray
+
+          $driftParams = $driftParamsJson | ConvertFrom-Json -AsHashtable
+          $graphContext = Get-MgContext
+
+          # Apply telemetry hotpatch first for PostHog statistics
+          Write-Host "📊 Applying EasyPIM telemetry hotpatch..." -ForegroundColor Cyan
+          & "./scripts/workflows/Apply-EasyPIMTelemetryHotpatch.ps1"
+
+          # Execute using the dedicated script WITH telemetry enabled
+          & "./scripts/workflows/Invoke-EasyPIMDriftDetection.ps1" -DriftParams $driftParams -GraphContext $graphContext
+
+          # Clean up temp file if it was created
+          if (Test-Path "./temp-drift-config.json") {
+              Remove-Item "./temp-drift-config.json" -ErrorAction SilentlyContinue
+              Write-Host "🧹 Cleaned up temporary config file" -ForegroundColor Gray
+          }
+
+          # Surface drift summary to GitHub step outputs if present
+          if (Test-Path './drift-summary.json') {
+              $json = Get-Content './drift-summary.json' -Raw
+              Write-Host "📄 Drift summary JSON found, length: $($json.Length)" -ForegroundColor Green
+
+              $parsed = $json | ConvertFrom-Json
+              $driftCount = $parsed.driftCount
+              $driftDetected = $parsed.driftDetected
+              $errorCount = if ($parsed.errorCount) { $parsed.errorCount } else { 0 }
+
+              Write-Host "🔍 Parsed drift results:" -ForegroundColor Cyan
+              Write-Host "   driftDetected: $driftDetected" -ForegroundColor White
+              Write-Host "   driftCount: $driftCount" -ForegroundColor White
+              Write-Host "   errorCount: $errorCount" -ForegroundColor White
+
+              "drift-detected=$driftDetected" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              "drift-count=$driftCount" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              "error-count=$errorCount" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+              Write-Host "✅ Step outputs set:" -ForegroundColor Green
+              Write-Host "   drift-detected=$driftDetected" -ForegroundColor White
+              Write-Host "   drift-count=$driftCount" -ForegroundColor White
+              Write-Host "   error-count=$errorCount" -ForegroundColor White
+
+              if ($parsed.drift -and $parsed.drift.Count -gt 0) {
+                $first = ($parsed.drift | Select-Object -First 5 | ConvertTo-Json -Compress)
+                "drift-sample=$first" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+                Write-Host "   drift-sample set (length: $($first.Length))" -ForegroundColor White
+              }
+          } else {
+              Write-Host "⚠️ No drift-summary.json found, setting defaults" -ForegroundColor Yellow
+              "drift-detected=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              "drift-count=0" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              Write-Host "✅ Default step outputs set: drift-detected=false, drift-count=0" -ForegroundColor Green
+          }
+
+      - name: 'Prepare Drift Detection Artifacts'
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "📦 Preparing drift detection artifacts..." -ForegroundColor Cyan
+
+          # Create artifacts directory
+          $artifactsDir = "./drift-artifacts"
+          New-Item -ItemType Directory -Path $artifactsDir -Force | Out-Null
+
+          # Collect available drift detection files
+          $artifactFiles = @()
+
+          # Check for drift detection outputs
+          $driftPaths = @("LOGS/*.log", "*.log", "drift-report.*", "drift-summary.json", "*.json")
+          foreach ($path in $driftPaths) {
+            $files = Get-ChildItem -Path $path -ErrorAction SilentlyContinue
+            if ($files) {
+              $files | Copy-Item -Destination $artifactsDir -Force -ErrorAction SilentlyContinue
+              $artifactFiles += $files.Name
+            }
+          }
+
+          # Create a drift detection manifest
+          $manifest = @{
+            "RunId" = "${{ github.run_id }}"
+            "RunNumber" = "${{ github.run_number }}"
+            "Status" = "${{ job.status }}"
+            "DriftDetected" = '${{ steps.drift_exec.outputs.drift-detected }}'
+            "DriftCount" = '${{ steps.drift_exec.outputs.drift-count }}'
+            "Timestamp" = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            "Configuration" = @{
+              "Verbose" = "${{ github.event.inputs.Verbose }}"
+              "ConfigSecret" = "${{ env.SECRET_NAME }}"
+              "Vault" = "${{ env.KEYVAULT_NAME }}"
+            }
+            "Files" = $artifactFiles
+          } | ConvertTo-Json -Depth 3
+
+          $manifest | Out-File -FilePath "$artifactsDir/drift-detection-manifest.json" -Encoding utf8
+
+          # Create summary for artifacts
+          if ($artifactFiles.Count -gt 0) {
+            Write-Host "✅ Collected $($artifactFiles.Count) drift detection files" -ForegroundColor Green
+            $artifactFiles | ForEach-Object { Write-Host "   📄 $_" -ForegroundColor White }
+          } else {
+            Write-Host "ℹ️ No drift detection files found to archive" -ForegroundColor Yellow
+            # Create a placeholder file
+            "No drift detection files were generated during this run." | Out-File -FilePath "$artifactsDir/no-drift-files.txt" -Encoding utf8
+          }
+
+      - name: 'Upload Drift Detection Artifacts'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-detection-${{ github.run_number }}-${{ github.event.inputs.configSecretName || 'default' }}
+          path: ./drift-artifacts/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: 'Generate Drift Detection Summary'
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "🔍 Generating drift detection dashboard summary..." -ForegroundColor Cyan
+
+          # Capture drift detection results
+          $driftStatus = '${{ job.status }}'
+          $driftDetected = '${{ steps.drift_exec.outputs.drift-detected }}'
+          $driftCount = '${{ steps.drift_exec.outputs.drift-count }}'
+          $errorCount = '${{ steps.drift_exec.outputs.error-count }}'
+
+          # Determine status indicators
+          $statusIcon = if ($driftStatus -eq 'success') { '✅' } else { '❌' }
+          $statusColor = if ($driftStatus -eq 'success') { '🟢' } else { '🔴' }
+
+          # Determine drift status
+          $driftIcon = '🟢'
+          $driftBadge = '✅ **COMPLIANT**'
+          $driftDescription = 'All policies match desired configuration'
+
+          if ($driftStatus -eq 'success' -and $driftDetected -eq 'true' -and $driftCount -ne '0') {
+            $driftIcon = '🟠'
+            $driftBadge = '⚠️ **DRIFT DETECTED**'
+            $driftDescription = "$driftCount policy deviation(s) identified"
+          } elseif ($driftStatus -ne 'success') {
+            $driftIcon = '🔴'
+            $driftBadge = '❌ **CHECK FAILED**'
+            $driftDescription = 'Execution error prevented drift evaluation'
+          }
+
+          # Add error information if present
+          $errorInfo = ""
+          if ($errorCount -and $errorCount -ne '0') {
+            $errorInfo = " | ⚠️ $errorCount config error(s)"
+            if ($driftDetected -eq 'false') {
+              $driftDescription += " (with configuration issues to resolve)"
+            }
+          }
+
+          # Configuration source detection
+          $configSource = if ('${{ github.event.inputs.configSecretName }}') {
+            '🚀 **Event-Driven** (Auto-triggered)'
+          } else {
+            '👤 **Manual / Scheduled**'
+          }
+
+          # Try to capture drift details if available
+          $driftDetails = ""
+          if ($driftStatus -eq 'success' -and $driftDetected -eq 'true' -and $driftCount -ne '0') {
+            $driftDetails = @"
+
+          ### 📋 **Drift Analysis**
+
+          | Metric | Count | Status |
+          |--------|-------|--------|
+          | **Total Items Checked** | *See logs* | ✅ Analyzed |
+          | **Drift Detected** | **$driftCount** | ⚠️ Requires attention |
+          | **Configuration Errors** | **$errorCount** | $(if ($errorCount -and $errorCount -ne '0') { '⚠️ Needs review' } else { '✅ Clean' }) |
+          | **Compliant Items** | *Remainder* | ✅ Passing |
+
+          > **📋 Details:** Complete drift analysis available in workflow artifacts and execution logs
+
+          <details>
+          <summary>🔍 <strong>Sample Drift Details</strong></summary>
+
+          > **Note:** Sample drift data available in logs and artifacts for detailed analysis.
+
+          </details>
+          "@
+          } else {
+            $driftDetails = @"
+
+          ### 📋 **Compliance Analysis**
+
+          | Status | Result |
+          |--------|--------|
+          | **Compliance Check** | $driftDescription |
+          | **Policy Alignment** | ✅ All policies match configuration |
+          "@
+          }
+
+          $summary = @"
+          # $statusIcon EasyPIM Policy Drift Detection Dashboard
+
+          ## 🎯 Compliance Overview
+
+          | Execution | Drift Status | Trigger | Timestamp |
+          |-----------|--------------|---------|-----------|
+          | $statusColor **$($driftStatus.ToUpper())** | $driftIcon $driftBadge$errorInfo | $configSource | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC') |
+
+          $driftDetails
+
+          ## ⚙️ Detection Configuration
+
+          **🔧 Analysis Parameters**
+          - **Verbose Output:** ``${{ github.event.inputs.Verbose || 'false' }}``
+          - **Detection Mode:** ``Comprehensive Policy Scan``
+          - **Vault:** ``${{ env.KEYVAULT_NAME }}``
+          - **Config:** ``${{ env.SECRET_NAME }}``
+
+          ## 🔍 Event-Driven Intelligence
+
+          ${{ github.event.inputs.configSecretName && format('> **🎯 Smart Detection:** Configuration automatically selected based on Key Vault secret `{0}`', github.event.inputs.configSecretName) || '> **📋 Scheduled/Manual Check:** Using repository default configuration settings' }}
+
+          ## 🎯 Recommended Actions
+
+          "@
+
+          # Add conditional action recommendations
+          if ($driftStatus -ne "success") {
+            $summary += @"
+          | Priority | Action | Description |
+          |----------|--------|-------------|
+          | 🔴 **HIGH** | [📋 Review Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) | Investigate execution failure |
+          | 🔄 **NEXT** | [⚡ Re-run Check](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Retry after fixing issues |
+          "@
+          } elseif ($driftDetected -eq 'true' -and $driftCount -ne '0') {
+            $summary += @"
+          | Priority | Action | Description |
+          |----------|--------|-------------|
+          | 🟠 **MEDIUM** | [⚡ Run Orchestrator](https://github.com/${{ github.repository }}/actions/workflows/02-orchestrator-test.yml) | Apply configuration to remediate drift |
+          | ✅ **VERIFY** | [📊 Re-check Compliance](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Validate remediation |
+          | 📋 **AUDIT** | [📦 Download Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) | Archive drift report |
+          "@
+          } else {
+            $summary += @"
+          | Priority | Action | Description |
+          |----------|--------|-------------|
+          | ✅ **MAINTAIN** | [📅 Schedule Regular Checks](https://github.com/${{ github.repository }}/blob/main/.github/workflows/03-policy-drift-check.yml) | Automated daily monitoring active |
+          | 📊 **MONITOR** | [📈 View Trends](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Track compliance history |
+          | ⚙️ **OPTIMIZE** | [🔧 Configuration](https://github.com/${{ github.repository }}/blob/main/docs/Platform-Setup-Guide.md) | Fine-tune detection settings |
+          "@
+          }
+
+          $summary += @"
+
+          ---
+
+          <details>
+          <summary>🔧 <strong>Technical Details</strong></summary>
+
+          - **Run ID:** ``${{ github.run_id }}``
+          - **Run Number:** ``#${{ github.run_number }}``
+          - **Triggered by:** ``${{ github.actor }}``
+          - **Repository:** ``${{ github.repository }}``
+          - **Branch:** ``${{ github.ref_name }}``
+          - **Workflow:** ``Phase 3 - Policy Drift Detection``
+
+          </details>
+
+          > 💡 **Governance Note:** This drift detection provides continuous compliance monitoring. Use Phase 2 Orchestrator to apply configuration changes when drift is detected.
+          "@
+
+          # Output to step summary
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          Write-Host "✅ Drift detection dashboard summary generated" -ForegroundColor Green

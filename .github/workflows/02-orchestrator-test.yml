@@ -1,1 +1,175 @@
-﻿
+name: 'Phase 2: EasyPIM Policy Orchestrator'
+
+run-name: >-
+  EasyPIM ${{ github.event.inputs.WhatIf == 'true' && '🔍 Preview' || '⚡ Apply' }}
+  (${{ github.event.inputs.Mode }})
+  ${{ github.event.inputs.configSecretName && format('- Secret: {0}', github.event.inputs.configSecretName) ||
+      (github.event.inputs.run_description && format('- {0}', github.event.inputs.run_description) || '') }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_description:
+        description: "Custom description for this run (optional)"
+        required: false
+        type: string
+        default: ""
+      configSecretName:
+        description: "Key Vault secret name containing PIM configuration (auto-detected when triggered by Azure Function)"
+        required: false
+        type: string
+        default: ""
+      WhatIf:
+        description: "Preview mode - show what would be done without making changes"
+        required: false
+        default: true
+        type: boolean
+      Mode:
+        description: "Orchestrator execution mode (delta=incremental, initial=destructive cleanup)"
+        required: false
+        default: "delta"
+        type: choice
+        options:
+          - delta
+          - initial
+      SkipPolicies:
+        description: "Skip policy operations (assignments only)"
+        required: false
+        default: false
+        type: boolean
+      SkipAssignments:
+        description: "Skip assignment operations (policies only)"
+        required: false
+        default: false
+        type: boolean
+      AllowProtectedRoles:
+        description: "Allow operations on protected roles (Global Admin, Security Admin, etc.)"
+        required: false
+        default: false
+        type: boolean
+      Verbose:
+        description: "Enable verbose output"
+        required: false
+        default: false
+        type: boolean
+      ExportWouldRemove:
+        description: "Export list of items that would be removed (audit purposes)"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  KEYVAULT_NAME: ${{ vars.AZURE_KEYVAULT_NAME }}
+  SECRET_NAME: ${{ github.event.inputs.configSecretName || vars.AZURE_KEYVAULT_SECRET_NAME }}
+  TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+
+permissions:
+  id-token: write   # for OIDC
+  contents: read
+
+jobs:
+  orchestrator:
+    runs-on: ubuntu-latest
+    name: 'EasyPIM Orchestrator'
+
+    steps:
+    - name: 'Checkout Repository'
+      uses: actions/checkout@v4
+
+    - name: 'Azure OIDC Login'
+      uses: azure/login@v2
+      with:
+        client-id: ${{ env.AZURE_CLIENT_ID }}
+        tenant-id: ${{ env.TENANT_ID }}
+        subscription-id: ${{ env.SUBSCRIPTION_ID }}
+        enable-AzPSSession: true
+
+    - name: 'Setup Authentication'
+      shell: pwsh
+      run: |
+        $authResult = & "./scripts/workflows/Setup-EasyPIMAuthentication.ps1" `
+          -TenantId "$env:TENANT_ID" `
+          -SubscriptionId "$env:SUBSCRIPTION_ID" `
+          -ClientId "$env:AZURE_CLIENT_ID"
+        if (-not $authResult) {
+          Write-Error "Authentication setup failed"
+          exit 1
+        }
+
+    - name: 'Install EasyPIM Modules'
+      shell: pwsh
+      run: |
+        $result = & "./scripts/workflows/Install-EasyPIMModules.ps1"
+        if (-not $result) {
+          Write-Error "Module installation failed"
+          exit 1
+        }
+
+    - name: 'Execute EasyPIM Orchestrator'
+      shell: pwsh
+      run: |
+        $result = & "./scripts/workflows/Invoke-EasyPIMOrchestratorExecution.ps1" `
+          -KeyVaultName "$env:KEYVAULT_NAME" `
+          -SecretName "$env:SECRET_NAME" `
+          -TenantId "$env:TENANT_ID" `
+          -SubscriptionId "$env:SUBSCRIPTION_ID" `
+          -ClientId "$env:AZURE_CLIENT_ID" `
+          -Mode "${{ github.event.inputs.Mode }}" `
+          -WhatIf:([System.Convert]::ToBoolean("${{ github.event.inputs.WhatIf }}")) `
+          -SkipPolicies:([System.Convert]::ToBoolean("${{ github.event.inputs.SkipPolicies }}")) `
+          -SkipAssignments:([System.Convert]::ToBoolean("${{ github.event.inputs.SkipAssignments }}")) `
+          -AllowProtectedRoles:([System.Convert]::ToBoolean("${{ github.event.inputs.AllowProtectedRoles }}")) `
+          -VerboseOutput:([System.Convert]::ToBoolean("${{ github.event.inputs.Verbose }}")) `
+          -ExportWouldRemove:([System.Convert]::ToBoolean("${{ github.event.inputs.ExportWouldRemove }}")) `
+          -ConfigSecretName "${{ github.event.inputs.configSecretName }}" `
+          -RunDescription "${{ github.event.inputs.run_description }}"
+        if (-not $result) {
+          Write-Error "EasyPIM Orchestrator execution failed"
+          exit 1
+        }
+
+    - name: 'Collect Execution Artifacts'
+      if: always()
+      shell: pwsh
+      run: |
+        & "./scripts/workflows/Collect-OrchestratorArtifacts.ps1" `
+          -RunId "${{ github.run_id }}" `
+          -RunNumber "${{ github.run_number }}" `
+          -JobStatus "${{ job.status }}" `
+          -WhatIf "${{ github.event.inputs.WhatIf }}" `
+          -Mode "${{ github.event.inputs.Mode }}" `
+          -SecretName "$env:SECRET_NAME" `
+          -KeyVaultName "$env:KEYVAULT_NAME" `
+          -ConfigSecretName "${{ github.event.inputs.configSecretName }}"
+
+    - name: 'Generate Job Summary'
+      if: always()
+      shell: pwsh
+      run: |
+        & "./scripts/workflows/Generate-OrchestratorDashboard.ps1" `
+          -JobStatus "${{ job.status }}" `
+          -WhatIfMode "${{ github.event.inputs.WhatIf }}" `
+          -ConfigSecretName "${{ github.event.inputs.configSecretName }}" `
+          -RunDescription "${{ github.event.inputs.run_description }}" `
+          -Mode "${{ github.event.inputs.Mode }}" `
+          -KeyVaultName "$env:KEYVAULT_NAME" `
+          -SecretName "$env:SECRET_NAME" `
+          -TenantId "$env:TENANT_ID" `
+          -SubscriptionId "$env:SUBSCRIPTION_ID" `
+          -SkipPolicies "${{ github.event.inputs.SkipPolicies }}" `
+          -SkipAssignments "${{ github.event.inputs.SkipAssignments }}" `
+          -AllowProtectedRoles "${{ github.event.inputs.AllowProtectedRoles }}" `
+          -GitHubRepository "${{ github.repository }}" `
+          -GitHubRunId "${{ github.run_id }}" `
+          -GitHubRunNumber "${{ github.run_number }}"
+
+    - name: 'Upload Execution Artifacts'
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: easypim-execution-${{ github.run_number }}-${{ github.event.inputs.configSecretName || 'default' }}
+        path: ./workflow-artifacts/
+        retention-days: 30
+        if-no-files-found: warn

@@ -232,6 +232,7 @@ jobs:
           }
 
       - name: "📋 Authentication Summary"
+        if: always()
         shell: pwsh
         run: |
           Write-Host "" -ForegroundColor White
@@ -239,16 +240,19 @@ jobs:
           Write-Host "                    🔐 EasyPIM Authentication Test Results" -ForegroundColor Cyan
           Write-Host "═══════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
           Write-Host "" -ForegroundColor White
-          
+
+          $status = '${{ job.status }}'
+          $testResult = if ($status -eq 'success') { '✅ PASSED' } else { '❌ FAILED' }
+
           Write-Host "🎯 Test Summary" -ForegroundColor Yellow
           Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
-          Write-Host "│ Azure OIDC Authentication   │ ✅ PASSED      │" -ForegroundColor Gray
-          Write-Host "│ Key Vault Access            │ ✅ PASSED      │" -ForegroundColor Gray
-          Write-Host "│ Microsoft Graph Token       │ ✅ PASSED      │" -ForegroundColor Gray
-          Write-Host "│ EasyPIM Module              │ ✅ PASSED      │" -ForegroundColor Gray
+          Write-Host "│ Azure OIDC Authentication   │ $testResult      │" -ForegroundColor Gray
+          Write-Host "│ Key Vault Access            │ $testResult      │" -ForegroundColor Gray
+          Write-Host "│ Microsoft Graph Token       │ $testResult      │" -ForegroundColor Gray
+          Write-Host "│ EasyPIM Module              │ $testResult      │" -ForegroundColor Gray
           Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
           Write-Host "" -ForegroundColor White
-          
+
           Write-Host "⚙️ Configuration" -ForegroundColor Yellow
           Write-Host "┌─────────────────────────────┬────────────────┐" -ForegroundColor Gray
           Write-Host "│ Repository                  │ ${{ github.repository }}" -ForegroundColor Gray
@@ -257,12 +261,70 @@ jobs:
           Write-Host "│ Subscription ID             │ $env:AZURE_SUBSCRIPTION_ID" -ForegroundColor Gray
           Write-Host "└─────────────────────────────┴────────────────┘" -ForegroundColor Gray
           Write-Host "" -ForegroundColor White
-          
-          Write-Host "🎉 SUCCESS: Your EasyPIM authentication is properly configured!" -ForegroundColor Green
-          Write-Host "   You can now run the main EasyPIM workflows with confidence." -ForegroundColor White
+
+          if ($status -eq 'success') {
+            Write-Host "🎉 SUCCESS: Your EasyPIM authentication is properly configured!" -ForegroundColor Green
+            Write-Host "   You can now run the main EasyPIM workflows with confidence." -ForegroundColor White
+          } else {
+            Write-Host "❌ FAILED: One or more authentication tests did not pass." -ForegroundColor Red
+            Write-Host "   Review the step logs above for details." -ForegroundColor White
+          }
           Write-Host "" -ForegroundColor White
-          
+
           Write-Host "🚀 Next Steps:" -ForegroundColor Yellow
           Write-Host "• Run 'EasyPIM Orchestrator' workflow for PIM management" -ForegroundColor White
           Write-Host "• Run 'EasyPIM Drift Detection' workflow for compliance monitoring" -ForegroundColor White
           Write-Host "• Configure scheduled runs for automated governance" -ForegroundColor White
+
+          # Write GitHub Step Summary
+          $statusIcon = if ($status -eq 'success') { '✅' } else { '❌' }
+          $statusBadge = if ($status -eq 'success') { '🟢 **SUCCESS**' } else { '🔴 **FAILED**' }
+
+          $summary = @"
+          # $statusIcon EasyPIM Authentication Test
+
+          ## 🎯 Test Overview
+
+          | 🚦 **Status** | 👤 **Triggered By** | ⏰ **Timestamp** |
+          |---------------|---------------------|------------------|
+          | $statusBadge | ${{ github.actor }} | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC') |
+
+          ## 🔐 Authentication Results
+
+          | Test | Status |
+          |------|--------|
+          | Azure OIDC Authentication | $testResult |
+          | Key Vault Access | $testResult |
+          | Microsoft Graph Token | $testResult |
+          | EasyPIM Module | $testResult |
+
+          ## ⚙️ Configuration
+
+          | Setting | Value |
+          |---------|-------|
+          | **Key Vault** | ``$env:KEYVAULT_NAME`` |
+          | **Tenant ID** | ``$env:AZURE_TENANT_ID`` |
+          | **Subscription ID** | ``$env:AZURE_SUBSCRIPTION_ID`` |
+
+          ## 🚀 Next Steps
+
+          | Phase | Workflow | Description |
+          |-------|----------|-------------|
+          | **Phase 2** | [EasyPIM Orchestrator](https://github.com/${{ github.repository }}/actions/workflows/02-orchestrator-test.yml) | Apply PIM configuration |
+          | **Phase 3** | [Drift Detection](https://github.com/${{ github.repository }}/actions/workflows/03-policy-drift-check.yml) | Monitor compliance |
+
+          ---
+
+          <details>
+          <summary>🔧 <strong>Technical Details</strong></summary>
+
+          - **Run ID:** ``${{ github.run_id }}``
+          - **Run Number:** ``#${{ github.run_number }}``
+          - **Repository:** ``${{ github.repository }}``
+          - **Branch:** ``${{ github.ref_name }}``
+
+          </details>
+          "@
+
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          Write-Host "✅ Step summary written to GitHub Actions dashboard" -ForegroundColor Green
